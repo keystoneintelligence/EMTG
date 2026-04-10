@@ -31,17 +31,15 @@
 #include "monotonic_basin_hopping.h"
 #include "EMTG_math.h"
 
-#include "snoptProblemExtension.h"
-
 namespace EMTG { namespace Solvers {
     //constructors
     MBH::MBH() {}
 
     MBH::MBH(EMTG::problem* myProblem,
-        SNOPT_interface* mySNOPT)
+        NLP_interface* myNLP)
     {
         //initialize the MBH variables
-        initialize(myProblem, mySNOPT);
+        initialize(myProblem, myNLP);
 
         //search through the problem object and identify which decision variables are flight time variables
         if (this->myProblem->options.MBH_time_hop_probability > 0.0)
@@ -71,10 +69,10 @@ namespace EMTG { namespace Solvers {
     //method to initialize the MBH solver
     //resets all storage fields
     void MBH::initialize(EMTG::problem* myProblem,
-        SNOPT_interface* mySNOPT)
+        NLP_interface* myNLP)
     {
         this->myProblem = myProblem;
-        this->mySNOPT = mySNOPT;
+        this->myNLP = myNLP;
         
         //size the storage vectors
         this->archive.clear();
@@ -87,7 +85,7 @@ namespace EMTG { namespace Solvers {
         //clear the scores
         this->Jincumbent = EMTG::math::LARGE;
         this->JGlobalIncumbent = EMTG::math::LARGE;
-		this->mySNOPT->setJGlobalIncumbent(EMTG::math::LARGE);
+		this->myNLP->setJGlobalIncumbent(EMTG::math::LARGE);
 
         this->FeasibilityIncumbent = EMTG::math::LARGE;
 
@@ -288,14 +286,14 @@ namespace EMTG { namespace Solvers {
         }
     }
 
-    //function to perform a "slide" operation, i.e. run SNOPT
+    //function to perform a "slide" operation, i.e. run the configured NLP backend
     void MBH::slide()
     {
         //Step 1: set the current state equal to the initial guess
         for (size_t Xindex = 0; Xindex < this->myProblem->total_number_of_NLP_parameters; ++Xindex)
             this->X_after_hop_unscaled[Xindex] = this->X_after_hop[Xindex] * this->myProblem->X_scale_factors[Xindex];
         
-        this->mySNOPT->setX0_unscaled(this->X_after_hop_unscaled);
+        this->myNLP->setX0_unscaled(this->X_after_hop_unscaled);
 
         //print the sparsity file and XF files if this is the first pass, otherwise don't to save time and hard drive cycles
         if (!this->printed_sparsity)
@@ -317,89 +315,66 @@ namespace EMTG { namespace Solvers {
             }
         }
 
-        if (this->myProblem->options.NLP_solver_type == 1)
+        try
         {
-            std::cout << "WORHP interface is deprecated" << std::endl;
+			if (this->myProblem->options.enable_Scalatron)
+			{
+				this->myProblem->myScalatron->initialize(this->X_after_hop_unscaled,
+					this->myProblem->Xlowerbounds,
+					this->myProblem->Xupperbounds,
+					this->myProblem->F,
+					this->myProblem->Flowerbounds,
+					this->myProblem->Fupperbounds,
+					this->myProblem->iGfun,
+					this->myProblem->jGvar,
+					this->myProblem->G,
+					0);
+			}
+            this->myNLP->run_NLP(false);
+
+            this->X_after_slide_unscaled = this->myNLP->getX_unscaled();
+            for (size_t Xindex = 0; Xindex < this->myProblem->total_number_of_NLP_parameters; ++Xindex)
+            {
+                this->X_after_slide[Xindex] = this->X_after_slide_unscaled[Xindex] / this->myProblem->X_scale_factors[Xindex];
+            }
         }
-        else
+        catch (std::exception &error)
         {
-            //run SNOPT
-            
-            try
+            std::cout << error.what() << std::endl;
+            this->X_after_slide_unscaled = this->myNLP->getX_unscaled();
+            for (size_t Xindex = 0; Xindex < this->myProblem->total_number_of_NLP_parameters; ++Xindex)
             {
-				if (this->myProblem->options.enable_Scalatron)
-				{
-					this->myProblem->myScalatron->initialize(this->X_after_hop_unscaled,
-						this->myProblem->Xlowerbounds,
-						this->myProblem->Xupperbounds,
-						this->myProblem->F,
-						this->myProblem->Flowerbounds,
-						this->myProblem->Fupperbounds,
-						this->myProblem->iGfun,
-						this->myProblem->jGvar,
-						this->myProblem->G,
-						0);
-				}
-                this->mySNOPT->run_NLP(false);
-
-                this->X_after_slide_unscaled = this->mySNOPT->getX_unscaled();
-                for (size_t Xindex = 0; Xindex < this->myProblem->total_number_of_NLP_parameters; ++Xindex)
-                {
-                    this->X_after_slide[Xindex] = this->X_after_slide_unscaled[Xindex] / this->myProblem->X_scale_factors[Xindex];
-                }
-
+                this->X_after_slide[Xindex] = this->X_after_slide_unscaled[Xindex] / this->myProblem->X_scale_factors[Xindex];
             }
-            catch (std::exception &error)
-            {
-                std::cout << error.what() << std::endl;
-                //prevent a crash, yay
-                this->X_after_slide_unscaled = this->mySNOPT->getX_unscaled();
-                for (size_t Xindex = 0; Xindex < this->myProblem->total_number_of_NLP_parameters; ++Xindex)
-                {
-                    this->X_after_slide[Xindex] = this->X_after_slide_unscaled[Xindex] / this->myProblem->X_scale_factors[Xindex];
-                }
 
-                std::cout << "SNOPT has crashed on mission " << myProblem->options.description << ". Creating dumpfile." << std::endl;
-                std::stringstream dumpstream;
-				if (myProblem->options.short_output_file_names)
-				{
-					dumpstream << myProblem->options.working_directory << "//" << myProblem->options.mission_name << ".SNOPTcrash";
+            const std::string solverName = this->myNLP->getSolverName();
+            std::cout << solverName << " has crashed on mission " << myProblem->options.description << ". Creating dumpfile." << std::endl;
+            std::stringstream dumpstream;
+			if (myProblem->options.short_output_file_names)
+			{
+				dumpstream << myProblem->options.working_directory << "//" << myProblem->options.mission_name << ".NLPcrash";
 
-				}
-				else
-				{
-					dumpstream << myProblem->options.working_directory << "//" << myProblem->options.mission_name << "_" << myProblem->options.description << ".SNOPTcrash";
-				}
+			}
+			else
+			{
+				dumpstream << myProblem->options.working_directory << "//" << myProblem->options.mission_name << "_" << myProblem->options.description << ".NLPcrash";
+			}
 
-				std::ofstream dumpfile(dumpstream.str().c_str(), std::ios::out | std::ios::trunc);
-                dumpfile << "SNOPT crashed, caught by MBH try-catch block, on mission " << myProblem->options.mission_name << "_" << myProblem->options.description << std::endl;
-                dumpfile << "After " << this->number_of_solutions << std::endl;
-                dumpfile.precision(20);
-                dumpfile << "decision vector follows" << std::endl;
-                dumpfile << std::endl;
-                dumpfile << this->X_after_slide_unscaled[0];
-                for (size_t k = 1; k < myProblem->total_number_of_NLP_parameters; ++k)
-                    dumpfile << " " << this->X_after_slide_unscaled[k];
-                dumpfile << std::endl;
-                dumpfile << "Initial guess was:" << std::endl;
-                dumpfile << this->X_after_hop_unscaled[0];
-                for (size_t k = 1; k < myProblem->total_number_of_NLP_parameters; ++k)
-                    dumpfile << " " << this->X_after_hop_unscaled[k];
-                dumpfile << std::endl;
-                /*dumpfile << "F was:" << std::endl;
-                dumpfile << F[0];
-                for (size_t k = 1; k < myProblem->total_number_of_constraints; ++k)
-                    dumpfile << " " << F[k];
-                dumpfile << std::endl;
-
-                this->myProblem->unscale(x);
-                myProblem->evaluate(this->myProblem->X, myProblem->F, myProblem->G, 0, myProblem->iGfun, myProblem->jGvar);
-                dumpfile << "G was:" << std::endl;
-                dumpfile << this->myProblem->G[0];
-                for (size_t k = 1; k < this->myProblem->G.size(); ++k)
-                    dumpfile << " " << this->myProblem->G[k];
-                dumpfile.close();*/
-            }
+			std::ofstream dumpfile(dumpstream.str().c_str(), std::ios::out | std::ios::trunc);
+            dumpfile << solverName << " crashed, caught by MBH try-catch block, on mission " << myProblem->options.mission_name << "_" << myProblem->options.description << std::endl;
+            dumpfile << "After " << this->number_of_solutions << std::endl;
+            dumpfile.precision(20);
+            dumpfile << "decision vector follows" << std::endl;
+            dumpfile << std::endl;
+            dumpfile << this->X_after_slide_unscaled[0];
+            for (size_t k = 1; k < myProblem->total_number_of_NLP_parameters; ++k)
+                dumpfile << " " << this->X_after_slide_unscaled[k];
+            dumpfile << std::endl;
+            dumpfile << "Initial guess was:" << std::endl;
+            dumpfile << this->X_after_hop_unscaled[0];
+            for (size_t k = 1; k < myProblem->total_number_of_NLP_parameters; ++k)
+                dumpfile << " " << this->X_after_hop_unscaled[k];
+            dumpfile << std::endl;
         }
 
         //Step 4: set the myProblem state to where the solver left off
@@ -524,7 +499,7 @@ namespace EMTG { namespace Solvers {
 					distance_from_equality_filament,
 					decision_variable_infeasibility);
 
-				// if feasibility is too bad, don't even try SNOPT.
+				// if feasibility is too bad, don't even try the NLP backend.
 				// just cut ourselves off here and go do a hop
                 if (normalized_feasibility > this->myProblem->options.feasibilityTolInMBHToSkipNLP)
                 {
@@ -592,7 +567,7 @@ namespace EMTG { namespace Solvers {
             //Step 2: apply the slide operator      
             this->slide();
             double ObjectiveFunctionValue = this->myProblem->F[0];
-            std::vector<double> Xunscaled = this->mySNOPT->getX_unscaled();
+            std::vector<double> Xunscaled = this->myNLP->getX_unscaled();
             std::vector<double> F = this->myProblem->F;
 
             //Step 3: determine if the new trial point is feasible and if so, operate on it
@@ -630,7 +605,7 @@ namespace EMTG { namespace Solvers {
                 this->print_archive_line(archive_file, this->archive.back());
             }
 
-            //note: I do not trust SNOPT's "requested accuracy could not be achieved" return state - I prefer my own feasibility check
+            //note: I do not trust solver-specific "acceptable" return states more than a direct feasibility check
             bool isFeasible = false;
             if (this->myProblem->options.enable_NLP_chaperone)
             {
@@ -640,7 +615,7 @@ namespace EMTG { namespace Solvers {
             else
             {
                 if ((normalized_feasibility < myProblem->options.snopt_feasibility_tolerance && decision_variable_infeasibility < myProblem->options.snopt_feasibility_tolerance)
-                    || this->mySNOPT->getInform() < 10)
+                    || this->myNLP->getLastSolveWasAcceptable())
                     isFeasible = true;
             }
 
@@ -731,7 +706,7 @@ namespace EMTG { namespace Solvers {
                 if (ObjectiveFunctionValue < this->JGlobalIncumbent)
                 {
                     this->JGlobalIncumbent = ObjectiveFunctionValue;
-					this->mySNOPT->setJGlobalIncumbent(ObjectiveFunctionValue);
+					this->myNLP->setJGlobalIncumbent(ObjectiveFunctionValue);
                     this->X_global_incumbent = this->X_after_slide;
                     myProblem->Xopt = this->X_after_slide_unscaled;
                     myProblem->best_cost = this->JGlobalIncumbent;

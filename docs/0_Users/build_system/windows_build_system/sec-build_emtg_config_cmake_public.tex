@@ -6,7 +6,7 @@ Follow the following instructions:
 \begin{enumerate}
 	\item Navigate to the \textbf{\textless EMTG\_root\_dir\textgreater}\textbackslash directory
 	\item Copy the `EMTG-Config-template.cmake' file and rename to `EMTG-Config.cmake'
-	\item Open `EMTG-Config.cmake' in a text editor \\ \emph{This file is heavily commented with specific instructions. The user must know where they installed CSPICE, SNOPT, Boost, and GSL.}
+	\item Open `EMTG-Config.cmake' in a text editor \\ \emph{This file is heavily commented with specific instructions. The user must know where they installed CSPICE, Boost, and GSL. If building with SNOPT or IPOPT, the user must also know where those packages were installed.}
 	\item Set the CSPICE DIR variable to the full path of the CSPICE root directory.
 	\begin{enumerate}
 		\item If CSPICE were placed in C:\textbackslash SW\_Installs\textbackslash cspice, then the user would type in the EMTG-Config.cmake file \\
@@ -26,6 +26,17 @@ Follow the following instructions:
 		\end{verbatim}
 		
 		\emph{Note the use of forward slashes in the file path even though the Windows file system uses backslashes.}
+	\end{enumerate}
+	\item If building with \ac{IPOPT}, set the IPOPT\_ROOT\_DIR variable to the full path of the \ac{IPOPT} installation prefix and confirm the include, library, and binary directory hints.
+	\begin{enumerate}
+		\item If \ac{IPOPT} were placed in C:\textbackslash SW\_Installs\textbackslash ipopt, then the user would type in the EMTG-Config.cmake file \\
+		\begin{verbatim}
+			set(IPOPT_ROOT_DIR C:/SW_Installs/ipopt)
+			set(IPOPT_INCLUDE_DIR ${IPOPT_ROOT_DIR}/include)
+			set(IPOPT_LIBRARY_DIR ${IPOPT_ROOT_DIR}/lib)
+			set(IPOPT_BIN_DIR ${IPOPT_ROOT_DIR}/bin)
+		\end{verbatim}
+		\item When consuming a MinGW-built \ac{IPOPT} binary from an \ac{MSVC} build of EMTG, also set IPOPT\_MINGW\_BIN\_DIR to the directory containing the MinGW runtime DLLs required by \ac{IPOPT}.
 	\end{enumerate}
 	\item Set the BOOST\_ROOT, BOOST\_INCLUDE\_DIR, and BOOST\_LIBRARY\_DIRS variables.
 	\begin{enumerate}

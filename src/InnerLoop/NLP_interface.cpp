@@ -27,7 +27,11 @@ namespace EMTG
         //constructor
         EMTG::Solvers::NLP_interface::NLP_interface() :
             nX(1),
-            nF(1)
+            nF(1),
+            lastSolveStatus(NLPSolveStatus::NotRun),
+            lastSolveReturnCode(0),
+            lastSolveWasAcceptable(false),
+            solverName("NLP")
         {}
 
         EMTG::Solvers::NLP_interface::NLP_interface(problem* myProblem_in,
@@ -39,7 +43,11 @@ namespace EMTG
             nG(myProblem->Gdescriptions.size()),
             nA(myProblem->Adescriptions.size()),
             J_NLP_incumbent(math::LARGE),
-            feasibility_metric_NLP_incumbent(math::LARGE)
+            feasibility_metric_NLP_incumbent(math::LARGE),
+            lastSolveStatus(NLPSolveStatus::NotRun),
+            lastSolveReturnCode(0),
+            lastSolveWasAcceptable(false),
+            solverName("NLP")
         {
 
             this->X0_scaled = std::vector<doubleType>(nX, 0.0);
@@ -115,6 +123,75 @@ namespace EMTG
                 this->jAvar = myProblem->jAvar;
                 this->iGfun = myProblem->iGfun;
                 this->jGvar = myProblem->jGvar;
+            }
+        }
+
+        void NLP_interface::reset_solver_state(const std::string& solverNameIn)
+        {
+            this->solverName = solverNameIn;
+            this->lastSolveStatus = NLPSolveStatus::NotRun;
+            this->lastSolveReturnCode = 0;
+            this->lastSolveWasAcceptable = false;
+        }
+
+        void NLP_interface::set_solver_status(const NLPSolveStatus& status, const int& returnCode, const bool& wasAcceptable)
+        {
+            this->lastSolveStatus = status;
+            this->lastSolveReturnCode = returnCode;
+            this->lastSolveWasAcceptable = wasAcceptable;
+        }
+
+        void NLP_interface::evaluate_current_point(const bool& needG)
+        {
+            if (this->myOptions.get_SolverMode() == NLPMode::FilamentFinder)
+            {
+                this->myProblem->evaluate(this->X_unscaled, this->myProblem->F, this->myProblem->G, needG);
+
+                this->F.front() = 0.0;
+                for (size_t Findex = 1; Findex < this->myProblem->total_number_of_constraints; ++Findex)
+                {
+                    if (this->myProblem->F_equality_or_inequality[Findex - 1])
+                    {
+                        this->F.front() += this->myProblem->F[Findex] * this->myProblem->F[Findex];
+                    }
+                }
+
+                if (needG)
+                {
+                    for (size_t Gindex = 0; Gindex < this->nG; ++Gindex)
+                    {
+                        this->G[Gindex] = 0.0;
+                    }
+
+                    const size_t Problem_nG = this->myProblem->Gdescriptions.size();
+                    for (size_t Gindex = 0; Gindex < Problem_nG; ++Gindex)
+                    {
+                        const size_t Findex = this->myProblem->iGfun[Gindex];
+                        const size_t Xindex = this->myProblem->jGvar[Gindex];
+
+                        if (Findex > 0 && this->myProblem->F_equality_or_inequality[Findex - 1])
+                        {
+                            this->G[Xindex] += 2.0 * this->myProblem->F[Findex] * this->myProblem->G[Gindex];
+                        }
+                    }
+                }
+
+                for (size_t Findex = 1; Findex <= this->myProblem->F_indices_of_filament_critical_inequality_constraints.size(); ++Findex)
+                {
+                    this->F[Findex] = this->myProblem->F[this->myProblem->F_indices_of_filament_critical_inequality_constraints[Findex - 1]];
+                }
+
+                if (needG)
+                {
+                    for (size_t Gindex = this->nX; Gindex < this->nG; ++Gindex)
+                    {
+                        this->G[Gindex] = this->myProblem->G[this->original_G_indices_of_filament_critical_inequality_constraints[Gindex - this->nX]];
+                    }
+                }
+            }
+            else
+            {
+                this->myProblem->evaluate(this->X_unscaled, this->F, this->G, needG);
             }
         }
     }//end namespace Solvers

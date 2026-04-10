@@ -169,6 +169,8 @@ namespace EMTG
 
         void SNOPT_interface::run_NLP(const bool& X0_is_scaled)
         {
+            this->reset_solver_state("SNOPT");
+
             //compute the scaled decision vector
             if (!X0_is_scaled)
                 this->scaleX0();
@@ -178,7 +180,7 @@ namespace EMTG
             this->X_scaled = this->X0_scaled;
 
             //check that the user function works, and return values of F
-            this->myProblem->evaluate(this->X0_unscaled, this->F, this->myProblem->G, false);
+            this->evaluate_current_point(false);
 
             //set the SNOPT bounds equal to the problem bounds
             for (size_t Xindex = 0; Xindex < this->nX; ++Xindex)
@@ -256,6 +258,10 @@ namespace EMTG
 #else
             this->inform = mySNOPT.solve(0);			
 #endif
+            this->set_solver_status(this->inform < 10 ? NLPSolveStatus::Converged : NLPSolveStatus::Failed,
+                static_cast<int>(this->inform),
+                this->inform < 10);
+
             //unscale the various things that might need to be uncaled
             this->unscaleX();
 
@@ -345,54 +351,7 @@ namespace EMTG
             try
             {
 #endif
-                if (self->myOptions.get_SolverMode() == NLPMode::FilamentFinder) //single-objective unconstrained, special Jacobian
-                {
-
-                    self->myProblem->evaluate(self->X_unscaled, self->myProblem->F, self->myProblem->G, *needG);
-                    
-                    //then sum up the squares of the equality constraint values
-                    self->F.front() = 0.0;
-                    for (size_t Findex = 1; Findex < self->myProblem->total_number_of_constraints; ++Findex)
-                    {
-                        if (self->myProblem->F_equality_or_inequality[Findex - 1])
-                            self->F.front() += self->myProblem->F[Findex] * self->myProblem->F[Findex];
-                    }
-
-
-                    //compute dfdX
-                    for (size_t Gindex = 0; Gindex < self->nG; ++Gindex)
-                    {
-                        self->G[Gindex] = 0.0;
-                    }
-
-                    size_t Problem_nG = self->myProblem->Gdescriptions.size();
-                    for (size_t Gindex = 0; Gindex < Problem_nG; ++Gindex)
-                    {
-                        size_t Findex = self->myProblem->iGfun[Gindex];
-                        size_t Xindex = self->myProblem->jGvar[Gindex];
-
-                        if (Findex > 0)
-                        {
-                            if (self->myProblem->F_equality_or_inequality[Findex - 1])
-                                self->G[Xindex] += 2.0 * self->myProblem->F[Findex] * self->myProblem->G[Gindex];
-                        }
-                    }
-
-                    //inequality constraints
-                    for (size_t Findex = 1; Findex <= self->myProblem->F_indices_of_filament_critical_inequality_constraints.size(); ++Findex)
-                    {
-                        self->F[Findex] = self->myProblem->F[self->myProblem->F_indices_of_filament_critical_inequality_constraints[Findex - 1]];
-                    }
-                    for (size_t Gindex = self->nX; Gindex < self->nG; ++Gindex)
-                    {
-                        self->G[Gindex] = self->myProblem->G[self->original_G_indices_of_filament_critical_inequality_constraints[Gindex - self->nX]];
-                    }
-
-                }
-                else //regular problem
-                {
-                    self->myProblem->evaluate(self->X_unscaled, self->F, self->G, *needG);
-                }
+                self->evaluate_current_point(*needG != 0);
 #ifdef SAFE_SNOPT
             }
             catch (int errorcode)

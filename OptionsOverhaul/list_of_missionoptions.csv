@@ -9,7 +9,7 @@ std::vector<double>,total_flight_time_bounds,86400,2,"[0.0, 302]","[0.0, 1e-10]"
 std::vector<double>,DLA_bounds,,2,"[-90.0, 90.0]","[-90.0, -90.0]","[90.0, 90.0]",DLA in degrees,DLA in degrees
 std::vector<double>,RLA_bounds,,2,"[-2880.0, 2880.0]",minf,inf,RLA in degrees,RLA in degrees
 PhaseType,mission_type,,,2,0,11,"mission type. Choices are 0 - MGALTS, 1 - FBLTS, 2 - MGALT, 3 - FBLT, 4 - PSBI, 5 - PSFB, 6 - MGAnDSMs, 7 - CoastPhase, 8 - SundmanCoastPhase, 9 - variable phase type, 10 - ProbeEntryPhase, 11 - ControlLawThrustPhase",phase type\n#0: MGALTS\n#1: FBLTS\n#2: MGALT\n#3: FBLT\n#4: PSBI\n#5: PSFB\n#6: MGAnDSMs\n#7: CoastPhase\n#8: SundmanCoastPhase\n#9: variable phase type\n#10: ProbeEntryPhase\n#11: ControlLawThrustPhase
-int,NLP_solver_type,,,0,0,1,"NLP solver type. Choices are 0 - SNOPT, 1 - WORHP",NLP solver type\n#0: SNOPT\n#1: WORHP
+int,NLP_solver_type,,,0,0,2,"NLP solver type. Choices are 0 - SNOPT, 1 - WORHP, 2 - IPOPT",NLP solver type\n#0: SNOPT\n#1: WORHP\n#2: IPOPT
 NLPMode,NLP_solver_mode,,,1,0,2,"NLP solver mode. Choices are 0 -  find feasible point only, 1 - find optimal solution, 2 - satisfy equality constraints",NLP solver mode\n#0: find feasible point only\n#1: find optimal solution\n#2: satisfy equality constraints
 bool,quiet_NLP,,,1,0,1,Quiet NLP solver?,Quiet NLP solver?
 bool,ACE_feasible_point_finder,,,0,0,1,Enable ACE feasible point finder?,Enable ACE feasible point finder?
