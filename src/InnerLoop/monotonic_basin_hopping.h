@@ -24,7 +24,7 @@
 
 #include "randutils.hpp"
 
-#include "SNOPT_interface.h"
+#include "NLP_interface.h"
 #include "EMTG_innerloop_solution.h"
 
 #pragma once
@@ -40,14 +40,14 @@ namespace EMTG
             //constructor
             MBH();
             MBH(EMTG::problem* myProblem,
-                SNOPT_interface* mySNOPT);
+                NLP_interface* myNLP);
 
             //destructor
             virtual ~MBH() {};
 
             //methods
             void initialize(EMTG::problem* Problem_input,
-                SNOPT_interface* mySNOPT);
+                NLP_interface* myNLP);
             void reset_point();
             void seed(std::vector<double>& seed_vector);
             void slide();
@@ -119,7 +119,7 @@ namespace EMTG
             randutils::mt19937_rng RNG;
 
             //SNOPT object
-            SNOPT_interface* mySNOPT;
+            NLP_interface* myNLP;
         };
 
 

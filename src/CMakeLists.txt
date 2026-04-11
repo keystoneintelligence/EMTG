@@ -100,11 +100,13 @@ source_group("Executable" FILES ${EXECUTABLE_FILES})
 add_library(emtg ${EMTG_FILES})
 set_property(TARGET emtg PROPERTY CXX_STANDARD 17)
 set_property(TARGET emtg PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(emtg PUBLIC BOOST_ALL_NO_LIB)
 target_link_libraries(emtg ${EMTG_LIBRARIES})
 
 # create the EMTG executable
 add_executable(EMTGv9 ${EXECUTABLE_FILES})
 target_include_directories(EMTGv9 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/OuterLoop)
+target_compile_definitions(EMTGv9 PRIVATE BOOST_ALL_NO_LIB)
 target_link_libraries(EMTGv9 emtg ${EMTG_LIBRARIES})
 
 # if desired, build the testbeds
@@ -217,11 +219,20 @@ endif()
 # perform installation actions
 if(MSVC)
     # move the SNOPT dll
-    if (SNOPT_MINGW_DLL)
+    if (ENABLE_SNOPT AND SNOPT_MINGW_DLL)
         STRING(REGEX REPLACE "/" "\\\\" SNOPTORIGIN "${SNOPTDIR_OVRD}\\build\\${CMAKE_CFG_INTDIR}\\libsnopt.dll")
         add_custom_command(TARGET EMTGv9 POST_BUILD COMMAND copy /Y ${SNOPTORIGIN} ${OUTPUTDESTINATION} WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-    else()
+    elseif(ENABLE_SNOPT)
         install(FILES ${SNOPTDIR_OVRD}/lib/snopt.dll DESTINATION "${PROJECT_SOURCE_DIR}/bin")
+    endif()
+
+    if (ENABLE_IPOPT AND IPOPT_MINGW_DLL)
+        foreach(IPOPT_RUNTIME_DLL ${EMTG_IPOPT_RUNTIME_DLLS})
+            add_custom_command(TARGET EMTGv9 POST_BUILD
+                               COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                                   "${IPOPT_RUNTIME_DLL}"
+                                   "${OUTPUTDESTINATION}")
+        endforeach()
     endif()
     
     # copy the executable

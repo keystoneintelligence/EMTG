@@ -50,7 +50,7 @@ namespace EMTG
         }
 
         FilamentWalker::FilamentWalker(problem* myProblem,
-                                       SNOPT_interface* mySNOPT) :
+                                       NLP_interface* myNLP) :
             FilamentWalker()
         {
             this->myProblem = myProblem;
@@ -63,7 +63,7 @@ namespace EMTG
             this->dX_slide.resize(this->nX, 0.0);
             this->dX_iteration.resize(this->nX, 0.0);
 
-            this->mySNOPT = mySNOPT;
+            this->myNLP = myNLP;
         }
 
         //execute
@@ -184,7 +184,7 @@ namespace EMTG
                 if (this->slide())
                 {
                     //get feasibility
-                    double feasibility = this->mySNOPT->getF().front();
+                    double feasibility = this->myNLP->getF().front();
 
                     if (feasibility < best_feasibility)
                     {
@@ -321,15 +321,15 @@ namespace EMTG
                         0.0 : this->dX_iteration[Xindex]));
 
                 //clear the bias if an inequality constraint is active that uses this variable
-                for (size_t Findex = 1; Findex < this->mySNOPT->getnF(); ++Findex)
+                for (size_t Findex = 1; Findex < this->myNLP->getnF(); ++Findex)
                 {
-                    if (this->mySNOPT->getF()[Findex] < this->mySNOPT->getFlowerbounds()[Findex]
-                        || this->mySNOPT->getF()[Findex] > this->mySNOPT->getFupperbounds()[Findex])
+                    if (this->myNLP->getF()[Findex] < this->myNLP->getFlowerbounds()[Findex]
+                        || this->myNLP->getF()[Findex] > this->myNLP->getFupperbounds()[Findex])
                     {
-                        for (size_t Gindex = 0; Gindex < this->mySNOPT->getnG(); ++Gindex)
+                        for (size_t Gindex = 0; Gindex < this->myNLP->getnG(); ++Gindex)
                         {
-                            if (this->mySNOPT->getiGfun()[Gindex] == Findex
-                                && this->mySNOPT->getjGvar()[Gindex] == Xindex)
+                            if (this->myNLP->getiGfun()[Gindex] == Findex
+                                && this->myNLP->getjGvar()[Gindex] == Xindex)
                             {
                                 dx_bias = 0.0;
                                 break;
@@ -345,11 +345,11 @@ namespace EMTG
 
         bool FilamentWalker::slide()
         {
-            this->mySNOPT->setX0_scaled(this->X_after_hop);
-            this->mySNOPT->run_NLP();
-            this->X_after_slide = this->mySNOPT->getX_scaled();
+            this->myNLP->setX0_scaled(this->X_after_hop);
+            this->myNLP->run_NLP();
+            this->X_after_slide = this->myNLP->getX_scaled();
 
-            double current_equality_constraint_violation = this->mySNOPT->getF().front();
+            double current_equality_constraint_violation = this->myNLP->getF().front();
 
             if (!this->WalkSoftly)
                 std::cout << current_equality_constraint_violation << std::endl;
@@ -359,7 +359,7 @@ namespace EMTG
             {
                 try
                 {
-                    myProblem->evaluate(this->mySNOPT->getX_unscaled());
+                    myProblem->evaluate(this->myNLP->getX_unscaled());
                     return true;
                 }
                 catch (std::exception &error)

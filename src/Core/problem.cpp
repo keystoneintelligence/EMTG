@@ -23,11 +23,12 @@
 #include <fstream>
 #include <sstream>
 #include <random>
+#include <memory>
 
 #include "problem.h"
 #include "monotonic_basin_hopping.h"
-#include "SNOPT_interface.h"
 #include "NLPoptions.h"
+#include "NLPInterfaceFactory.h"
 #include "FilamentWalker.h"
 #include "EMTG_math.h"
 
@@ -170,11 +171,11 @@ namespace EMTG
 #ifndef AD_INSTRUMENTATION
             case InnerLoopSolverType::MBH: //run MBH
             {
-				this->indexOfBestSolutionAttempt = 0; // start at 0, change to inside solver.run() if solution is found
+                this->indexOfBestSolutionAttempt = 0; // start at 0, change to inside solver.run() if solution is found
                 Solvers::NLPoptions myNLPoptions(this->options);
 
-                Solvers::SNOPT_interface mySNOPT(this, myNLPoptions);
-                EMTG::Solvers::MBH solver(this, &mySNOPT);
+                std::unique_ptr<Solvers::NLP_interface> myNLP = Solvers::CreateNLPInterface(this, myNLPoptions);
+                EMTG::Solvers::MBH solver(this, myNLP.get());
 
                 if (options.seed_MBH)
                 {
@@ -204,7 +205,7 @@ namespace EMTG
 				{
 					this->Xopt = this->construct_initial_guess();
 					options.outputfile = options.working_directory + "//FAILURE_" + options.mission_name + ".emtg";
-					std::cout << "WARNING: No SNOPT runs exited safely and/or no failed or successessful solutions exist. Writing out random FAILURE solution file." << std::endl;
+					std::cout << "WARNING: No NLP backend runs exited safely and/or no failed or successessful solutions exist. Writing out random FAILURE solution file." << std::endl;
 				}
 
                 try
@@ -268,9 +269,9 @@ namespace EMTG
 
                 Solvers::NLPoptions myNLPoptions(this->options);
 
-                Solvers::SNOPT_interface mySNOPT(this, myNLPoptions);
+                std::unique_ptr<Solvers::NLP_interface> myNLP = Solvers::CreateNLPInterface(this, myNLPoptions);
 
-                mySNOPT.setX0_unscaled(this->options.current_trialX);
+                myNLP->setX0_unscaled(this->options.current_trialX);
                 
 				try
 				{
@@ -297,10 +298,10 @@ namespace EMTG
 						0);
 				}
 
-				mySNOPT.setJGlobalIncumbent(EMTG::math::LARGE);
-                mySNOPT.run_NLP(false);
+				myNLP->setJGlobalIncumbent(EMTG::math::LARGE);
+                myNLP->run_NLP(false);
 
-                this->Xopt = mySNOPT.getX_unscaled();
+                this->Xopt = myNLP->getX_unscaled();
                 try
                 {
                     this->evaluate(this->Xopt, this->F, this->G, false);
@@ -393,8 +394,8 @@ namespace EMTG
                 //do filament walker things
                 Solvers::NLPoptions myNLPoptions(this->options);
 
-                Solvers::SNOPT_interface mySNOPT(this, myNLPoptions);
-                Solvers::FilamentWalker myFilamentWalker(this, &mySNOPT);
+                std::unique_ptr<Solvers::NLP_interface> myNLP = Solvers::CreateNLPInterface(this, myNLPoptions);
+                Solvers::FilamentWalker myFilamentWalker(this, myNLP.get());
                 myFilamentWalker.walk();
 
                 //write the output - but right now filament walkers don't really have output
