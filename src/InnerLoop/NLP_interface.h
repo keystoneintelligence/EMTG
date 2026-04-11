@@ -27,6 +27,18 @@ namespace EMTG
 {
     namespace Solvers
     {
+        enum class NLPSolveStatus
+        {
+            NotRun = 0,
+            Converged,
+            Acceptable,
+            FeasiblePoint,
+            MaxIterations,
+            MaxTime,
+            UserStopped,
+            Failed
+        };
+
         class NLP_interface
         {
 
@@ -45,7 +57,7 @@ namespace EMTG
             inline std::vector<doubleType> getX_unscaled() const { return this->X_unscaled; }
             inline std::vector<doubleType> getF() const { return this->F; }
             inline std::vector<double> getFlowerbounds() const { return this->Flowerbounds; }
-            inline std::vector<double> getFupperbounds() const { return this->Flowerbounds; }
+            inline std::vector<double> getFupperbounds() const { return this->Fupperbounds; }
             inline std::vector<size_t> getiGfun() const { return this->iGfun; }
             inline std::vector<size_t> getjGvar() const { return this->jGvar; }
             inline std::vector<double> getG() const { return this->G; }
@@ -58,6 +70,10 @@ namespace EMTG
             inline std::vector<double> getG_NLP_incumbent() const { return this->G_NLP_incumbent; }
             inline doubleType getfeasibility_metric() const { return this->feasibility_metric; }
             inline doubleType getfeasibility_metric_NLP_incumbent() const { return this->feasibility_metric_NLP_incumbent; }
+            inline NLPSolveStatus getLastSolveStatus() const { return this->lastSolveStatus; }
+            inline int getLastSolveReturnCode() const { return this->lastSolveReturnCode; }
+            inline bool getLastSolveWasAcceptable() const { return this->lastSolveWasAcceptable; }
+            inline const std::string& getSolverName() const { return this->solverName; }
 
 			inline void setJGlobalIncumbent(const doubleType J) { this->JGlobalIncumbent = J; }
 			inline doubleType getJGlobalIncumbent() { return this->JGlobalIncumbent; }
@@ -67,6 +83,10 @@ namespace EMTG
             virtual void run_NLP(const bool& X0_is_scaled = true) = 0;
 
         protected:
+            void reset_solver_state(const std::string& solverName);
+            void set_solver_status(const NLPSolveStatus& status, const int& returnCode, const bool& wasAcceptable);
+            void evaluate_current_point(const bool& needG);
+
             //scaling functions
             inline void scaleX0()
             {
@@ -150,9 +170,13 @@ namespace EMTG
             std::vector<double> G_NLP_incumbent;
 			
 			bool first_feasibility;
-			bool newBestIncumbent;
+            bool newBestIncumbent;
 
 			doubleType JGlobalIncumbent;
+            NLPSolveStatus lastSolveStatus;
+            int lastSolveReturnCode;
+            bool lastSolveWasAcceptable;
+            std::string solverName;
         };//end class NLP_interface
 }//end namespace Solvers
 }//end namespace EMTG

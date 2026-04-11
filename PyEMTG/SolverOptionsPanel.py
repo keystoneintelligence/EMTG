@@ -39,7 +39,7 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.cmbInnerLoopSolver = wx.ComboBox(self, -1, choices = innerloopsolvertypes, style=wx.CB_READONLY)
 
         self.lblNLP_solver_type = wx.StaticText(self, -1, "NLP solver")
-        NLP_solver_types = ['SNOPT','WORHP']
+        NLP_solver_types = ['SNOPT','WORHP','IPOPT']
         self.cmbNLP_solver_type = wx.ComboBox(self, -1, choices = NLP_solver_types, style=wx.CB_READONLY)
 
         self.lblNLP_solver_mode = wx.StaticText(self, -1, "NLP solver mode")

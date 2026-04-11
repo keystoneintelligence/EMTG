@@ -43,16 +43,17 @@ endif(NOT IS_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 #compiler-time Define-level options  for EMTG
 
+option(ENABLE_SNOPT "Build EMTG with SNOPT support" ON)
+option(ENABLE_IPOPT "Build EMTG with IPOPT support" OFF)
+
 # Optional user override of the snopt directory specified in the EMTG-Config.cmake file
 set(SNOPTDIR_OVRD "${SNOPT_ROOT_DIR}" CACHE PATH "SNOPT Root Directory") # Do not use the FORCE command here so the value the user enters in GUI is preserved
-if (NOT (IS_DIRECTORY ${SNOPTDIR_OVRD}))
-	# Throw an error if the directory specified does not exist
-	message(FATAL_ERROR "SNOPT directory specified (${SNOPTDIR_OVRD}) does not exist")
-endif()
+set(IPOPTDIR_OVRD "${IPOPT_ROOT_DIR}" CACHE PATH "IPOPT Root Directory")
 
 option(QUIET_SNOPT "Minimizes the SNOPT output to the log." OFF)
 option(SAFE_SNOPT "Trap things that could blow up SNOPT" ON)
 option(SNOPT_MINGW_DLL "Use SNOPT built with MINGW in Windows" ON)
+option(IPOPT_MINGW_DLL "Use IPOPT built with MINGW in Windows" ON)
 option(DEBUG_CHECK_VARIABLES_AND_CONSTRAINTS_IN_USER_FUNCTION "Check decision and objective/constraint vectors for NaN and inf" OFF)
 option(FAST_EMTG_MATRIX "Enable fast EMTG matrix class (removes bounds checking)" ON)
 option(SPLINE_EPHEM "Enable SplineEphem" ON)
@@ -74,6 +75,18 @@ mark_as_advanced(FORCE HAS_PROBEENTRYPHASE HAS_BUILT_IN_THRUSTERS BUILD_EMTG_TES
 
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build in Debug or Release mode")
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release)
+
+if(ENABLE_SNOPT)
+    add_definitions(-DEMTG_ENABLE_SNOPT)
+endif()
+
+if(ENABLE_IPOPT)
+    add_definitions(-DEMTG_ENABLE_IPOPT)
+endif()
+
+if((NOT ENABLE_SNOPT) AND ENABLE_IPOPT)
+    add_definitions(-DEMTG_DEFAULT_NLP_SOLVER_TO_IPOPT)
+endif()
 
 message(STATUS "Creating build files for " ${CMAKE_BUILD_TYPE} " mode... \n")
 
@@ -176,7 +189,13 @@ include_directories("${CSPICE_DIR}/include")
 link_directories("${CSPICE_DIR}/lib")
 
 #----------------------------SNOPT Items-------------------------------------
+if(ENABLE_SNOPT)
 message(STATUS \n "Now checking on SNOPT...")
+
+if (NOT (IS_DIRECTORY ${SNOPTDIR_OVRD}))
+	# Throw an error if the directory specified does not exist
+	message(FATAL_ERROR "SNOPT directory specified (${SNOPTDIR_OVRD}) does not exist")
+endif()
 
 # Check for the latest versions of SNOPT first
 if (IS_DIRECTORY ${SNOPTDIR_OVRD}/include OR IS_DIRECTORY ${SNOPTDIR_OVRD}/interfaces)
@@ -307,18 +326,167 @@ else(IS_DIRECTORY ${SNOPTDIR_OVRD}/interfaces)
 	message(FATAL_ERROR "Could not find snopt")
 endif()
 
-include_directories(${SNOPT_INCLUDE_DIR})
-
 set(EMTG_LIBRARIES ${EMTG_LIBRARIES} ${SNOPT_LIBRARIES})
+else()
+message(STATUS "SNOPT support disabled")
+endif()
+
+#----------------------------IPOPT Items-------------------------------------
+if(ENABLE_IPOPT)
+message(STATUS \n "Now checking on IPOPT...")
+
+set(IPOPT_INCLUDE_DIR "${IPOPT_INCLUDE_DIR}" CACHE PATH "Directory containing IPOPT headers")
+set(IPOPT_LIBRARY_DIR "${IPOPT_LIBRARY_DIR}" CACHE PATH "Directory containing IPOPT libraries")
+set(IPOPT_BIN_DIR "${IPOPT_BIN_DIR}" CACHE PATH "Directory containing IPOPT runtime DLLs")
+set(IPOPT_MINGW_BIN_DIR "${IPOPT_MINGW_BIN_DIR}" CACHE PATH "Directory containing MinGW runtime DLLs required by IPOPT")
+
+if(NOT IS_DIRECTORY ${IPOPTDIR_OVRD})
+    message(FATAL_ERROR "IPOPT directory specified (${IPOPTDIR_OVRD}) does not exist")
+endif()
+
+if(NOT IPOPT_INCLUDE_DIR)
+    set(IPOPT_INCLUDE_DIR "${IPOPTDIR_OVRD}/include")
+endif()
+
+if(NOT IPOPT_LIBRARY_DIR)
+    set(IPOPT_LIBRARY_DIR "${IPOPTDIR_OVRD}/lib")
+endif()
+
+if(NOT IPOPT_BIN_DIR)
+    set(IPOPT_BIN_DIR "${IPOPTDIR_OVRD}/bin")
+endif()
+
+if(NOT EXISTS "${IPOPT_INCLUDE_DIR}/coin-or/IpStdCInterface.h")
+    message(FATAL_ERROR "Could not find Ipopt C interface header at ${IPOPT_INCLUDE_DIR}/coin-or/IpStdCInterface.h")
+endif()
+
+if(MSVC AND IPOPT_MINGW_DLL)
+    file(GLOB IPOPT_DLL_CANDIDATES "${IPOPT_BIN_DIR}/libipopt-*.dll")
+    list(LENGTH IPOPT_DLL_CANDIDATES IPOPT_DLL_COUNT)
+    if(IPOPT_DLL_COUNT EQUAL 0)
+        message(FATAL_ERROR "Could not find libipopt-*.dll in ${IPOPT_BIN_DIR}")
+    endif()
+
+    list(GET IPOPT_DLL_CANDIDATES 0 IPOPT_DLL_PATH)
+    get_filename_component(IPOPT_DLL_NAME "${IPOPT_DLL_PATH}" NAME)
+    set(IPOPT_DEF_FILE "${PROJECT_SOURCE_DIR}/depend/ipopt/libipopt.def")
+    set(IPOPT_IMPORT_LIB_DIR "${CMAKE_BINARY_DIR}/ipopt_bridge")
+    set(IPOPT_IMPORT_LIB "${IPOPT_IMPORT_LIB_DIR}/libipopt.lib")
+    file(MAKE_DIRECTORY "${IPOPT_IMPORT_LIB_DIR}")
+
+    get_filename_component(EMTG_MSVC_TOOL_DIR "${CMAKE_C_COMPILER}" DIRECTORY)
+    find_program(EMTG_LIB_EXECUTABLE NAMES lib.exe PATHS "${EMTG_MSVC_TOOL_DIR}")
+    if(NOT EMTG_LIB_EXECUTABLE)
+        message(FATAL_ERROR "Could not find lib.exe needed to generate an MSVC import library for IPOPT")
+    endif()
+
+    execute_process(
+        COMMAND "${EMTG_LIB_EXECUTABLE}" /def:${IPOPT_DEF_FILE} /machine:x64 /name:${IPOPT_DLL_NAME} /out:${IPOPT_IMPORT_LIB}
+        RESULT_VARIABLE EMTG_IPOPT_IMPORTLIB_RESULT
+        OUTPUT_VARIABLE EMTG_IPOPT_IMPORTLIB_STDOUT
+        ERROR_VARIABLE EMTG_IPOPT_IMPORTLIB_STDERR)
+    if(NOT EMTG_IPOPT_IMPORTLIB_RESULT EQUAL 0)
+        message(FATAL_ERROR
+            "Failed to generate the MSVC IPOPT import library.\n"
+            "stdout:\n${EMTG_IPOPT_IMPORTLIB_STDOUT}\n"
+            "stderr:\n${EMTG_IPOPT_IMPORTLIB_STDERR}")
+    endif()
+
+    add_library(ipopt SHARED IMPORTED)
+    set_property(TARGET ipopt PROPERTY IMPORTED_IMPLIB "${IPOPT_IMPORT_LIB}")
+    set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_DLL_PATH}")
+else()
+    add_library(ipopt SHARED IMPORTED)
+
+    if(MSVC)
+        if(EXISTS "${IPOPT_LIBRARY_DIR}/ipopt.lib")
+            set_property(TARGET ipopt PROPERTY IMPORTED_IMPLIB "${IPOPT_LIBRARY_DIR}/ipopt.lib")
+        elseif(EXISTS "${IPOPT_LIBRARY_DIR}/libipopt.lib")
+            set_property(TARGET ipopt PROPERTY IMPORTED_IMPLIB "${IPOPT_LIBRARY_DIR}/libipopt.lib")
+        else()
+            message(FATAL_ERROR "Could not find an MSVC import library for IPOPT in ${IPOPT_LIBRARY_DIR}")
+        endif()
+
+        if(EXISTS "${IPOPT_BIN_DIR}/libipopt-3.dll")
+            set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_BIN_DIR}/libipopt-3.dll")
+        endif()
+    else()
+        if(EXISTS "${IPOPT_LIBRARY_DIR}/libipopt.so")
+            set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_LIBRARY_DIR}/libipopt.so")
+        elseif(EXISTS "${IPOPT_LIBRARY_DIR}/libipopt.dylib")
+            set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_LIBRARY_DIR}/libipopt.dylib")
+        else()
+            set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_LIBRARY_DIR}/libipopt.dll.a")
+        endif()
+    endif()
+endif()
+
+include_directories("${IPOPT_INCLUDE_DIR}" "${IPOPT_INCLUDE_DIR}/coin-or")
+set(IPOPT_LIBRARIES ipopt)
+set(EMTG_LIBRARIES ${EMTG_LIBRARIES} ${IPOPT_LIBRARIES})
+
+if(MSVC)
+    file(GLOB EMTG_IPOPT_RUNTIME_DLLS "${IPOPT_BIN_DIR}/*.dll")
+    if(IPOPT_MINGW_BIN_DIR AND IS_DIRECTORY "${IPOPT_MINGW_BIN_DIR}")
+        foreach(IPOPT_RUNTIME_NAME
+                libblas.dll
+                liblapack.dll
+                libmetis.dll
+                libgcc_s_seh-1.dll
+                libgfortran-5.dll
+                libquadmath-0.dll
+                libstdc++-6.dll
+                libwinpthread-1.dll)
+            if(EXISTS "${IPOPT_MINGW_BIN_DIR}/${IPOPT_RUNTIME_NAME}")
+                list(APPEND EMTG_IPOPT_RUNTIME_DLLS "${IPOPT_MINGW_BIN_DIR}/${IPOPT_RUNTIME_NAME}")
+            endif()
+        endforeach()
+    endif()
+endif()
+else()
+message(STATUS "IPOPT support disabled")
+endif()
 
 #-------------------------Boost Items------------------------------
 message(STATUS \n "Now looking for BOOST..")
-include(FindBoost)
-if(MSVC)
-	Set(Boost_NAMESPACE libboost)
-endif(MSVC)
+set(Boost_FOUND FALSE)
 
-find_package(Boost 1.60 COMPONENTS filesystem system serialization REQUIRED)
+if(BOOST_INCLUDE_DIR AND BOOST_LIBRARY_DIRS)
+    set(EMTG_LOCAL_BOOST_LIBRARIES)
+    foreach(BOOST_COMPONENT filesystem system serialization)
+        file(GLOB EMTG_BOOST_COMPONENT_LIBRARY "${BOOST_LIBRARY_DIRS}/*boost_${BOOST_COMPONENT}*.lib")
+        list(LENGTH EMTG_BOOST_COMPONENT_LIBRARY EMTG_BOOST_COMPONENT_LIBRARY_COUNT)
+        if(EMTG_BOOST_COMPONENT_LIBRARY_COUNT GREATER 0)
+            list(GET EMTG_BOOST_COMPONENT_LIBRARY 0 EMTG_BOOST_COMPONENT_LIBRARY_FIRST)
+            list(APPEND EMTG_LOCAL_BOOST_LIBRARIES "${EMTG_BOOST_COMPONENT_LIBRARY_FIRST}")
+        else()
+            set(EMTG_LOCAL_BOOST_LIBRARIES)
+            break()
+        endif()
+    endforeach()
+
+    if(EMTG_LOCAL_BOOST_LIBRARIES)
+        set(Boost_FOUND TRUE)
+        set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+        set(Boost_LIBRARY_DIRS "${BOOST_LIBRARY_DIRS}")
+        set(Boost_LIBRARIES ${EMTG_LOCAL_BOOST_LIBRARIES})
+        message(STATUS "Using vendored Boost libraries from ${BOOST_LIBRARY_DIRS}")
+    endif()
+endif()
+
+if(NOT Boost_FOUND)
+    include(FindBoost)
+    if(BOOST_LIBRARY_DIRS)
+        set(BOOST_LIBRARYDIR "${BOOST_LIBRARY_DIRS}")
+    endif()
+    if(MSVC)
+	    Set(Boost_NAMESPACE libboost)
+        set(Boost_USE_STATIC_LIBS ON)
+        set(Boost_USE_STATIC_RUNTIME OFF)
+    endif(MSVC)
+
+    find_package(Boost 1.60 COMPONENTS filesystem system serialization REQUIRED)
+endif()
 
 include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
