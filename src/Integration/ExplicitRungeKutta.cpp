@@ -35,9 +35,7 @@ namespace EMTG
             y(num_states, 1, 0.0),
             STM(STM_size_in, math::identity),
             STM_stage(STM_size_in, math::identity),
-            grad_vec(STM_size_in, 1, 0.0),
-            fx(STM_size_in, 0.0),
-            dstepdState(1, STM_size_in, 0.0)
+            grad_vec(STM_size_in, 1, 0.0)
         {
 
             if (RK_type == IntegrationCoefficientsType::rkdp87)
@@ -79,35 +77,38 @@ namespace EMTG
             delete this->RK_tableau;
         }
 
-        void ExplicitRungeKutta::stmUpdate(const math::Matrix<double> & STM_left,
-            const math::Matrix<double> & coefficients,
-            const size_t & stage_index,
-            const doubleType & step_size)
+        void ExplicitRungeKutta::storeStageGradient(const size_t & stage_index)
         {
-
-            fx = this->integrand->getStatePropMat();
-
-            this->STM_stage = (fx * step_size _GETVALUE + this->grad_vec * this->dstepdState) * this->STM;
-            this->STM_bin[stage_index] = this->STM_stage;
-            this->STM = STM_left;
-            for (size_t k = 0; k < stage_index + 1; ++k)
-            {
-                this->STM += this->STM_bin[k] * coefficients(k);
-            }
-
-        }
-
-        void ExplicitRungeKutta::stateUpdate(const math::Matrix<doubleType> & state_left,
-            const math::Matrix<double> & coefficients,
-            const size_t & stage_index,
-            const doubleType & step_size)
-        {
-            // extract the augmented gradient values
             for (size_t k = 0; k < this->num_states; ++k)
             {
                 this->grad_vec(k) = this->f(k) _GETVALUE;
                 this->gradient_bin(k, stage_index) = this->f(k);
             }
+        }
+
+        void ExplicitRungeKutta::stateUpdateFromTableauRow(const math::Matrix<doubleType> & state_left,
+            const size_t & coefficient_row,
+            const size_t & stage_index,
+            const doubleType & step_size)
+        {
+            this->storeStageGradient(stage_index);
+
+            for (size_t k = 0; k < this->num_states; ++k)
+            {
+                this->y(k) = state_left(k);
+                for (size_t j = 0; j < stage_index + 1; ++j)
+                {
+                    this->y(k) += this->gradient_bin(k, j) * this->A(coefficient_row, j) * step_size;
+                }
+            }
+        }
+
+        void ExplicitRungeKutta::stateUpdateFromWeights(const math::Matrix<doubleType> & state_left,
+            const math::Matrix<double> & coefficients,
+            const size_t & stage_index,
+            const doubleType & step_size)
+        {
+            this->storeStageGradient(stage_index);
 
             for (size_t k = 0; k < this->num_states; ++k)
             {
@@ -117,6 +118,85 @@ namespace EMTG
                     this->y(k) += this->gradient_bin(k, j) * coefficients(j) * step_size;
                 }
             }
+        }
+
+        void ExplicitRungeKutta::stmStageUpdate(const doubleType & step_size)
+        {
+            const math::Matrix<double>& fx = this->integrand->getStatePropMatRef();
+            const double step_size_value = step_size _GETVALUE;
+            const size_t last_state_index = this->STM_size - 1;
+
+            for (size_t i = 0; i < this->STM_size; ++i)
+            {
+                for (size_t j = 0; j < this->STM_size; ++j)
+                {
+                    double stage_entry = 0.0;
+                    for (size_t k = 0; k < this->STM_size; ++k)
+                    {
+                        double multiplier = fx(i, k) * step_size_value;
+                        if (k == last_state_index)
+                            multiplier += this->grad_vec(i) * this->dstep_sizedProp_var;
+
+                        stage_entry += multiplier * this->STM(k, j);
+                    }
+
+                    this->STM_stage(i, j) = stage_entry;
+                }
+            }
+        }
+
+        void ExplicitRungeKutta::addScaledSTMStage(const math::Matrix<double> & coefficients,
+            const size_t & stage_index)
+        {
+            for (size_t k = 0; k < stage_index + 1; ++k)
+            {
+                const double coefficient = coefficients(k);
+                for (size_t i = 0; i < this->STM_size; ++i)
+                {
+                    for (size_t j = 0; j < this->STM_size; ++j)
+                    {
+                        this->STM(i, j) += this->STM_bin[k](i, j) * coefficient;
+                    }
+                }
+            }
+        }
+
+        void ExplicitRungeKutta::addScaledSTMStageFromTableauRow(const size_t & coefficient_row,
+            const size_t & stage_index)
+        {
+            for (size_t k = 0; k < stage_index + 1; ++k)
+            {
+                const double coefficient = this->A(coefficient_row, k);
+                for (size_t i = 0; i < this->STM_size; ++i)
+                {
+                    for (size_t j = 0; j < this->STM_size; ++j)
+                    {
+                        this->STM(i, j) += this->STM_bin[k](i, j) * coefficient;
+                    }
+                }
+            }
+        }
+
+        void ExplicitRungeKutta::stmUpdateFromTableauRow(const math::Matrix<double> & STM_left,
+            const size_t & coefficient_row,
+            const size_t & stage_index,
+            const doubleType & step_size)
+        {
+            this->stmStageUpdate(step_size);
+            this->STM_bin[stage_index].shallow_copy(this->STM_stage);
+            this->STM.shallow_copy(STM_left);
+            this->addScaledSTMStageFromTableauRow(coefficient_row, stage_index);
+        }
+
+        void ExplicitRungeKutta::stmUpdateFromWeights(const math::Matrix<double> & STM_left,
+            const math::Matrix<double> & coefficients,
+            const size_t & stage_index,
+            const doubleType & step_size)
+        {
+            this->stmStageUpdate(step_size);
+            this->STM_bin[stage_index].shallow_copy(this->STM_stage);
+            this->STM.shallow_copy(STM_left);
+            this->addScaledSTMStage(coefficients, stage_index);
         }
 
         void ExplicitRungeKutta::evaluateIntegrand(const math::Matrix<doubleType> & state_left,
@@ -147,12 +227,12 @@ namespace EMTG
             for (size_t stage_index = 0; stage_index < this->num_stages - 1; ++stage_index)
             {
                 this->evaluateIntegrand(state_left, stage_index, step_size, true);
-                this->stateUpdate(state_left, this->A.getrow(stage_index + 1), stage_index, step_size);
-                this->stmUpdate(STM_left, this->A.getrow(stage_index + 1), stage_index, step_size);
+                this->stateUpdateFromTableauRow(state_left, stage_index + 1, stage_index, step_size);
+                this->stmUpdateFromTableauRow(STM_left, stage_index + 1, stage_index, step_size);
             }
             this->evaluateIntegrand(state_left, this->num_stages - 1, step_size, true);
-            this->stateUpdate(state_left, this->bUpper, this->num_stages - 1, step_size);
-            this->stmUpdate(STM_left, this->bUpper, this->num_stages - 1, step_size);
+            this->stateUpdateFromWeights(state_left, this->bUpper, this->num_stages - 1, step_size);
+            this->stmUpdateFromWeights(STM_left, this->bUpper, this->num_stages - 1, step_size);
         }
 
         void ExplicitRungeKutta::stageLoop(const math::Matrix<doubleType> & state_left,
@@ -165,12 +245,12 @@ namespace EMTG
             for (size_t stage_index = 0; stage_index < this->num_stages - 1; ++stage_index)
             {
                 this->evaluateIntegrand(state_left, control, stage_index, step_size, true);
-                this->stateUpdate(state_left, this->A.getrow(stage_index + 1), stage_index, step_size);
-                this->stmUpdate(STM_left, this->A.getrow(stage_index + 1), stage_index, step_size);
+                this->stateUpdateFromTableauRow(state_left, stage_index + 1, stage_index, step_size);
+                this->stmUpdateFromTableauRow(STM_left, stage_index + 1, stage_index, step_size);
             }
             this->evaluateIntegrand(state_left, control, this->num_stages - 1, step_size, true);
-            this->stateUpdate(state_left, this->bUpper, this->num_stages - 1, step_size);
-            this->stmUpdate(STM_left, this->bUpper, this->num_stages - 1, step_size);
+            this->stateUpdateFromWeights(state_left, this->bUpper, this->num_stages - 1, step_size);
+            this->stmUpdateFromWeights(STM_left, this->bUpper, this->num_stages - 1, step_size);
         }
 
         void ExplicitRungeKutta::stageLoop(const math::Matrix<doubleType> & state_left,
@@ -180,10 +260,10 @@ namespace EMTG
             for (size_t stage_index = 0; stage_index < this->num_stages - 1; ++stage_index)
             {
                 this->evaluateIntegrand(state_left, stage_index, step_size, false);
-                this->stateUpdate(state_left, this->A.getrow(stage_index + 1), stage_index, step_size);
+                this->stateUpdateFromTableauRow(state_left, stage_index + 1, stage_index, step_size);
             }
             this->evaluateIntegrand(state_left, this->num_stages - 1, step_size, false);
-            this->stateUpdate(state_left, this->bUpper, this->num_stages - 1, step_size);
+            this->stateUpdateFromWeights(state_left, this->bUpper, this->num_stages - 1, step_size);
         }
 
         void ExplicitRungeKutta::stageLoop(const math::Matrix<doubleType> & state_left,
@@ -194,10 +274,10 @@ namespace EMTG
             for (size_t stage_index = 0; stage_index < this->num_stages - 1; ++stage_index)
             {
                 this->evaluateIntegrand(state_left, control, stage_index, step_size, false);
-                this->stateUpdate(state_left, this->A.getrow(stage_index + 1), stage_index, step_size);
+                this->stateUpdateFromTableauRow(state_left, stage_index + 1, stage_index, step_size);
             }
             this->evaluateIntegrand(state_left, control, this->num_stages - 1, step_size, false);
-            this->stateUpdate(state_left, this->bUpper, this->num_stages - 1, step_size);
+            this->stateUpdateFromWeights(state_left, this->bUpper, this->num_stages - 1, step_size);
         }
 
         void ExplicitRungeKutta::step(const math::Matrix<doubleType> & state_left,
@@ -211,22 +291,19 @@ namespace EMTG
         {
             this->dstep_sizedProp_var = dstep_sizedProp_var;
 
-            // form dstepdState
-            this->dstepdState(this->STM_size - 1) = this->dstep_sizedProp_var;
-
-            this->y = state_left;
+            this->y.shallow_copy(state_left);
 
             if (needSTM)
             {
-                this->STM = STM_left;
+                this->STM.shallow_copy(STM_left);
                 this->stageLoop(state_left, state_right, STM_left, STM_right, step_size);
-                STM_right = this->STM;
+                STM_right.shallow_copy(this->STM);
             }
             else
             {
                 this->stageLoop(state_left, state_right, step_size);
             }
-            state_right = this->y;
+            state_right.shallow_copy(this->y);
         }
 
         void ExplicitRungeKutta::step(const math::Matrix<doubleType> & state_left,
@@ -240,22 +317,19 @@ namespace EMTG
         {
             this->dstep_sizedProp_var = dstep_sizedProp_var;
 
-            // form dstepdState
-            this->dstepdState(this->STM_size - 1) = this->dstep_sizedProp_var;
-
-            this->y = state_left;
+            this->y.shallow_copy(state_left);
 
             if (needSTM)
             {
-                this->STM = STM_left;
+                this->STM.shallow_copy(STM_left);
                 this->stageLoop(state_left, state_right, STM_left, STM_right, control, step_size);
-                STM_right = this->STM;
+                STM_right.shallow_copy(this->STM);
             }
             else
             {
                 this->stageLoop(state_left, state_right, control, step_size);
             }
-            state_right = this->y;
+            state_right.shallow_copy(this->y);
         }
 
         void ExplicitRungeKutta::computeError(doubleType & error, math::Matrix<double> & error_scaling_factors)
@@ -287,16 +361,13 @@ namespace EMTG
         {
             this->dstep_sizedProp_var = dstep_sizedProp_var;
             
-            // form dstepdState
-            this->dstepdState(this->STM_size - 1) = this->dstep_sizedProp_var;
-
-            this->y = state_left;
+            this->y.shallow_copy(state_left);
 
             if (needSTM)
             {
-                this->STM = STM_left;
+                this->STM.shallow_copy(STM_left);
                 this->stageLoop(state_left, state_right, STM_left, STM_right, control, step_size);
-                STM_right = this->STM;
+                STM_right.shallow_copy(this->STM);
             }
             else
             {
@@ -308,7 +379,7 @@ namespace EMTG
             // compute the relative error between the lower and higher order solutions for this RK step
             this->computeError(error, error_scaling_factors);
             
-            state_right = this->y;
+            state_right.shallow_copy(this->y);
         }
 
     } // end integration namespace

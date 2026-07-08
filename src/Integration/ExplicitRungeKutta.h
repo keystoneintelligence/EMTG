@@ -90,15 +90,35 @@ namespace EMTG {
                                    const doubleType & step_size,
                                    const bool & needSTM);
 
-            void stateUpdate(const math::Matrix<doubleType> & state_left,
-                             const math::Matrix<double> & coefficients,
-                             const size_t & stage_index,
-                             const doubleType & step_size);
+            void storeStageGradient(const size_t & stage_index);
 
-            void stmUpdate(const math::Matrix<double> & STM_left,
-                           const math::Matrix<double> & coefficients,
-                           const size_t & stage_index,
-                           const doubleType & step_size);
+            void stateUpdateFromTableauRow(const math::Matrix<doubleType> & state_left,
+                                           const size_t & coefficient_row,
+                                           const size_t & stage_index,
+                                           const doubleType & step_size);
+
+            void stateUpdateFromWeights(const math::Matrix<doubleType> & state_left,
+                                        const math::Matrix<double> & coefficients,
+                                        const size_t & stage_index,
+                                        const doubleType & step_size);
+
+            void addScaledSTMStage(const math::Matrix<double> & coefficients,
+                                   const size_t & stage_index);
+
+            void addScaledSTMStageFromTableauRow(const size_t & coefficient_row,
+                                                 const size_t & stage_index);
+
+            void stmStageUpdate(const doubleType & step_size);
+
+            void stmUpdateFromTableauRow(const math::Matrix<double> & STM_left,
+                                         const size_t & coefficient_row,
+                                         const size_t & stage_index,
+                                         const doubleType & step_size);
+
+            void stmUpdateFromWeights(const math::Matrix<double> & STM_left,
+                                      const math::Matrix<double> & coefficients,
+                                      const size_t & stage_index,
+                                      const doubleType & step_size);
 
             void stageLoop(const math::Matrix<doubleType> & state_left,
                            math::Matrix<doubleType> & state_right,
@@ -128,7 +148,7 @@ namespace EMTG {
         private:
             size_t num_stages;
 
-            EMTG::math::Matrix <double> STM, STM_stage, fx, dstepdState, grad_vec;
+            EMTG::math::Matrix <double> STM, STM_stage, grad_vec;
             math::Matrix<doubleType> f, y, x_left, x_right;
 
             RungeKuttaTableau * RK_tableau;
