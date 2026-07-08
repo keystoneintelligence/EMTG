@@ -1,0 +1,36 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "ci-fast",
+      "displayName": "CI fast portable testbeds",
+      "description": "Builds portable C++ testbeds that do not require CSPICE, SNOPT, IPOPT, or the full EMTG executable.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/_local/builds/ci-fast",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "EMTG_PORTABLE_TESTBED_ONLY": "ON",
+        "RUN_ADOUBLE_TESTBED": "ON",
+        "RUN_MISSIONOPTIONS_TESTBED": "ON",
+        "RUN_MISSION_TESTBED": "OFF",
+        "RUN_ACCELERATION_MODEL_TESTBED": "OFF",
+        "USE_AD_INSTRUMENTATION": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "ci-fast",
+      "configurePreset": "ci-fast"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "ci-fast",
+      "configurePreset": "ci-fast",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

@@ -25,7 +25,7 @@ jobs:
       - name: Install Python test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest numpy pandas
+          python -m pip install -r requirements-dev.txt
 
       - name: Run Python tests
         run: python -m pytest
@@ -49,3 +49,55 @@ jobs:
 
       - name: Run adouble smoke test
         run: ./_local/builds/github-adouble/adouble_tests
+
+  cxx-missionoptions:
+    name: C++ missionoptions smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install C++ test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-filesystem-dev libboost-system-dev ninja-build
+
+      - name: Build missionoptions smoke test
+        run: |
+          mkdir -p _local/builds/github-missionoptions/tests
+          g++ -std=c++17 \
+            -Isrc/Core -Isrc/Math -Isrc/Utilities \
+            -DEMTG_SOURCE_DIR=\"${GITHUB_WORKSPACE}\" \
+            src/Testing/missionoptions_tests/missionoptions_testbed_driver.cpp \
+            src/Core/missionoptions.cpp \
+            src/Core/journeyoptions.cpp \
+            src/Utilities/file_utilities.cpp \
+            -lboost_filesystem -lboost_system \
+            -o _local/builds/github-missionoptions/missionoptions_testbed
+
+      - name: Run missionoptions smoke test
+        working-directory: _local/builds/github-missionoptions
+        run: ./missionoptions_testbed "${GITHUB_WORKSPACE}/PyEMTG/default.emtgopt"
+
+  cmake-fast-ctest:
+    name: CMake fast CTest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install C++ test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-filesystem-dev libboost-system-dev ninja-build
+
+      - name: Configure portable fast testbeds
+        run: cmake --preset ci-fast
+
+      - name: Build portable fast testbeds
+        run: cmake --build --preset ci-fast
+
+      - name: Run portable fast CTest suite
+        run: ctest --preset ci-fast

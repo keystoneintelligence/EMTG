@@ -10,13 +10,19 @@ python -m pytest
 
 The Python checks also enforce `testatron/test_inventory.json`, which is the source of truth for fast unit folders, slow integration folders, expected-no-truth cases, expected-failure cases, and solver/SPICE requirements.
 
+GitHub installs these dependencies from `requirements-dev.txt`.
+
 ## Fast C++ Smoke Checks
 
-Configure and run the registered CTest smoke targets with the Visual Studio compiler environment:
+Configure and run the registered portable CTest smoke targets with the Visual Studio compiler environment:
 
 ```powershell
-cmd /c "call F:\Microsoft\vs_build_tools\VC\Auxiliary\Build\vcvarsall.bat x64 && cmake -S . -B _local\builds\ctest_smoke -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_EMTG_TESTBED=ON -DRUN_ADOUBLE_TESTBED=ON -DRUN_MISSION_TESTBED=OFF -DRUN_ACCELERATION_MODEL_TESTBED=OFF -DRUN_MISSIONOPTIONS_TESTBED=ON -DUSE_AD_INSTRUMENTATION=OFF -DENABLE_SNOPT=OFF -DENABLE_IPOPT=OFF && cmake --build _local\builds\ctest_smoke --target adouble_tests missionoptions_testbed --config Release && ctest --test-dir _local\builds\ctest_smoke --output-on-failure"
+cmd /c "call F:\Microsoft\vs_build_tools\Common7\Tools\VsDevCmd.bat -arch=x64 && cmake --preset ci-fast && cmake --build --preset ci-fast && ctest --preset ci-fast"
 ```
+
+The `ci-fast` preset enables `EMTG_PORTABLE_TESTBED_ONLY`, which intentionally avoids `EMTG-Config.cmake`, CSPICE, SNOPT, IPOPT, GSL, and the full `EMTGv9` executable. It currently builds and runs `EMTG.adouble_tests` and `EMTG.missionoptions_testbed`.
+
+GitHub also runs direct compile smoke jobs for `adouble` and `missionoptions` so parser-adjacent code gets checked before the broader CTest lane.
 
 ## Testatron Unit Sweep
 
@@ -44,3 +50,26 @@ python testatron.py -a -e path\to\EMTGv9.exe -p ..\PyEMTG
 ```
 
 The asteroid integration folder is marked expected-no-truth until a reviewed `.emtg` baseline is added.
+
+## GitHub Testatron Smoke Asset Strategy
+
+`testatron --smoke` should become a separate GitHub workflow after the EMTG executable and required runtime assets are reproducible in CI. Do not commit generated EMTG binaries, Testatron output, or large SPICE kernels directly to git.
+
+Use this asset model:
+
+1. Keep PR-required CI small and deterministic: Python checks, direct C++ smoke jobs, and `cmake --preset ci-fast`.
+2. Add a separate `testatron-smoke` workflow triggered by `workflow_dispatch`, nightly schedule, and eventually pull requests after it is stable.
+3. Build `EMTGv9` inside the workflow from a CI-specific CMake preset rather than uploading `bin/EMTGv9.exe`.
+4. Publish a versioned GitHub Release asset named like `testatron-smoke-assets-v1.zip`.
+5. Put only the minimum files needed by the 16 `SMOKE_TEST_CASES` in that archive: required `testatron/universe/ephemeris_files` kernels, required hardware model files, and any non-generated support files not already tracked.
+6. Include a manifest file in the archive with filename, byte size, SHA256, source URL, and license/source notes for each external asset.
+7. In the workflow, download the release asset, verify every SHA256 from the manifest, unpack it into `testatron/`, then run:
+
+```bash
+cd testatron
+python testatron.py --smoke -e ../bin/EMTGv9 -p ../PyEMTG --emtg_quiet_nlp 1
+```
+
+Use GitHub cache only as an optimization after checksum verification. Treat the release archive and manifest as the source of truth, not the cache.
+
+Keep the large outer-planet and asteroid kernels, IPOPT/SNOPT-dependent cases, and full `testatron -a` runs in nightly or manual workflows until runtime and flake rate are known. Those should not block ordinary PRs until they are consistently reliable.
