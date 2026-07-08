@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include <random>
+#include <stdexcept>
 
 #include "missionoptions.h"
 #include "mission.h"
@@ -65,6 +66,17 @@
 #include "MIRAGE_verification.h"
 #include "StateRepresentation_testbed.h"
 
+namespace
+{
+    void require_test_condition(const bool condition, const std::string& message)
+    {
+        if (!condition)
+        {
+            throw std::runtime_error(message);
+        }
+    }
+}
+
 int main(int argc, char* argv[])
 {
     try
@@ -90,9 +102,11 @@ int main(int argc, char* argv[])
         {
             std::cout << error.what() << std::endl;
             std::cout << "Aborting program run." << std::endl;
-            std::cin.ignore();
-            return 0;
+            return 1;
         }
+        require_test_condition(options.number_of_journeys > 0, "Mission options must contain at least one journey.");
+        require_test_condition(options.Journeys.size() == static_cast<size_t>(options.number_of_journeys),
+                               "Mission options journey count does not match parsed journey data.");
 
         //configure the LaunchVehicleOptions and SpacecraftOptions objects
 
@@ -167,6 +181,9 @@ int main(int argc, char* argv[])
             if (TheUniverse[j].TU > options.TU)
                 options.TU = TheUniverse[j].TU;
         }
+        require_test_condition(TheUniverse.size() == static_cast<size_t>(options.number_of_journeys),
+                               "Universe vector count does not match parsed journey count.");
+        require_test_condition(options.TU > 0.0, "Canonical time unit was not populated from the universe data.");
 
         for (int j = 0; j < options.number_of_journeys; ++j)
         {
@@ -609,6 +626,7 @@ int main(int argc, char* argv[])
             options.Journeys[j].number_of_phases = options.Journeys[j].sequence.size() - 1;
 
         }
+        require_test_condition(!options.description.empty(), "Mission description was not assembled.");
         //end startup stuff
 
 
@@ -643,12 +661,14 @@ int main(int argc, char* argv[])
 
         // MIRAGE verification of acceleration model accuracy
         //MIRAGE_verification(options, TheUniverse, mySpacecraft, myLaunchVehicle);
+
+        return 0;
     }
     catch (std::exception exception)
     {
         std::cout << "EMTG testbed failed with error:" << std::endl;
         std::cout << exception.what() << std::endl;
         std::cout << "Submit this error message to the EMTG development team, along with your .emtgopt, .emtg_universe file(s), your hardware model files, any relevant ephemeris files, and which branch you are using. This information will allow us to properly help you." << std::endl;
-        std::cin.ignore();
+        return 1;
     }
 }

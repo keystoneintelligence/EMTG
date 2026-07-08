@@ -23,6 +23,9 @@
 #include <string>
 #include <sstream>
 #include <chrono>
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
 
 #include "boost/random/uniform_real.hpp"
 #include "boost/random/mersenne_twister.hpp"
@@ -61,6 +64,25 @@
 //std::vector<size_t>::size_type GSAD::adouble::point = 0;
 //GSAD::adouble::derivative_t GSAD::adouble::pair_temp = std::make_pair(0, 0);
 //size_t GSAD::adouble::reserve_size = 10;
+
+namespace
+{
+    void require_test_condition(const bool condition, const std::string& message)
+    {
+        if (!condition)
+        {
+            throw std::runtime_error(message);
+        }
+    }
+
+    void require_finite_value(const double value, const std::string& label)
+    {
+        if (!std::isfinite(value))
+        {
+            throw std::runtime_error(label + " is not finite.");
+        }
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -230,6 +252,7 @@ int main(int argc, char* argv[])
 
     EMTG::missionoptions options;
     options.parse_mission(options_file_name);
+    require_test_condition(options.number_of_journeys > 0, "Mission options must contain at least one journey.");
 
     //configure the LaunchVehicleOptions and SpacecraftOptions objects
     EMTG::HardwareModels::LaunchVehicleOptions myLaunchVehicleOptions = EMTG::HardwareModels::CreateLaunchVehicleOptions(options);
@@ -302,6 +325,8 @@ int main(int argc, char* argv[])
         if (TheUniverse[j].TU > options.TU)
             options.TU = TheUniverse[j].TU;
     }
+    require_test_condition(!TheUniverse.empty(), "No universes were created for the acceleration model test.");
+    require_test_condition(options.TU > 0.0, "Canonical time unit was not populated from the universe data.");
 
     for (int j = 0; j < options.number_of_journeys; ++j)
     {
@@ -756,6 +781,7 @@ int main(int argc, char* argv[])
         options.Journeys[0].override_integration_step_size
         ? options.Journeys[0].integration_step_size
         : options.integration_time_step_size);
+    require_test_condition(integratedPropagator != nullptr, "Failed to construct acceleration-model propagator.");
 
     integratedPropagator->setCurrentEpoch(test_state(7));
     integratedPropagator->setIndexOfEpochInStateVec(7); // where is epoch located in the state vector?
@@ -814,11 +840,27 @@ int main(int argc, char* argv[])
     std::cout << std::endl << std::endl;
 
     std::cout << "Absolute STM error:" << std::endl;
+    double max_absolute_stm_error = 0.0;
+    double max_relative_stm_error = 0.0;
+    size_t inconsistent_stm_entries = 0;
     for (size_t i = 0; i < STM_size; ++i)
     {
         for (size_t j = 0; j < STM_size; ++j)
         {
-            std::cout << AD_STM(i, j) - STM(i, j) << "     ";
+            const double absolute_error = AD_STM(i, j) - STM(i, j);
+            const double absolute_reference = std::fabs(AD_STM(i, j));
+            const double absolute_error_magnitude = std::fabs(absolute_error);
+            const double relative_error = absolute_reference > 1.0e-12
+                ? absolute_error_magnitude / absolute_reference
+                : absolute_error_magnitude;
+            require_finite_value(absolute_error, "Absolute STM error");
+            max_absolute_stm_error = std::max(max_absolute_stm_error, absolute_error_magnitude);
+            max_relative_stm_error = std::max(max_relative_stm_error, relative_error);
+            if (absolute_error_magnitude > 1.0e-3 && relative_error > 1.0e-5)
+            {
+                ++inconsistent_stm_entries;
+            }
+            std::cout << absolute_error << "     ";
         }
         std::cout << std::endl << std::endl;
     }
@@ -866,6 +908,13 @@ int main(int argc, char* argv[])
     std::cout << "dchemdIndVarprevious: "  << STM(8, 7)  << " " << state_right(8).getDerivative(1) << " " << STM(8, 7)  - state_right(8).getDerivative(1) << " " << (STM(8, 7)  - state_right(8).getDerivative(1)) / state_right(8).getDerivative(1) << std::endl;
     std::cout << "delecdIndVarcurrent: "   << STM(9, 13) << " " << state_right(9).getDerivative(2) << " " << STM(9, 13) - state_right(9).getDerivative(2) << " " << (STM(9, 13) - state_right(9).getDerivative(2)) / state_right(9).getDerivative(2) << std::endl;
     std::cout << "delecdIndVarprevious: "  << STM(9, 7)  << " " << state_right(9).getDerivative(1) << " " << STM(9, 7)  - state_right(9).getDerivative(1) << " " << (STM(9, 7)  - state_right(9).getDerivative(1)) / state_right(9).getDerivative(1) << std::endl;
+
+    require_test_condition(
+        inconsistent_stm_entries == 0,
+        "AD STM and integrated STM disagree. max absolute error = "
+            + std::to_string(max_absolute_stm_error)
+            + ", max relative error = "
+            + std::to_string(max_relative_stm_error));
 #endif
     
     std::cout << "\nInitial State Information:\n" << std::endl;
@@ -891,6 +940,13 @@ int main(int argc, char* argv[])
     std::cout << "Final State: " << state_right(0) << " " << state_right(1) << " " << state_right(2) << " " << state_right(3) << " " << state_right(4) << " " << state_right(5) << std::endl << std::endl;
 
     std::cout << "Propagation time [days]: " << (state_right(7) - state_left(7)) / 86400.0 << std::endl << std::endl;
+
+    for (size_t state_index = 0; state_index < state_vector_size; ++state_index)
+    {
+        require_finite_value(state_right(state_index) _GETVALUE,
+                             "Final propagated state[" + std::to_string(state_index) + "]");
+    }
+    require_test_condition((state_right(6) _GETVALUE) > 0.0, "Final spacecraft mass must remain positive.");
 
 #ifndef AD_INSTRUMENTATION
     /*
@@ -1094,5 +1150,6 @@ int main(int argc, char* argv[])
     */
 #endif
 
-    getchar();
+    delete integratedPropagator;
+    return 0;
 }

@@ -23,6 +23,9 @@
 #include <string>
 #include <sstream>
 #include <chrono>
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
 
 #include "SpiceUsr.h" 
 #include "missionoptions.h"
@@ -55,6 +58,24 @@ std::vector<size_t>::size_type GSAD::adouble::point = 0;
 //GSAD::adouble::derivative_t GSAD::adouble::pair_temp = std::make_pair(0, 0);
 //size_t GSAD::adouble::reserve_size = 10;
 
+namespace
+{
+    void require_test_condition(const bool condition, const std::string& message)
+    {
+        if (!condition)
+        {
+            throw std::runtime_error(message);
+        }
+    }
+
+    void require_finite_value(const double value, const std::string& label)
+    {
+        if (!std::isfinite(value))
+        {
+            throw std::runtime_error(label + " is not finite.");
+        }
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -70,13 +91,7 @@ int main(int argc, char* argv[])
     std::cout << options_file_name << std::endl;
 
     EMTG::missionoptions options(options_file_name);
-    std::cout << options.error_message << std::endl;
-    if (!(options.file_status == 0))
-    {
-        std::cout << "Aborting program run." << std::endl;
-        std::cin.ignore();
-        return 0;
-    }
+    require_test_condition(options.number_of_journeys > 0, "Mission options must contain at least one journey.");
 
     // configure the LaunchVehicleOptions and SpacecraftOptions objects
     EMTG::HardwareModels::LaunchVehicleOptions myLaunchVehicleOptions;
@@ -147,6 +162,8 @@ int main(int argc, char* argv[])
         if (TheUniverse[j].TU > options.TU)
             options.TU = TheUniverse[j].TU;
     }
+    require_test_condition(!TheUniverse.empty(), "No universes were created for the FBLT fixed-step test.");
+    require_test_condition(options.TU > 0.0, "Canonical time unit was not populated from the universe data.");
 
     for (int j = 0; j < options.number_of_journeys; ++j)
     {
@@ -634,6 +651,29 @@ int main(int argc, char* argv[])
         for (size_t j = 0; j < STMcolumns; ++j)
             PhiERROR(i, j) = PhiAD(i, j) - derivatives(i, j);
 
+    double max_absolute_stm_error = 0.0;
+    double max_relative_stm_error = 0.0;
+    size_t inconsistent_stm_entries = 0;
+    for (size_t i = 0; i < STMrows; ++i)
+    {
+        for (size_t j = 0; j < STMcolumns; ++j)
+        {
+            const double absolute_error = PhiERROR(i, j);
+            const double absolute_reference = std::fabs(PhiAD(i, j));
+            const double absolute_error_magnitude = std::fabs(absolute_error);
+            const double relative_error = absolute_reference > 1.0e-12
+                ? absolute_error_magnitude / absolute_reference
+                : absolute_error_magnitude;
+            require_finite_value(absolute_error, "FBLT STM absolute error");
+            max_absolute_stm_error = std::max(max_absolute_stm_error, absolute_error_magnitude);
+            max_relative_stm_error = std::max(max_relative_stm_error, relative_error);
+            if (absolute_error_magnitude > 1.0e-3 && relative_error > 1.0e-5)
+            {
+                ++inconsistent_stm_entries;
+            }
+        }
+    }
+
     for (size_t i = 0; i < STMrows; ++i)
         for (size_t j = 0; j < STMcolumns; ++j)
             PhiERRORrel(i, j) = (PhiAD(i, j) - derivatives(i, j)) / PhiAD(i, j);
@@ -709,8 +749,23 @@ int main(int argc, char* argv[])
     PhiAD.print_to_file("PhiAD.txt");
     PhiERROR.print_to_file("PhiERROR.txt");
     PhiERRORrel.print_to_file("PhiERRORrel.txt");
+
+    require_test_condition(
+        inconsistent_stm_entries == 0,
+        "FBLT AD STM and integrated STM disagree. max absolute error = "
+            + std::to_string(max_absolute_stm_error)
+            + ", max relative error = "
+            + std::to_string(max_relative_stm_error));
 #endif
+    for (size_t state_index = 0; state_index < statecount; ++state_index)
+    {
+        require_finite_value(state1[state_index] _GETVALUE,
+                             "FBLT final state[" + std::to_string(state_index) + "]");
+    }
+    require_test_condition((state1[6] _GETVALUE) > 0.0, "FBLT final spacecraft mass must remain positive.");
+    require_test_condition(std::fabs(elapsedTime - (TOF _GETVALUE)) < 1.0e-3,
+                           "FBLT elapsed propagation time does not match requested time of flight.");
     std::cout << "Propagation wallclock time: " << std::chrono::duration <double, std::milli>(execution_time).count() << " ms" << std::endl;
-    getchar();
     delete integrator;
+    return 0;
 }

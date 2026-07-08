@@ -12,12 +12,21 @@ EMTG regression tests in the test suite.
 '''
 Import utilities
 '''
-from os import makedirs, getcwd, listdir, system, walk, path
+from os import makedirs, getcwd, listdir, walk, path
 from time import strftime
 import ast
 import pdb # Python debugger; use q in command line to quit
 import sys
 import argparse
+import subprocess
+from options_preparation import apply_test_options_overrides
+from test_selection import (
+    SMOKE_ATTRIBUTES_TO_IGNORE,
+    SMOKE_DEFAULT_TOLERANCE,
+    SMOKE_TEST_CASES,
+    UNIT_TEST_FOLDERS,
+    make_tests_list,
+)
 
 # Can't use a relative path because we use importlib later
 test_directory = getcwd().replace('\\','/') + '/tests/' 
@@ -45,7 +54,7 @@ parser.add_argument('-p', '--pyemtg', dest = 'pyemtgPath',
     
 # run specific cases
 parser.add_argument('-c', '--cases', dest = 'runCases', nargs = '*',
-    help = 'Specify full path to one or more individual cases to run. Separate multiple cases with spaces only. DO NOT include file extension. DO NOT put in quotes. DO NOT put in brackets. DO NOT use commas.')
+    help = 'Specify full path to one or more individual cases or folders to run. Separate multiple cases with spaces only. DO NOT include file extension for files. DO NOT put in brackets. DO NOT use commas.')
 
 # run specific folders of cases
 parser.add_argument('-f', '--folders', dest = 'runFolders', nargs = '*',
@@ -59,6 +68,11 @@ parser.add_argument('--failure', dest = 'runFailure', nargs = 1,
 parser.add_argument('-u', '--unit', dest = 'runUnit', nargs = '?',
     const = 1, default = 0, type = int,
     help = 'If active, run unit tests (currently, this means all non-failing tests)')
+
+# run smoke tests
+parser.add_argument('--smoke', dest = 'runSmoke', nargs = '?',
+    const = 1, default = 0, type = int,
+    help = 'Run the vetted fast EMTG executable smoke cases with smoke comparison defaults.')
     
 # run mission tests only
 parser.add_argument('-m', '--mission', dest = 'runMission', nargs = '?',
@@ -80,6 +94,30 @@ parser.add_argument('--ignore', dest = 'attributes_to_ignore', nargs = '*',
 	default = [],
     help = 'List attributes to ignore when running Comparatron. Start Mission attributes with M., Journey attributes with J., and MissionEvent attributes with E.. DO NOT put in quotes. DO NOT put in brackets. DO NOT use commas.')
 
+parser.add_argument('--default_tolerance', dest = 'default_tolerance',
+    default = 1.0e-10, type = float,
+    help = 'Default numeric tolerance passed to Comparatron (default: 1.0e-10).')
+
+parser.add_argument('--emtg_feasibility_tolerance', dest = 'emtg_feasibility_tolerance',
+    default = None, type = float,
+    help = 'Override EMTG solver feasibility tolerance in generated options files.')
+
+parser.add_argument('--emtg_optimality_tolerance', dest = 'emtg_optimality_tolerance',
+    default = None, type = float,
+    help = 'Override EMTG solver optimality tolerance in generated options files.')
+
+parser.add_argument('--emtg_major_iterations', dest = 'emtg_major_iterations',
+    default = None, type = int,
+    help = 'Override EMTG solver major iteration limit in generated options files.')
+
+parser.add_argument('--emtg_max_run_time', dest = 'emtg_max_run_time',
+    default = None, type = int,
+    help = 'Override EMTG solver max run time in seconds in generated options files.')
+
+parser.add_argument('--emtg_quiet_nlp', dest = 'emtg_quiet_nlp',
+    default = None, type = int, choices = [0, 1],
+    help = 'Override EMTG quiet_NLP in generated options files. Use 1 to suppress solver iteration logs.')
+
 
 args = parser.parse_args()
 
@@ -92,12 +130,13 @@ runFolders = 0
 runFailure = 0
 runUnit = 0
 runMission = 0
+runSmoke = 0
 updateTruths = 0
 runAll = args.runAll
 testCases = None
 testFolders = None
 failure = None
-if (args.runCases == None and args.runFolders == None and args.runFailure == None and args.runUnit == 0 and args.runMission == 0 and args.updateTruths == 0):
+if (args.runCases == None and args.runFolders == None and args.runFailure == None and args.runUnit == 0 and args.runMission == 0 and args.runSmoke == 0 and args.updateTruths == 0):
     runAll = 1
     run_type = 'all'
     
@@ -116,6 +155,9 @@ elif (args.runFailure != None):
 elif (args.runUnit == 1):
     runUnit = 1
     run_type = 'folders'
+elif (args.runSmoke == 1):
+    runSmoke = 1
+    run_type = 'cases'
 elif (args.runMission == 1):
     runMission = 1
     run_type = 'folders'
@@ -140,7 +182,16 @@ elif runFailure == 1:
 elif runUnit == 1:
     print('Running unit (feature) tests')
     run_type = 'folders'
-    test_cases = ['global_mission_options','journey_options','mission_tests', 'output_options', 'physics_options', 'script_constraint_tests', 'solver_options','spacecraft_options','state_representation_tests','transcription_tests']
+    test_cases = UNIT_TEST_FOLDERS
+
+elif runSmoke == 1:
+    print('Running smoke tests')
+    run_type = 'cases'
+    test_cases = SMOKE_TEST_CASES
+    if args.default_tolerance == parser.get_default('default_tolerance'):
+        args.default_tolerance = SMOKE_DEFAULT_TOLERANCE
+    if args.attributes_to_ignore == parser.get_default('attributes_to_ignore'):
+        args.attributes_to_ignore = SMOKE_ATTRIBUTES_TO_IGNORE
     
 elif runMission == 1:
     print('Running mission tests')
@@ -164,52 +215,7 @@ else: # Else run all b/c can't use 'cases' without actual cases
 METHOD: MAKE THE LIST OF TESTS ----------------------------------------------------------
 '''
 def MakeTestsList(test_cases):
-    tests_list = [] # Initialize
-    test_folders = []
-    if run_type == 'all':
-        test_folders = next(walk(test_directory))[1] 
-        test_folders.append('')
-    
-    elif run_type == 'folders':
-        # Uses only the user-provided subfolders
-        test_folders = test_cases 
-    
-    elif run_type == 'cases':
-        for casse in test_cases:
-            tests_list.append(casse.replace('\\','/'))
-        return tests_list
-    
-    elif run_type == 'failed':
-        # Can give testatron multiple fail files
-        for failpath in test_cases: 
-            with open(failpath+'failed_tests.csv','r') as f:
-                # Reads the text in the fail file
-                lines = f.readlines()  
-                # Converts the list inside the string in the last line of 
-                # the file into a usable list
-                listOfFailedFlag = False
-                
-                for line in lines:
-                    if 'List of failed runs:' in line:
-                        listOfFailedFlag = True
-                    elif listOfFailedFlag == True:
-                        tests_list.append(line.strip('\n'))
-        # Removes tests that appear more than once (in case the same
-        # test appears in multiple fail files)
-        tests_list = list(set(tests_list)) 
-        return tests_list      
-    
-    # Convert list of folders to list of tests in those folders
-    for test in test_folders:
-        # Creates a list of all files in each subfolder
-        #pdb.set_trace()
-        filenames = listdir(test_directory+test) 
-        for file in filenames:
-            if file.endswith('.emtgopt'):
-                # Appends all .emtgopt files to the list of tests
-                tests_list.append(test_directory+test+'/'+file.replace('.emtgopt','')) 
-
-    return tests_list
+    return make_tests_list(test_cases, run_type, test_directory, getcwd().replace('\\','/'))
 '''
 ------------------------------------------------------------------------------------------
 '''
@@ -226,9 +232,9 @@ if updateTruths == 0:
     now_formatted = now.replace(' ','_').replace(':','')
 
     # Create an output directory and summary file
-    outputdir = getcwd() + '/output/' + now_formatted
+    outputdir = path.join(getcwd(), 'output', now_formatted)
     print('OUTPUT_DIRECTORY: '+outputdir)
-    makedirs(outputdir)
+    makedirs(outputdir, exist_ok=True)
 
     # Overall summary file with all run tests & their ?success status
     summaryFile = open(outputdir + '/test_results.csv','w') 
@@ -265,29 +271,18 @@ for test in tests_to_run:
     if path.isfile(test+'.emtgopt'): #True: #try:
         testOptions = MissionOptions.MissionOptions(test + '.emtgopt') # Emtg ops object
 
-        # Override the output, universe, and HardwareModels paths
-        testOptions.override_working_directory = 1
-        testOptions.short_output_file_names    = 1
-        testOptions.background_mode            = 1
-        testOptions.override_mission_subfolder = 1
-        testOptions.forced_mission_subfolder   = '.'
-        testOptions.universe_folder            = test_directory.replace('tests/',\
-                                                                        'universe/')
-        testOptions.HardwarePath               = test_directory.replace('tests/',\
-                                                                'HardwareModels/')
-                                                                
-        if updateTruths == 1:
-            # if updating truths, want the output to go to the same directory as the input
-            testOptions.forced_working_directory   = os.path.dirname(test)
-        else:
-            # if running tests, want all output to go to the output directory
-            testOptions.forced_working_directory   = outputdir
-        
-                                                                
-        # update all gravity file paths to use tests/universe/gravity_files
-        for journey in testOptions.Journeys:
-            grav_file_name = journey.central_body_gravity_file.replace('\\\\','/').replace('\\','/').split('/')[-1]
-            journey.central_body_gravity_file = test_directory.replace('tests/','universe/gravity_files/') + grav_file_name
+        apply_test_options_overrides(
+            testOptions,
+            test_directory,
+            outputdir if updateTruths == 0 else None,
+            test,
+            update_truths=(updateTruths == 1),
+            emtg_feasibility_tolerance=args.emtg_feasibility_tolerance,
+            emtg_optimality_tolerance=args.emtg_optimality_tolerance,
+            emtg_major_iterations=args.emtg_major_iterations,
+            emtg_max_run_time=args.emtg_max_run_time,
+            emtg_quiet_nlp=args.emtg_quiet_nlp,
+        )
 
         # Save updated emtg options file and always write out all of the options to the file
         if updateTruths == 1:
@@ -297,26 +292,51 @@ for test in tests_to_run:
             # if running tests, save to output directory
             testOptions.write_options_file(outputdir + '/' + test_name + '.emtgopt', not testOptions.print_only_non_default_options)
 
+        if updateTruths == 1:
+            emtg_options_file = test + '.emtgopt'
+        else:
+            emtg_options_file = outputdir + '/' + test_name + '.emtgopt'
+
         try:
-            # Run EMTG
+            # Run EMTG. Use subprocess so failures are visible to the harness.
+            emtg_run = subprocess.run([EMTG_path, emtg_options_file], check = False)
+        except Exception as error:
             if updateTruths == 1:
-                system(EMTG_path + ' ' + test + '.emtgopt')
+                print('\nFAILURE to run "' + test + '" options file: ' + str(error) + '\n\n')
             else:
-                system(EMTG_path + ' ' + outputdir + '/' + test_name + '.emtgopt')
-        except:
+                summaryFile.write('\nFAILURE to run "' + test + '" options file: ' + str(error) + '\n\n')
+                failFile.write('\nFAILURE to run "' + test + '" options file: ' + str(error) + '\n\n')
+                failedTests += 1
+                failedTests_list.append(test)
+            continue
+
+        if emtg_run.returncode != 0:
             if updateTruths == 1:
-                print('\nFAILURE to run "' + test + '" options file.\n\n')
+                print('\nFAILURE running "' + test + '": EMTG exited with code ' + str(emtg_run.returncode) + '.\n\n')
             else:
-                summaryFile.write('\nFAILURE to run "' + test + '" options file.\n\n')
-                failFile.write('\nFAILURE to run "' + test + '" options file.\n\n')
+                summaryFile.write('\nFAILURE running "' + test + '": EMTG exited with code ' + str(emtg_run.returncode) + '.\n\n')
+                failFile.write('\nFAILURE running "' + test + '": EMTG exited with code ' + str(emtg_run.returncode) + '.\n\n')
                 failedTests += 1
                 failedTests_list.append(test)
             continue
         
         if updateTruths == 0:
+            nominal_output_file = outputdir + '/' + test_name + '.emtg'
+            failure_output_file = outputdir + '/FAILURE_' + test_name + '.emtg'
+            if not path.isfile(nominal_output_file):
+                if path.isfile(failure_output_file):
+                    summaryFile.write('\nFAILURE: EMTG wrote infeasible failure output for "' + test + '" at "' + failure_output_file + '".\n\n')
+                    failFile.write('\nFAILURE: EMTG wrote infeasible failure output for "' + test + '" at "' + failure_output_file + '".\n\n')
+                else:
+                    summaryFile.write('\nFAILURE: EMTG did not write expected output "' + nominal_output_file + '" for "' + test + '".\n\n')
+                    failFile.write('\nFAILURE: EMTG did not write expected output "' + nominal_output_file + '" for "' + test + '".\n\n')
+                failedTests += 1
+                failedTests_list.append(test)
+                continue
+
             try:
                 # Post-process
-                testMission = Mission.Mission(outputdir + '/' + test_name + '.emtg')
+                testMission = Mission.Mission(nominal_output_file)
             except:
                 summaryFile.write('\nFAILURE to parse output for "' + test + '" options file.\n\n')
                 failFile.write('\nFAILURE to parse output for "' + test + '" options file.\n\n')
@@ -329,9 +349,9 @@ for test in tests_to_run:
             try:
                 success, output = testMission.Comparatron(baseline_path = test + '.emtg',\
                           csv_file_name = outputdir +'/' + test_name + '_comparison.csv',\
-                                                                       full_output=False,\
+                                                                      full_output=False,\
                                                                        tolerance_dict={},\
-                                                              default_tolerance = 1.0e-10,\
+                                                              default_tolerance = args.default_tolerance,\
                                                               attributes_to_ignore = args.attributes_to_ignore)                                                        
 
                 if success:

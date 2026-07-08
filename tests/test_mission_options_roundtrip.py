@@ -1,0 +1,60 @@
+from pathlib import Path
+
+import MissionOptions
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def assert_options_match(left, right):
+    for attr in [
+        'mission_name',
+        'objective_type',
+        'mission_type',
+        'NLP_solver_type',
+        'number_of_journeys',
+        'universe_folder',
+        'launch_window_open_date',
+        'total_flight_time_bounds',
+    ]:
+        assert getattr(right, attr) == getattr(left, attr)
+
+    assert len(right.Journeys) == len(left.Journeys)
+    for left_journey, right_journey in zip(left.Journeys, right.Journeys):
+        for attr in [
+            'journey_name',
+            'phase_type',
+            'departure_class',
+            'arrival_class',
+            'destination_list',
+        ]:
+            assert getattr(right_journey, attr) == getattr(left_journey, attr)
+
+
+def roundtrip_options(source, tmp_path):
+    options = MissionOptions.MissionOptions(str(source))
+    output = tmp_path / source.name
+    options.write_options_file(str(output), writeAll=True)
+    return options, MissionOptions.MissionOptions(str(output))
+
+
+def test_default_options_roundtrip_preserves_core_schema(tmp_path):
+    source = REPO_ROOT / 'PyEMTG' / 'default.emtgopt'
+
+    original, reparsed = roundtrip_options(source, tmp_path)
+
+    assert_options_match(original, reparsed)
+
+
+def test_regression_options_roundtrip_preserves_core_schema(tmp_path):
+    source = (
+        REPO_ROOT
+        / 'testatron'
+        / 'tests'
+        / 'global_mission_options'
+        / 'globalmissionoptions_MGALT_obj0.emtgopt'
+    )
+
+    original, reparsed = roundtrip_options(source, tmp_path)
+
+    assert_options_match(original, reparsed)

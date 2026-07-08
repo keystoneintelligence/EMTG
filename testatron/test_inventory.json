@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "fast_unit_folders": [
+    "global_mission_options",
+    "journey_options",
+    "mission_tests",
+    "output_options",
+    "physics_options",
+    "script_constraint_tests",
+    "solver_options",
+    "spacecraft_options",
+    "state_representation_tests",
+    "transcription_tests"
+  ],
+  "slow_integration_folders": [
+    "integration_asteroid_missions"
+  ],
+  "expected_failure_cases": [],
+  "expected_no_truth_cases": [
+    "integration_asteroid_missions/A20136163_AEPS_IPOPT_FBLT"
+  ],
+  "requires_spice_cases": [
+    "integration_asteroid_missions/A20136163_AEPS_IPOPT_FBLT",
+    "physics_options/physicsoptions_SPICEphem"
+  ],
+  "requires_ipopt_cases": [
+    "integration_asteroid_missions/A20136163_AEPS_IPOPT_FBLT"
+  ],
+  "requires_snopt_cases": [],
+  "fixture_reference_cases": [
+    "integration_asteroid_missions/A20136163_AEPS_IPOPT_FBLT",
+    "journey_options/AerodynamicDrag_EarthOrbit_Maneuver",
+    "output_options/outputoptions_frameICRF",
+    "output_options/outputoptions_frameJ2000BCF",
+    "output_options/outputoptions_frameTODBCF",
+    "output_options/outputoptions_frameTODBCI",
+    "output_options/outputoptions_outputjourneywaittimes",
+    "physics_options/physicsoptions_SPICEphem",
+    "physics_options/physicsoptions_add3rdbody",
+    "physics_options/physicsoptions_addJ2",
+    "physics_options/physicsoptions_addSRP",
+    "physics_options/physicsoptions_periapseCartesian",
+    "physics_options/physicsoptions_periapseIncomingBplane",
+    "physics_options/physicsoptions_periapseSphericalAZFPA",
+    "physics_options/physicsoptions_periapseSphericalRADEC",
+    "spacecraft_options/spacecraftoptions_LT_Emargin",
+    "spacecraft_options/spacecraftoptions_LT_eng0",
+    "spacecraft_options/spacecraftoptions_LT_eng3",
+    "spacecraft_options/spacecraftoptions_LT_powsrc0"
+  ]
+}

@@ -17,6 +17,9 @@ link_directories(${PROJECT_BINARY_DIR}/src/Testing/${CMAKE_CFG_INTDIR})
 # create the executable
 if(RUN_MISSIONOPTIONS_TESTBED)
     add_executable(missionoptions_testbed  ${missionoptions_test_executable_files} ${missionoptions_test_source})
+    target_compile_definitions(missionoptions_testbed PRIVATE BOOST_ALL_NO_LIB EMTG_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(missionoptions_testbed ${Boost_LIBRARIES})
+    emtg_add_testbed_test(EMTG.missionoptions_testbed missionoptions_testbed)
 endif()
 
 #create the boost::python module

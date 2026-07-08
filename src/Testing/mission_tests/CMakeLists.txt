@@ -70,3 +70,5 @@ link_directories(${PROJECT_BINARY_DIR}/src/Testing/${CMAKE_CFG_INTDIR})
 # create the executable
 add_executable(mission_testbed  ${mission_test_executable_files})
 target_link_libraries(mission_testbed testbed_library)
+
+emtg_add_testbed_test(EMTG.mission_testbed mission_testbed)

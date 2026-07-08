@@ -3,7 +3,7 @@
 #Central body name
 central_body_name SmallBody
 #Central body SPICE ID
-central_body_SPICE_ID 2000336
+central_body_SPICE_ID 20000336
 #central body radius
 central_body_radius 35.0
 #gravitational constant of central body, in km^3/s^2 (this is actually Patroclus)
