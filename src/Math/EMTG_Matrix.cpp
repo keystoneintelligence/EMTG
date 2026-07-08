@@ -347,10 +347,6 @@ namespace EMTG
             {
                 throw std::invalid_argument("You cannot assign the diagonal of a non-square matrix. Place a breakpoint in " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
             }
-            else if (this->n != input_data.size())
-            {
-                throw std::invalid_argument("You have attempted to assign the diagonal values of a matrix but your diagonal vector is not the same dimension as the matrix. Place a breakpoint in " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
-            }
 #endif
 
             for (size_t i = 0; i < this->n; ++i)
