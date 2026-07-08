@@ -180,7 +180,7 @@ namespace EMTG
             {
 #ifndef FAST_EMTG_MATRIX
                 if (input_vector.get_n() != 3 || input_vector.get_m() != 1)
-                    throw std::invalid_arguement("skew-symmetric matrix constructor must be passed a 3-vector. Place a breakpoint in " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
+                    throw std::invalid_argument("skew-symmetric matrix constructor must be passed a 3-vector. Place a breakpoint in " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
 #endif
                 this->assign_entry(0, 0,  0.0);
                 this->assign_entry(0, 1, -input_vector(2));
@@ -331,10 +331,6 @@ namespace EMTG
             if (!this->issquare)
             {
                 throw std::invalid_argument("You cannot assign the diagonal of a non-square matrix. Place a breakpoint in " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
-            }
-            else if (this->n != input_data.size())
-            {
-                throw std::invalid_argument("You have attempted to assign the diagonal values of a matrix but your diagonal vector is not the same dimension as the matrix. Place a breakpoint in " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
             }
 #endif
 
