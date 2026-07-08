@@ -1260,10 +1260,20 @@ class Mission(object):
         baseline = Mission(baseline_path)
         comparison = DataFrame(columns=['Output Name','Baseline Value','New Value','Error','Match'])
         #This comparison df is what is written to the csv output file. The Output Name corresponds to the attribute name within the Mission, Journey, or Mission Event objects. Error is the absolute error 
+
+        def append_comparison_row(comparison, row):
+            return concat([comparison, DataFrame([row])], ignore_index=True)
+
+        def append_dataframe_rows(left, right):
+            if right.empty:
+                return left
+            if left.empty:
+                return right.reset_index(drop=True)
+            return concat([left, right], ignore_index=True)
         
         #can I test the current mission? did it actually load anything? if not, return
         if not hasattr(self, 'Journeys'):
-            comparison = comparison.append({'Output Name' : 'No Journeys!', 'Match' : False}, ignore_index = True)
+            comparison = append_comparison_row(comparison, {'Output Name' : 'No Journeys!', 'Match' : False})
             comparison.to_csv(csv_file_name, index = False)
             return False, comparison
 			
@@ -1271,7 +1281,7 @@ class Mission(object):
         #Make sure the number of journeys are the same between both cases (if they aren't then the missions are set up differently and a comparison is likely meaningless)
         #NOTE: The number of mission events may vary between solutions with the same journey structure so we worry about mission event mismatches later.
         if len(baseline.Journeys) != len(self.Journeys):
-            comparison = comparison.append({'Output Name' : 'Journey Mismatch!', 'Match' : False}, ignore_index = True)
+            comparison = append_comparison_row(comparison, {'Output Name' : 'Journey Mismatch!', 'Match' : False})
             comparison.to_csv(csv_file_name, index=False)
             return False, comparison
 
@@ -1331,7 +1341,7 @@ class Mission(object):
                     unpacked.append({'attr' : attr, 'val' : class_attr_dict[attr], 'full_str' : full_attr_str + '.' + attr})
 
             unpacked = DataFrame(unpacked)
-            pending_attrs = concat([pending_attrs, unpacked])
+            pending_attrs = append_dataframe_rows(pending_attrs, unpacked)
             return
         unpack = frompyfunc(unpackDef, 6, 0)
         
@@ -1422,7 +1432,7 @@ class Mission(object):
 
             n_mevents = n_baseline_mevents
             if (n_baseline_mevents != n_new_mevents):
-                comparison = comparison.append({'Output Name': 'Journey[' + str(i) + '] MissionEvent Mismatch',
+                comparison = append_comparison_row(comparison, {'Output Name': 'Journey[' + str(i) + '] MissionEvent Mismatch',
                                                 'Baseline Value': n_baseline_mevents, 'New Value': n_new_mevents,
                                                 'Error': abs(n_new_mevents - n_baseline_mevents), 'Match': False})
                 n_mevents = min([n_baseline_mevents, n_new_mevents])
@@ -1477,7 +1487,7 @@ class Mission(object):
         new_numbers = DataFrame(number_attrs['new'])
         new_numbers.rename({'val' : 'New Value'}, axis = 1, inplace = True)
 
-        new_strs = DataFrame(str_attrs['baseline'])
+        new_strs = DataFrame(str_attrs['new'])
         new_strs.rename({'val' : 'New Value'}, axis = 1, inplace = True)
         
             
@@ -1547,14 +1557,23 @@ class Mission(object):
         strs_df['Tolerance'] = Series(dtype = float)
         strs_df['Match'] = strs_df['Baseline Value'] == strs_df['New Value']
 
-        comparison = concat([numbers_df.loc[numbers_df['Error'] > 0], strs_df.loc[~strs_df['Match']]])
+        nonzero_numbers_df = numbers_df.loc[numbers_df['Error'] > 0]
+        mismatched_strs_df = strs_df.loc[~strs_df['Match']]
+        if nonzero_numbers_df.empty and mismatched_strs_df.empty:
+            comparison = DataFrame(columns=['Output Name', 'Baseline Value','New Value','Error','Tolerance','Match'])
+        elif nonzero_numbers_df.empty:
+            comparison = mismatched_strs_df
+        elif mismatched_strs_df.empty:
+            comparison = nonzero_numbers_df
+        else:
+            comparison = concat([nonzero_numbers_df, mismatched_strs_df])
         comparison = comparison[['Output Name', 'Baseline Value','New Value','Error','Tolerance','Match']]
             
         #If there are any attributes in the attributes_only_in_xxx lists then append them to comparison df
         if len(attrs_only_in_baseline) != 0:
-            comparison = comparison.append({'Output Name':'Attributes only in Baseline','Baseline Value':attributes_only_in_baseline,'Match':False}, ignore_index = True)
+            comparison = append_comparison_row(comparison, {'Output Name':'Attributes only in Baseline','Baseline Value':attributes_only_in_baseline,'Match':False})
         if len(attrs_only_in_new) != 0:
-            comparison = comparison.append({'Output Name':'Attributes only in New','New Value':attributes_only_in_new,'Match':False}, ignore_index = True)
+            comparison = append_comparison_row(comparison, {'Output Name':'Attributes only in New','New Value':attrs_only_in_new,'Match':False})
 
                    
         #Return a value of True if the missions are in complete agreement
@@ -1569,4 +1588,3 @@ class Mission(object):
             else: #if full_output=False, save only values that are not within the tolerance to a csv
                 comparison.loc[~comparison['Match']].to_csv(csv_file_name, index = False)
                 return False, comparison;
-                

@@ -104,7 +104,7 @@ override_mission_subfolder 1
 #Mission subfolder
 forced_mission_subfolder .
 #SPICE ID of central body for forward integrated ephemeris
-forward_integrated_ephemeris_central_body_SPICE_ID 2000336
+forward_integrated_ephemeris_central_body_SPICE_ID 20000336
 #Append control vector to ephemeris output?
 append_control_to_ephemeris_output 1
 #Close program after completion?

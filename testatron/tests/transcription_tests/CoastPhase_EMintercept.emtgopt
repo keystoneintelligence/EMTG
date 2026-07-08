@@ -46,6 +46,8 @@ maximum_mass 5000
 HardwarePath C:/emtg/testatron/HardwareModels/
 #LaunchVehicleLibraryFile
 LaunchVehicleLibraryFile NLSII_April2017.emtg_launchvehicleopt
+#LaunchVehicleKey
+LaunchVehicleKey ExampleRocket
 #Override the working directory?
 override_working_directory 1
 #User-defined working directory

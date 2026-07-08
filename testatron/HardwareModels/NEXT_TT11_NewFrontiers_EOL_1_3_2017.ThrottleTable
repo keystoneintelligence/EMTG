@@ -1,0 +1,28 @@
+#NEXT/New Frontiers ion thruster test fixture
+#This file reconstructs the missing public-test throttle table referenced by
+#testatron solver-options cases. It is not flight-certified engine data.
+#
+#Anchor points are based on public NEXT ion engine performance summaries:
+#roughly 0.5 kW minimum throttle, 6.9 kW maximum throttle, 237 mN maximum
+#thrust, and 1320-4170 s Isp. Intermediate points are smooth, monotonic
+#engineering estimates computed from PPU input power, Isp, and efficiency.
+#
+PPU efficiency,1.0
+PPU min power (kW),0.54
+PPU max power (kW),6.90
+Throttle level,Mass flow rate (mg/s),Beam Current (A),Beam Voltage (V),Thrust (mN),Isp (s),Efficiency,PPU input power (kW)
+TL1,2.835875877,1.963636364,275.0,36.710,1320.0,0.4400,0.540
+TL2,2.823271985,2.732262626,281.8,45.683,1650.0,0.4800,0.770
+TL3,2.986153061,2.667593688,393.6,57.104,1950.0,0.5200,1.050
+TL4,3.213992661,2.714520661,501.0,69.341,2200.0,0.5500,1.360
+TL5,3.335742801,2.671625156,621.3,80.146,2450.0,0.5800,1.660
+TL6,3.491745113,2.703349794,754.6,92.454,2700.0,0.6000,2.040
+TL7,3.704936044,2.775875516,882.6,106.092,2920.0,0.6200,2.450
+TL8,3.863136010,2.803954649,1027.1,119.336,3150.0,0.6400,2.880
+TL9,4.097205745,2.883731343,1161.7,134.603,3350.0,0.6600,3.350
+TL10,4.234532935,2.935902797,1304.5,147.419,3550.0,0.6700,3.830
+TL11,4.387772302,2.997409849,1447.9,160.930,3740.0,0.6800,4.340
+TL12,4.603926092,3.099489809,1574.5,176.081,3900.0,0.6900,4.880
+TL13,4.865418954,3.251969011,1672.8,191.808,4020.0,0.6950,5.440
+TL14,5.213332953,3.459619869,1740.1,209.614,4100.0,0.7000,6.020
+TL15,5.792989448,3.833333333,1800.0,236.897,4170.0,0.7020,6.900

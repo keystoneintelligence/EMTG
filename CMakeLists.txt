@@ -7,6 +7,8 @@ include(EMTG-Config.cmake)
 #identify the project
 project(EMTG)
 
+include(CTest)
+
 link_directories(${PROJECT_SOURCE_DIR}/Release)
 link_directories(${PROJECT_SOURCE_DIR}/Debug)
 
@@ -369,7 +371,7 @@ if(MSVC AND IPOPT_MINGW_DLL)
 
     list(GET IPOPT_DLL_CANDIDATES 0 IPOPT_DLL_PATH)
     get_filename_component(IPOPT_DLL_NAME "${IPOPT_DLL_PATH}" NAME)
-    set(IPOPT_DEF_FILE "${PROJECT_SOURCE_DIR}/depend/ipopt/libipopt.def")
+    set(IPOPT_DEF_FILE "${PROJECT_SOURCE_DIR}/src/InnerLoop/ipopt/libipopt.def")
     set(IPOPT_IMPORT_LIB_DIR "${CMAKE_BINARY_DIR}/ipopt_bridge")
     set(IPOPT_IMPORT_LIB "${IPOPT_IMPORT_LIB_DIR}/libipopt.lib")
     file(MAKE_DIRECTORY "${IPOPT_IMPORT_LIB_DIR}")

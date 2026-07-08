@@ -64,3 +64,5 @@ if (USE_AD_INSTRUMENTATION)
 else()
     target_link_libraries(acceleration_model_tests emtg)
 endif()
+
+emtg_add_testbed_test(EMTG.acceleration_model_tests acceleration_model_tests)

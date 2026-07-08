@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.8)
 
 set (CMAKE_CXX_STANDARD 11)
 
@@ -12,7 +12,23 @@ project(EMTG_TESTBED)
 option(RUN_ACCELERATION_MODEL_TESTBED "Do you want to run the acceleration model testbed?" OFF)
 option(RUN_MISSION_TESTBED "Do you want to run the mission testbed?" ON)
 option(RUN_MISSIONOPTIONS_TESTBED "Do you want to run the missionoptions testbed?" ON)
+option(RUN_ADOUBLE_TESTBED "Do you want to run the local adouble compatibility tests?" ON)
 option(USE_AD_INSTRUMENTATION "Do you want to perform derivative accuracy checks with AD?" ON)
+
+set(EMTG_TESTBED_DEFAULT_OPTIONS "${CMAKE_SOURCE_DIR}/PyEMTG/default.emtgopt" CACHE FILEPATH "Default options file passed to CTest-registered EMTG testbed executables")
+set(EMTG_TESTBED_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}" CACHE PATH "Working directory for CTest-registered EMTG testbed executables")
+file(MAKE_DIRECTORY "${EMTG_TESTBED_WORKING_DIRECTORY}/tests")
+
+function(emtg_add_testbed_test test_name target_name)
+    if(BUILD_TESTING)
+        add_test(NAME ${test_name}
+                 COMMAND $<TARGET_FILE:${target_name}> "${EMTG_TESTBED_DEFAULT_OPTIONS}")
+        set_tests_properties(${test_name}
+                             PROPERTIES
+                             WORKING_DIRECTORY "${EMTG_TESTBED_WORKING_DIRECTORY}"
+                             LABELS "testbed")
+    endif()
+endfunction()
 
 if (USE_AD_INSTRUMENTATION AND (RUN_MISSION_TESTBED OR RUN_ACCELERATION_MODEL_TESTBED))
     set(TESTBED_LIBRARY ON)
@@ -125,12 +141,17 @@ if (TESTBED_LIBRARY)
     
     add_library(testbed_library ${TESTBED_FILES})
     set_property(TARGET testbed_library PROPERTY CXX_STANDARD 17)
+    target_compile_definitions(testbed_library PUBLIC BOOST_ALL_NO_LIB)
     target_link_libraries(testbed_library ${TESTBED_DEPENDENCIES})
     #target_compile_definitions(testbed_library PRIVATE AD_INSTRUMENTATION)
 endif()
 
 if (RUN_ACCELERATION_MODEL_TESTBED)
     add_subdirectory(acceleration_model_tests)
+endif()
+
+if (RUN_ADOUBLE_TESTBED)
+    add_subdirectory(adouble_tests)
 endif()
 
 if (RUN_MISSION_TESTBED)
