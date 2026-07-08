@@ -35,7 +35,9 @@ namespace EMTG
             y(num_states, 1, 0.0),
             STM(STM_size_in, math::identity),
             STM_stage(STM_size_in, math::identity),
-            grad_vec(STM_size_in, 1, 0.0)
+            grad_vec(STM_size_in, 1, 0.0),
+            error_step_size(0.0),
+            error_step_includes_STM(false)
         {
 
             if (RK_type == IntegrationCoefficientsType::rkdp87)
@@ -334,18 +336,55 @@ namespace EMTG
 
         void ExplicitRungeKutta::computeError(doubleType & error, math::Matrix<double> & error_scaling_factors)
         {
-            /*
             error = 0.0;
             doubleType current_error = 0.0;
+            doubleType state_error = 0.0;
+
+            if (!this->RK_tableau->getHasVariableStepCoefficients())
+            {
+                return;
+            }
+
             for (size_t k = 0; k < this->num_states; ++k)
             {
-                current_error = fabs(x_eighth(k) - x_seventh(k)) * error_scaling_factors(k);
+                state_error = 0.0;
+                for (size_t stage_index = 0; stage_index < this->num_stages; ++stage_index)
+                {
+                    state_error += this->gradient_bin(k, stage_index)
+                        * (this->bUpper(stage_index) - this->bLower(stage_index))
+                        * this->error_step_size;
+                }
+
+                current_error = fabs(state_error) * error_scaling_factors(k);
                 if (current_error > error)
                 {
                     error = current_error;
                 }
             }
-            */
+
+            if (this->error_step_includes_STM)
+            {
+                size_t scaling_index = this->num_states;
+
+                for (size_t row = 0; row < this->STM_size; ++row)
+                {
+                    for (size_t column = 0; column < this->STM_size; ++column)
+                    {
+                        double STM_error = 0.0;
+                        for (size_t stage_index = 0; stage_index < this->num_stages; ++stage_index)
+                        {
+                            STM_error += this->STM_bin[stage_index](row, column)
+                                * (this->bUpper(stage_index) - this->bLower(stage_index));
+                        }
+
+                        current_error = fabs(STM_error) * error_scaling_factors(scaling_index++);
+                        if (current_error > error)
+                        {
+                            error = current_error;
+                        }
+                    }
+                }
+            }
         }
 
         void ExplicitRungeKutta::errorControlledStep(const math::Matrix<doubleType> & state_left,
@@ -360,6 +399,8 @@ namespace EMTG
                                                      math::Matrix<double> & error_scaling_factors)
         {
             this->dstep_sizedProp_var = dstep_sizedProp_var;
+            this->error_step_size = step_size;
+            this->error_step_includes_STM = needSTM;
             
             this->y.shallow_copy(state_left);
 
