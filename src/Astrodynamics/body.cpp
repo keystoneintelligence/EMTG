@@ -20,6 +20,7 @@
 
 #include "body.h"
 #include "EMTG_defs.h"
+#include "EphemerisDerivative.h"
 
 namespace EMTG
 {
@@ -163,7 +164,7 @@ namespace EMTG
             this->AbsoluteMagnitude = iAbsoluteMagnitude;
             this->albedo = ialbedo;
 
-            this->ephemeris_window_open = this->reference_epoch * 86400.0;
+            this->ephemeris_window_open = this->reference_epoch;
             this->ephemeris_window_close = 100000.0 * 86400.0;
 
             this->SMA = iclassical_orbit_elements[0];
@@ -291,22 +292,43 @@ namespace EMTG
                     break;
 #endif
                 case 1: //SPICE
+                {
                     double LT_dump;
-                    double statepert[6];
+                    double statebefore[6];
+                    double stateafter[6];
+                    double state_derivative[6];
+                    double derivative_step;
+                    EphemerisDerivative::Stencil derivative_stencil;
 
 #ifdef AD_INSTRUMENTATION
                     spkez_c(this->spice_ID, (epoch)_GETVALUE - (51544.5 * 86400.0), "J2000", "NONE", this->central_body_spice_ID, statedouble, &LT_dump);
-                    spkez_c(this->spice_ID, (epoch)_GETVALUE - (51544.5 * 86400.0) + 10.0, "J2000", "NONE", this->central_body_spice_ID, statepert, &LT_dump);
+                    derivative_stencil = EphemerisDerivative::select_stencil((epoch)_GETVALUE,
+                                                                             this->ephemeris_window_open,
+                                                                             this->ephemeris_window_close,
+                                                                             EphemerisDerivative::SPICE_DERIVATIVE_STEP_SIZE_SECONDS,
+                                                                             derivative_step);
+                    if (derivative_stencil != EphemerisDerivative::Stencil::Forward)
+                        spkez_c(this->spice_ID, (epoch)_GETVALUE - (51544.5 * 86400.0) - derivative_step, "J2000", "NONE", this->central_body_spice_ID, statebefore, &LT_dump);
+
+                    if (derivative_stencil != EphemerisDerivative::Stencil::Backward)
+                        spkez_c(this->spice_ID, (epoch)_GETVALUE - (51544.5 * 86400.0) + derivative_step, "J2000", "NONE", this->central_body_spice_ID, stateafter, &LT_dump);
+
+                    EphemerisDerivative::compute_state_derivative(statedouble,
+                                                                  statebefore,
+                                                                  stateafter,
+                                                                  derivative_step,
+                                                                  derivative_stencil,
+                                                                  state_derivative);
                     timevars = epoch.getDerivativeIndicies();
                     for (size_t stateindex = 0; stateindex < 6; ++stateindex)
                     {
                         state[stateindex].setValue(statedouble[stateindex]);
-                        state[stateindex + 6] = (statepert[stateindex] - state[stateindex]_GETVALUE) / 10.0;
+                        state[stateindex + 6] = state_derivative[stateindex];
                         //loop over derivative indices
                         for (size_t timeindex = 0; timeindex < timevars.size(); ++timeindex)
                         {
                             size_t timevar = timevars[timeindex];
-                            state[stateindex].setDerivative(timevar, (statepert[stateindex] - state[stateindex]_GETVALUE) / (10.0));
+                            state[stateindex].setDerivative(timevar, state_derivative[stateindex]);
                         }
                     }
 #else
@@ -314,13 +336,29 @@ namespace EMTG
 
                     if (need_deriv)
                     {
-                        spkez_c(this->spice_ID, (epoch)_GETVALUE - (51544.5 * 86400.0) + 10.0, "J2000", "NONE", this->central_body_spice_ID, statepert, &LT_dump);
-                        state[6] = (statepert[0] - state[0]) / (10.0);
-                        state[7] = (statepert[1] - state[1]) / (10.0);
-                        state[8] = (statepert[2] - state[2]) / (10.0);
-                        state[9] = (statepert[3] - state[3]) / (10.0);
-                        state[10] = (statepert[4] - state[4]) / (10.0);
-                        state[11] = (statepert[5] - state[5]) / (10.0);
+                        derivative_stencil = EphemerisDerivative::select_stencil((epoch)_GETVALUE,
+                                                                                 this->ephemeris_window_open,
+                                                                                 this->ephemeris_window_close,
+                                                                                 EphemerisDerivative::SPICE_DERIVATIVE_STEP_SIZE_SECONDS,
+                                                                                 derivative_step);
+                        if (derivative_stencil != EphemerisDerivative::Stencil::Forward)
+                            spkez_c(this->spice_ID, (epoch)_GETVALUE - (51544.5 * 86400.0) - derivative_step, "J2000", "NONE", this->central_body_spice_ID, statebefore, &LT_dump);
+
+                        if (derivative_stencil != EphemerisDerivative::Stencil::Backward)
+                            spkez_c(this->spice_ID, (epoch)_GETVALUE - (51544.5 * 86400.0) + derivative_step, "J2000", "NONE", this->central_body_spice_ID, stateafter, &LT_dump);
+
+                        EphemerisDerivative::compute_state_derivative(state,
+                                                                      statebefore,
+                                                                      stateafter,
+                                                                      derivative_step,
+                                                                      derivative_stencil,
+                                                                      state_derivative);
+                        state[6] = state_derivative[0];
+                        state[7] = state_derivative[1];
+                        state[8] = state_derivative[2];
+                        state[9] = state_derivative[3];
+                        state[10] = state_derivative[4];
+                        state[11] = state_derivative[5];
                     }
 #endif
 
@@ -333,6 +371,7 @@ namespace EMTG
                                                  + " with respect to " + std::to_string(this->central_body_spice_ID) + " on epoch " + std::to_string(epoch _GETVALUE / 86400.0) + ".");
                     }
                     break;
+                }
                     }
 
             return 0;

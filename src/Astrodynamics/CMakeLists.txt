@@ -4,6 +4,7 @@ add_subdirectory(StateRepresentation)
 
 set(ASTRODYNAMICS_HEADERS  ${ASTRODYNAMICS_HEADERS} ${CMAKE_CURRENT_SOURCE_DIR}/body.h
                                                     ${CMAKE_CURRENT_SOURCE_DIR}/CentralBody.h
+                                                    ${CMAKE_CURRENT_SOURCE_DIR}/EphemerisDerivative.h
 							                        ${CMAKE_CURRENT_SOURCE_DIR}/bplane.h
                                                     ${CMAKE_CURRENT_SOURCE_DIR}/frame.h
                                                     ${CMAKE_CURRENT_SOURCE_DIR}/HarmonicGravityField.h
@@ -69,6 +70,7 @@ if (RUN_ACCELERATION_MODEL_TESTBED)
     set(ACCELERATION_MODEL_TESTBED_ASTRODYNAMICS_HEADERS ${ACCELERATION_MODEL_TESTBED_ASTRODYNAMICS_HEADERS}
                                                          ${CMAKE_CURRENT_SOURCE_DIR}/body.h
                                                          ${CMAKE_CURRENT_SOURCE_DIR}/CentralBody.h
+                                                         ${CMAKE_CURRENT_SOURCE_DIR}/EphemerisDerivative.h
 							                             ${CMAKE_CURRENT_SOURCE_DIR}/bplane.h
                                                          ${CMAKE_CURRENT_SOURCE_DIR}/engine_model.h
                                                          ${CMAKE_CURRENT_SOURCE_DIR}/frame.h
