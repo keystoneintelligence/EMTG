@@ -132,6 +132,7 @@ namespace EMTG
             this->lastSolveStatus = NLPSolveStatus::NotRun;
             this->lastSolveReturnCode = 0;
             this->lastSolveWasAcceptable = false;
+            this->reset_evaluation_cache();
         }
 
         void NLP_interface::set_solver_status(const NLPSolveStatus& status, const int& returnCode, const bool& wasAcceptable)
@@ -141,8 +142,55 @@ namespace EMTG
             this->lastSolveWasAcceptable = wasAcceptable;
         }
 
+        void NLP_interface::reset_evaluation_cache()
+        {
+            this->evaluationCacheIsValid = false;
+            this->evaluationCacheIncludesDerivatives = false;
+        }
+
+        bool NLP_interface::evaluation_cache_matches_current_point(const bool& needG) const
+        {
+            if (!this->evaluationCacheIsValid
+                || (needG && !this->evaluationCacheIncludesDerivatives)
+                || this->evaluationCacheX.size() != this->X_unscaled.size())
+            {
+                return false;
+            }
+
+            for (size_t Xindex = 0; Xindex < this->X_unscaled.size(); ++Xindex)
+            {
+                if (this->evaluationCacheX[Xindex] != this->X_unscaled[Xindex] _GETVALUE)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        void NLP_interface::store_evaluation_cache(const bool& needG)
+        {
+            if (this->evaluationCacheX.size() != this->X_unscaled.size())
+            {
+                this->evaluationCacheX.resize(this->X_unscaled.size());
+            }
+
+            for (size_t Xindex = 0; Xindex < this->X_unscaled.size(); ++Xindex)
+            {
+                this->evaluationCacheX[Xindex] = this->X_unscaled[Xindex] _GETVALUE;
+            }
+
+            this->evaluationCacheIsValid = true;
+            this->evaluationCacheIncludesDerivatives = needG;
+        }
+
         void NLP_interface::evaluate_current_point(const bool& needG)
         {
+            if (this->evaluation_cache_matches_current_point(needG))
+            {
+                return;
+            }
+
             if (this->myOptions.get_SolverMode() == NLPMode::FilamentFinder)
             {
                 this->myProblem->evaluate(this->X_unscaled, this->myProblem->F, this->myProblem->G, needG);
@@ -193,6 +241,8 @@ namespace EMTG
             {
                 this->myProblem->evaluate(this->X_unscaled, this->F, this->G, needG);
             }
+
+            this->store_evaluation_cache(needG);
         }
     }//end namespace Solvers
 }//end namespace EMTG

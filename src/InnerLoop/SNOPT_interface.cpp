@@ -466,6 +466,7 @@ namespace EMTG
 							self->myProblem->Xopt = self->X_NLP_incumbent_unscaled;
 							self->myProblem->F = self->F_NLP_incumbent;
 							self->myProblem->evaluate(self->X_NLP_incumbent_unscaled, self->F_NLP_incumbent, self->G, false);
+                            self->reset_evaluation_cache();
 
 							self->myProblem->what_the_heck_am_I_called(SolutionOutputType::SUCCESS);
 							self->myProblem->output(self->myProblem->options.outputfile);
@@ -501,6 +502,7 @@ namespace EMTG
 							self->myProblem->Xopt = self->X_NLP_incumbent_unscaled;
 							self->myProblem->F = self->F_NLP_incumbent;
 							self->myProblem->evaluate(self->X_NLP_incumbent_unscaled, self->F_NLP_incumbent, self->G, false);
+                            self->reset_evaluation_cache();
 
 							self->myProblem->what_the_heck_am_I_called(SolutionOutputType::SUCCESS);
 							self->myProblem->output(self->myProblem->options.outputfile);
@@ -531,6 +533,7 @@ namespace EMTG
 					self->myProblem->Xopt = self->X_NLP_incumbent_unscaled;
 					self->myProblem->F = self->F_NLP_incumbent;
 					self->myProblem->evaluate(self->X_NLP_incumbent_unscaled, self->F_NLP_incumbent, self->G, false);
+                    self->reset_evaluation_cache();
 					self->myProblem->what_the_heck_am_I_called(SolutionOutputType::SUCCESS);
 					self->myProblem->output(self->myProblem->options.outputfile);
 					wroteToFile = true;

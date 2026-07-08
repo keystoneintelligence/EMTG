@@ -86,6 +86,9 @@ namespace EMTG
             void reset_solver_state(const std::string& solverName);
             void set_solver_status(const NLPSolveStatus& status, const int& returnCode, const bool& wasAcceptable);
             void evaluate_current_point(const bool& needG);
+            void reset_evaluation_cache();
+            bool evaluation_cache_matches_current_point(const bool& needG) const;
+            void store_evaluation_cache(const bool& needG);
 
             //scaling functions
             inline void scaleX0()
@@ -154,6 +157,9 @@ namespace EMTG
             std::vector<size_t> jAvar;
 
             std::vector<size_t> original_G_indices_of_filament_critical_inequality_constraints;
+            std::vector<double> evaluationCacheX;
+            bool evaluationCacheIsValid = false;
+            bool evaluationCacheIncludesDerivatives = false;
 
             //chaperone
             doubleType J_NLP_incumbent;
