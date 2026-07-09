@@ -23,7 +23,6 @@
 #include "Integrand.h"
 #include "IntegrationScheme.h"
 #include "PropagatorBase.h"
-#include "universe.h"
 
 namespace EMTG {
     namespace Astrodynamics {

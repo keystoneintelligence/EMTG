@@ -17,8 +17,9 @@
 // governing permissions and limitations under the License.
 
 #include "IntegratedAdaptiveStepPropagator.h"
-#include "missionoptions.h"
-#include "universe.h"
+
+#include <cmath>
+#include <stdexcept>
 
 namespace EMTG {
     namespace Astrodynamics {
@@ -139,31 +140,40 @@ namespace EMTG {
         {
 
 
+            if (propagation_span == 0.0)
+            {
+                return;
+            }
+
             doubleType accumulatedH = 0.0;
-            double daccumulatedHdTOF = 0.0;
-            doubleType effectiveH = this->PropagationStepSize;
-            doubleType nextStep = effectiveH;
+            doubleType effectiveH = 0.0;
+            doubleType nextStep = fabs(this->PropagationStepSize);
+
+            if (nextStep <= 0.0)
+            {
+                throw std::runtime_error("rk7813M: adaptive step size must be positive. Aborting.");
+            }
+
+            if (propagation_span < 0.0)
+            {
+                nextStep *= -1.0;
+            }
+
+            if (fabs(propagation_span) < fabs(nextStep))
+            {
+                nextStep = propagation_span;
+            }
 
             // TODO: must finite difference for this
             // double deffectiveHdTOF = 0.0;
 
             doubleType adaptive_step_error = 1.0e-20;
-            doubleType worst_error_state = 0.0;
-
-            doubleType t_left_step = this->current_epoch;
-
-            // If the user specifies an integration step size that is too big, then
-            // cap it at the propagation length
-            if (effectiveH > propagation_span)
-            {
-                effectiveH = propagation_span;
-            }
-
-            bool last_step = false; // at the beginning of a propagation segment we are on the FIRST substep
 
             // loop until we get all the way through the full propagation_span 
             do
             {
+                bool step_accepted = false;
+
                 // take a trial step
                 do
                 { // cycle until the trial RK step achieves sufficient accuracy
@@ -181,56 +191,37 @@ namespace EMTG {
                                                                   adaptive_step_error,
                                                                   this->error_scaling_factors);
 
-                    if (!last_step)
+                    // no error!  give it a real value so we don't divide by zero.
+                    if (adaptive_step_error == 0.0)
                     {
-                        // no error!  give it a real value so we don't divide by zero.
-                        if (adaptive_step_error == 0.0)
-                        {
-                            adaptive_step_error = 1e-15; //Almost zero!
-                        }
+                        adaptive_step_error = 1e-15; //Almost zero!
+                    }
 
-                        // if we rejected the last sub-step (i.e. the error was too large) shorten the time step
-                        if (adaptive_step_error >= this->integrator_tolerance)
-                        {
-                            //effectiveH = 0.98*effectiveH*pow(this->myOptions->integrator_tolerance / adaptive_step_error, 0.17);
-                            nextStep = 0.98 * effectiveH * pow(this->integrator_tolerance / adaptive_step_error, 0.17);
-                        }
-                        else // make the sub-step a bit longer to save computation time
-                        {
-                            //effectiveH = 1.01*effectiveH*pow(this->myOptions->integrator_tolerance / adaptive_step_error, 0.18);
-                            nextStep = 1.01 * effectiveH * pow(this->integrator_tolerance / adaptive_step_error, 0.18);
-
-                            // if our increased step kicks us too long, make it shorter anyway and just run it
-                            if (fabs(propagation_span - accumulatedH) < fabs(nextStep) && !last_step)
-                            {
-                                nextStep = propagation_span - accumulatedH;
-                            }
-                        }
-
-                        if (fabs(propagation_span - accumulatedH) < fabs(nextStep) && !last_step)
-                        {
-                            nextStep = propagation_span - accumulatedH;
-                        }
+                    // if we rejected the sub-step (i.e. the error was too large) shorten the time step
+                    if (adaptive_step_error > this->integrator_tolerance)
+                    {
+                        //effectiveH = 0.98*effectiveH*pow(this->myOptions->integrator_tolerance / adaptive_step_error, 0.17);
+                        nextStep = 0.98 * effectiveH * pow(this->integrator_tolerance / adaptive_step_error, 0.17);
 
                         //if we make the time step too small, kill the integration - h is too small
                         if (fabs(nextStep) < 1e-13)
                         {
                             throw std::runtime_error("rk7813M: H Got too Small. The integrator has Alexed. Aborting.");
                         }
-
                     }
-                    else if (adaptive_step_error > this->integrator_tolerance && last_step)
+                    else
                     {
-                        // we got here because we thought it was the last substep, and upon calculation it 
-                        // was too big and not precise enough so we have to shrink it
-                        last_step = false; // not last step after all
-                                           //effectiveH = 0.98*effectiveH*pow(this->myOptions->integrator_tolerance / adaptive_step_error, 0.17);
-                        nextStep = 0.98 * effectiveH * pow(this->integrator_tolerance / adaptive_step_error, 0.17);
+                        step_accepted = true;
                     }
 
-                } while (adaptive_step_error > this->integrator_tolerance);
+                } while (!step_accepted);
 
                 // if we got here, then the trial substep was accurate enough; it becomes the new left
+                if (this->store_propagation_history)
+                {
+                    this->propagation_history.push_back(this->state_right(this->index_of_epoch_in_state_vec) _GETVALUE - this->state_left(this->index_of_epoch_in_state_vec) _GETVALUE);
+                }
+
                 this->state_left = this->state_right;
 
                 this->STM_left = this->STM_right;
@@ -238,19 +229,32 @@ namespace EMTG {
                 // keep track of our progress through the full RK step
                 accumulatedH += effectiveH;
 
-                // move the left hand epoch for the next substep forward to the correct value
-                this->current_epoch += effectiveH;
-
-                if (this->store_propagation_history)
+                // move the left hand independent variable for the next substep forward to the correct value
+                this->current_independent_variable += effectiveH;
+                if (this->index_of_epoch_in_state_vec < this->state_left.get_n())
                 {
-                    this->propagation_history.push_back(this->state_right(this->index_of_epoch_in_state_vec) _GETVALUE - this->state_left(this->index_of_epoch_in_state_vec) _GETVALUE);
+                    this->current_epoch = this->state_left(this->index_of_epoch_in_state_vec);
+                }
+                else
+                {
+                    this->current_epoch += effectiveH;
                 }
 
-                // if our next step will push us over, reduce it to be as small as necessary to hit target exactly
-                if (fabs(propagation_span - accumulatedH) < fabs(nextStep) && fabs(propagation_span - accumulatedH) > 0 && !last_step)
+                if (fabs(propagation_span - accumulatedH) > 0.0)
                 {
-                    nextStep = propagation_span - accumulatedH;
-                    last_step = true; //assume that the next substep will be the last substep now
+                    // make the sub-step a bit longer to save computation time
+                    nextStep = 1.01 * effectiveH * pow(this->integrator_tolerance / adaptive_step_error, 0.18);
+
+                    // if our next step will push us over, reduce it to hit the target exactly
+                    if (fabs(propagation_span - accumulatedH) < fabs(nextStep))
+                    {
+                        nextStep = propagation_span - accumulatedH;
+                    }
+
+                    if (fabs(nextStep) < 1e-13)
+                    {
+                        throw std::runtime_error("rk7813M: H Got too Small. The integrator has Alexed. Aborting.");
+                    }
                 }
 
             } while (fabs(accumulatedH) < fabs(propagation_span));

@@ -26,6 +26,7 @@
 #include "EMTG_enums.h"
 
 #include "missionoptions.h"
+#include "universe.h"
 
 #include "PropagatorBase.h"
 
