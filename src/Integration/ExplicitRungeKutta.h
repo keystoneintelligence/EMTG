@@ -26,7 +26,6 @@
 
 #include "doubleType.h"
 #include "EMTG_enums.h"
-#include "FBLT_EOM.h"
 #include "Integrand.h"
 #include "IntegrationScheme.h"
 #include "RungeKuttaTableau.h"
@@ -150,6 +149,8 @@ namespace EMTG {
 
             EMTG::math::Matrix <double> STM, STM_stage, grad_vec;
             math::Matrix<doubleType> f, y, x_left, x_right;
+            doubleType error_step_size;
+            bool error_step_includes_STM;
 
             RungeKuttaTableau * RK_tableau;
 
