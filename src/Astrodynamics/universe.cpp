@@ -370,6 +370,7 @@ namespace EMTG
                                                                                  this->central_body.getEphemerisWindowOpen(),
                                                                                  this->central_body.getEphemerisWindowClose(),
                                                                                  EphemerisDerivative::SPICE_DERIVATIVE_STEP_SIZE_SECONDS,
+                                                                                 options.SPICE_high_fidelity_derivatives,
                                                                                  derivative_step);
                         if (derivative_stencil != EphemerisDerivative::Stencil::Forward)
                             spkez_c(this->central_body_SPICE_ID, (epoch)_GETVALUE - (51544.5 * 86400.0) - derivative_step, "J2000", "NONE", 10, statebefore, &LT_dump);
@@ -382,6 +383,7 @@ namespace EMTG
                                                                       stateafter,
                                                                       derivative_step,
                                                                       derivative_stencil,
+                                                                      options.SPICE_high_fidelity_derivatives,
                                                                       state_derivative);
                         timevars = epoch.getDerivativeIndicies();
                         for (size_t stateindex = 0; stateindex < 6; ++stateindex)
@@ -404,6 +406,7 @@ namespace EMTG
                                                                                      this->central_body.getEphemerisWindowOpen(),
                                                                                      this->central_body.getEphemerisWindowClose(),
                                                                                      EphemerisDerivative::SPICE_DERIVATIVE_STEP_SIZE_SECONDS,
+                                                                                     options.SPICE_high_fidelity_derivatives,
                                                                                      derivative_step);
                             if (derivative_stencil != EphemerisDerivative::Stencil::Forward)
                                 spkez_c(this->central_body_SPICE_ID, (epoch)_GETVALUE - (51544.5 * 86400.0) - derivative_step, "J2000", "NONE", 10, statebefore, &LT_dump);
@@ -416,6 +419,7 @@ namespace EMTG
                                                                           stateafter,
                                                                           derivative_step,
                                                                           derivative_stencil,
+                                                                          options.SPICE_high_fidelity_derivatives,
                                                                           state_derivative);
                             state[6] = state_derivative[0];
                             state[7] = state_derivative[1];

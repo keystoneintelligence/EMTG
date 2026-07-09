@@ -88,6 +88,7 @@ namespace EMTG
         this->SPICE_reference_frame_kernel = "pck00010.tpc";
         this->universe_folder = "C:/emtg/Universe";
         this->ephemeris_source = 2;
+        this->SPICE_high_fidelity_derivatives = (bool) 0;
         this->SplineEphem_points_per_period = 360;
         this->SplineEphem_non_central_body_sun_points_per_period = 10000;
         this->SplineEphem_truncate_ephemeris_at_maximum_mission_epoch = (bool) 0;
@@ -876,6 +877,11 @@ namespace EMTG
             {
                 throw std::out_of_range("Input option ephemeris_source is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->ephemeris_source) + ", bounds are [" + std::to_string(this->ephemeris_source_lowerBound) + ", " + std::to_string(this->ephemeris_source_upperBound) + "].");
             }
+            return;
+        }
+        if (linecell[0] == "SPICE_high_fidelity_derivatives")
+        {
+            this->SPICE_high_fidelity_derivatives = (bool) std::stoi(linecell[1]);
             return;
         }
         if (linecell[0] == "SplineEphem_points_per_period")
@@ -2270,6 +2276,12 @@ namespace EMTG
             optionsFileStream << "ephemeris_source " << this->ephemeris_source << std::endl;
         }
     
+        if (this->SPICE_high_fidelity_derivatives != 0 || writeAll)
+        {
+            optionsFileStream << "#Use central differencing for SPICE acceleration derivatives? Disable to use one-sided velocity differencing for lower runtime cost." << std::endl;
+            optionsFileStream << "SPICE_high_fidelity_derivatives " << this->SPICE_high_fidelity_derivatives << std::endl;
+        }
+
         if (this->SplineEphem_points_per_period != 360 || writeAll)
         {
             optionsFileStream << "#How many sample points should SplineEphem use per orbital period of each body?" << std::endl;

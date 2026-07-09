@@ -124,6 +124,14 @@ int main(int argc, char* argv[])
         check_equal("roundtrip journey trialX size", reparsed_options.Journeys[0].trialX.size(), regression_options.Journeys[0].trialX.size());
         check_equal("roundtrip master trialX size", reparsed_options.trialX.size(), regression_options.trialX.size());
         check_equal("roundtrip forced working directory", reparsed_options.forced_working_directory, regression_options.forced_working_directory);
+        check_true("default SPICE derivative fidelity disabled", !reparsed_options.SPICE_high_fidelity_derivatives);
+
+        regression_options.SPICE_high_fidelity_derivatives = true;
+        const std::string derivative_option_file = "tests/missionoptions_spice_derivative_mode.emtgopt";
+        regression_options.write(derivative_option_file, false);
+        check_file_exists(derivative_option_file);
+        EMTG::missionoptions derivative_options(derivative_option_file);
+        check_true("SPICE derivative fidelity roundtrip enabled", derivative_options.SPICE_high_fidelity_derivatives);
 
         std::cout << "missionoptions tests passed" << std::endl;
         return 0;

@@ -28,13 +28,16 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
 
         wx.lib.scrolledpanel.ScrolledPanel.__init__(self, parent)
 
-        ephemerisgrid = wx.FlexGridSizer(9,2,5,5)
+        ephemerisgrid = wx.FlexGridSizer(10,2,5,5)
         perturbgrid = wx.GridSizer(8,2,8,8)
         integratorgrid = wx.GridSizer(10,2,5,5)
         
         self.lblephemeris_source = wx.StaticText(self, -1, "Ephemeris Source")
         ephemeris_source_typestypes = ['Static','SPICE','SplineEphem']
         self.cmbephemeris_source = wx.ComboBox(self, -1, choices = ephemeris_source_typestypes, style=wx.CB_READONLY)
+
+        self.lblSPICE_high_fidelity_derivatives = wx.StaticText(self, -1, "Use high-fidelity SPICE derivatives?")
+        self.chkSPICE_high_fidelity_derivatives = wx.CheckBox(self, -1)
 
         self.lblSPICE_leap_seconds_kernel = wx.StaticText(self, -1, "Leap seconds kernel")
         self.txtSPICE_leap_seconds_kernel = wx.TextCtrl(self, -1, "SPICE_leap_seconds_kernel", size=(200,-1))
@@ -84,6 +87,7 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.cmbpropagatorType = wx.ComboBox(self, -1, choices=propagatorType_choices, style=wx.CB_READONLY)
 
         ephemerisgrid.AddMany([self.lblephemeris_source, self.cmbephemeris_source,
+                              self.lblSPICE_high_fidelity_derivatives, self.chkSPICE_high_fidelity_derivatives,
                               self.lblSPICE_leap_seconds_kernel, self.txtSPICE_leap_seconds_kernel,
                               self.lblSPICE_reference_frame_kernel, self.txtSPICE_reference_frame_kernel,
                               self.lbluniverse_folder, UniverseButtonSizer,
@@ -193,6 +197,7 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
 
         #bindings
         self.cmbephemeris_source.Bind(wx.EVT_COMBOBOX,self.Changeephemeris_source)
+        self.chkSPICE_high_fidelity_derivatives.Bind(wx.EVT_CHECKBOX, self.ChangeSPICE_high_fidelity_derivatives)
         self.txtSPICE_leap_seconds_kernel.Bind(wx.EVT_KILL_FOCUS,self.ChangeSPICE_leap_seconds_kernel)
         self.txtSPICE_reference_frame_kernel.Bind(wx.EVT_KILL_FOCUS,self.ChangeSPICE_reference_frame_kernel)
         self.txtuniverse_folder.Bind(wx.EVT_KILL_FOCUS,self.Changeuniverse_folder)
@@ -228,6 +233,7 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.txtSPICE_leap_seconds_kernel.SetValue(str(self.missionoptions.SPICE_leap_seconds_kernel))
         self.txtSPICE_reference_frame_kernel.SetValue(str(self.missionoptions.SPICE_reference_frame_kernel))
         self.txtuniverse_folder.SetValue(self.missionoptions.universe_folder)
+        self.chkSPICE_high_fidelity_derivatives.SetValue(self.missionoptions.SPICE_high_fidelity_derivatives)
         self.txtSplineEphem_points_per_period.SetValue(str(self.missionoptions.SplineEphem_points_per_period))
         self.txtSplineEphem_non_central_body_sun_points_per_period.SetValue(str(self.missionoptions.SplineEphem_non_central_body_sun_points_per_period))
         self.chkSplineEphem_truncate_ephemeris_at_maximum_mission_epoch.SetValue(self.missionoptions.SplineEphem_truncate_ephemeris_at_maximum_mission_epoch)
@@ -268,6 +274,9 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.txtSplineEphem_points_per_period.Show(False)
             self.lblSplineEphem_truncate_ephemeris_at_maximum_mission_epoch.Show(False)
             self.chkSplineEphem_truncate_ephemeris_at_maximum_mission_epoch.Show(False)
+
+        self.lblSPICE_high_fidelity_derivatives.Show(self.missionoptions.ephemeris_source == 1)
+        self.chkSPICE_high_fidelity_derivatives.Show(self.missionoptions.ephemeris_source == 1)
 
         #if SRP is disabled, make the options associated with it invisible
         if self.missionoptions.perturb_SRP == 1:
@@ -327,6 +336,11 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
     #event handlers for physics options
     def Changeephemeris_source(self, e):
         self.missionoptions.ephemeris_source = self.cmbephemeris_source.GetSelection()
+        self.update()
+
+    def ChangeSPICE_high_fidelity_derivatives(self, e):
+        e.Skip()
+        self.missionoptions.SPICE_high_fidelity_derivatives = int(self.chkSPICE_high_fidelity_derivatives.GetValue())
 
     def ChangeSPICE_leap_seconds_kernel(self, e):
         e.Skip()
