@@ -471,9 +471,16 @@ namespace EMTG { namespace Solvers {
                     this->time_hop();
             }
 			//evaluate the case once
+			bool hop_evaluation_includes_derivatives =
+				this->myProblem->options.enable_Scalatron
+				&& !this->myProblem->options.checkFeasibilityTolInMBHToSkipNLP;
+
 			try
 			{
-				this->myProblem->evaluate(this->X_after_hop_unscaled, this->myProblem->F, this->myProblem->G, true);
+				this->myProblem->evaluate(this->X_after_hop_unscaled,
+					this->myProblem->F,
+					this->myProblem->G,
+					hop_evaluation_includes_derivatives);
 			}
             catch (std::exception &error)
 			{
@@ -563,6 +570,26 @@ namespace EMTG { namespace Solvers {
             
             //if seeding MBH, only the first step runs from the seed. After that hopping occurs.
             seeded_step = false;
+
+			if (this->myProblem->options.enable_Scalatron && !hop_evaluation_includes_derivatives)
+			{
+				try
+				{
+					this->myProblem->evaluate(this->X_after_hop_unscaled,
+						this->myProblem->F,
+						this->myProblem->G,
+						true);
+					hop_evaluation_includes_derivatives = true;
+				}
+				catch (std::exception &error)
+				{
+					if (!myProblem->options.quiet_basinhopping)
+					{
+						std::cout << "EMTG::Invalid initial point or failure in objective function while evaluating initial point." << std::endl;
+						std::cout << error.what() << std::endl;
+					}
+				}
+			}
 
             //Step 2: apply the slide operator      
             this->slide();
