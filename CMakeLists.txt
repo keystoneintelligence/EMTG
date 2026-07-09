@@ -12,6 +12,7 @@ if(EMTG_PORTABLE_TESTBED_ONLY)
     set(RUN_MISSIONOPTIONS_TESTBED ON CACHE BOOL "Do you want to run the missionoptions testbed?" FORCE)
     set(RUN_ADOUBLE_TESTBED ON CACHE BOOL "Do you want to run the local adouble compatibility tests?" FORCE)
     set(RUN_INTEGRATION_TESTBED ON CACHE BOOL "Do you want to run the local integration tests?" FORCE)
+    set(RUN_EPHEMERIS_DERIVATIVE_TESTBED ON CACHE BOOL "Do you want to run the ephemeris derivative quality tests?" FORCE)
     set(USE_AD_INSTRUMENTATION OFF CACHE BOOL "Do you want to perform derivative accuracy checks with AD?" FORCE)
     set(SPLINE_EPHEM OFF CACHE BOOL "Enable SplineEphem" FORCE)
 

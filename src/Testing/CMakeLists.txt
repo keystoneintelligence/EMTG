@@ -14,6 +14,7 @@ option(RUN_MISSION_TESTBED "Do you want to run the mission testbed?" ON)
 option(RUN_MISSIONOPTIONS_TESTBED "Do you want to run the missionoptions testbed?" ON)
 option(RUN_ADOUBLE_TESTBED "Do you want to run the local adouble compatibility tests?" ON)
 option(RUN_INTEGRATION_TESTBED "Do you want to run the local integration tests?" ON)
+option(RUN_EPHEMERIS_DERIVATIVE_TESTBED "Do you want to run the ephemeris derivative quality tests?" ON)
 option(USE_AD_INSTRUMENTATION "Do you want to perform derivative accuracy checks with AD?" ON)
 
 set(EMTG_TESTBED_DEFAULT_OPTIONS "${CMAKE_SOURCE_DIR}/PyEMTG/default.emtgopt" CACHE FILEPATH "Default options file passed to CTest-registered EMTG testbed executables")
@@ -157,6 +158,10 @@ endif()
 
 if (RUN_INTEGRATION_TESTBED)
     add_subdirectory(integration_tests)
+endif()
+
+if (RUN_EPHEMERIS_DERIVATIVE_TESTBED)
+    add_subdirectory(ephemeris_derivative_tests)
 endif()
 
 if (RUN_MISSION_TESTBED)
