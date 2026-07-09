@@ -103,6 +103,8 @@ class MissionOptions(object):
         """Universe folder"""
         self.ephemeris_source = 2
         """Choices are 0 - static, 1 - SPICE (default to static if no SPICE file supplied for a body), 2 - SplineEphem"""
+        self.SPICE_high_fidelity_derivatives = 0
+        """Use central differencing for SPICE acceleration derivatives? Disable to use one-sided velocity differencing for lower runtime cost."""
         self.SplineEphem_points_per_period = 360
         """How many sample points should SplineEphem use per orbital period of each body?"""
         self.SplineEphem_non_central_body_sun_points_per_period = 10000
@@ -533,6 +535,9 @@ class MissionOptions(object):
                     elif linecell[0] == "ephemeris_source":
                         self.ephemeris_source = int(linecell[1])
                   
+                    elif linecell[0] == "SPICE_high_fidelity_derivatives":
+                        self.SPICE_high_fidelity_derivatives = int(linecell[1])
+
                     elif linecell[0] == "SplineEphem_points_per_period":
                         self.SplineEphem_points_per_period = int(linecell[1])
                   
@@ -1120,6 +1125,10 @@ class MissionOptions(object):
                 optionsFile.write("#0: static, 1: SPICE (default to static if no SPICE file supplied for a body), 2: SplineEphem\n")
                 optionsFile.write("ephemeris_source " + str(self.ephemeris_source) + "\n")
     
+            if (self.SPICE_high_fidelity_derivatives != 0 or writeAll):
+                optionsFile.write("#Use central differencing for SPICE acceleration derivatives? Disable to use one-sided velocity differencing for lower runtime cost.\n")
+                optionsFile.write("SPICE_high_fidelity_derivatives " + str(int(self.SPICE_high_fidelity_derivatives)) + "\n")
+
             if (self.SplineEphem_points_per_period != 360 or writeAll):
                 optionsFile.write("#How many sample points should SplineEphem use per orbital period of each body?\n")
                 optionsFile.write("SplineEphem_points_per_period " + str(self.SplineEphem_points_per_period) + "\n")

@@ -158,6 +158,26 @@ int main(int, char**)
                    stencil == EMTG::Astrodynamics::EphemerisDerivative::Stencil::Backward);
         check_close("near-close coverage keeps preferred step", boundary_step, step, 0.0);
 
+        stencil = EMTG::Astrodynamics::EphemerisDerivative::select_stencil(500.0,
+                                                                           100.0,
+                                                                           1000.0,
+                                                                           step,
+                                                                           false,
+                                                                           boundary_step);
+        check_true("low-fidelity coverage uses forward stencil when available",
+                   stencil == EMTG::Astrodynamics::EphemerisDerivative::Stencil::Forward);
+        check_close("low-fidelity coverage keeps preferred step", boundary_step, step, 0.0);
+
+        stencil = EMTG::Astrodynamics::EphemerisDerivative::select_stencil(995.0,
+                                                                           100.0,
+                                                                           1000.0,
+                                                                           step,
+                                                                           false,
+                                                                           boundary_step);
+        check_true("low-fidelity near-close coverage uses backward stencil",
+                   stencil == EMTG::Astrodynamics::EphemerisDerivative::Stencil::Backward);
+        check_close("low-fidelity near-close coverage keeps preferred step", boundary_step, step, 0.0);
+
         double one_sided[6];
         EMTG::Astrodynamics::EphemerisDerivative::compute_state_derivative(
             current,
@@ -171,6 +191,23 @@ int main(int, char**)
             check_close("one-sided boundary drdt remains analytic " + std::to_string(axis_index),
                         one_sided[axis_index],
                         truth[axis_index],
+                        1.0e-12);
+        }
+
+        double low_fidelity[6];
+        EMTG::Astrodynamics::EphemerisDerivative::compute_state_derivative(
+            current,
+            before,
+            after,
+            step,
+            EMTG::Astrodynamics::EphemerisDerivative::Stencil::Forward,
+            false,
+            low_fidelity);
+        for (size_t state_index = 0; state_index < 6; ++state_index)
+        {
+            check_close("low-fidelity mode matches legacy one-sided component " + std::to_string(state_index),
+                        low_fidelity[state_index],
+                        legacy[state_index],
                         1.0e-12);
         }
 

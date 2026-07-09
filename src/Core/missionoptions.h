@@ -119,6 +119,7 @@ namespace EMTG
         std::string SPICE_reference_frame_kernel;//SPICE_reference_frame_kernel
         std::string universe_folder;//Universe folder
         int ephemeris_source;//Choices are 0 - static, 1 - SPICE (default to static if no SPICE file supplied for a body), 2 - SplineEphem
+        bool SPICE_high_fidelity_derivatives;//Use central differencing for SPICE acceleration derivatives? Disable to use one-sided velocity differencing for lower runtime cost.
         size_t SplineEphem_points_per_period;//How many sample points should SplineEphem use per orbital period of each body?
         size_t SplineEphem_non_central_body_sun_points_per_period;//How many sample points should SplineEphem use per orbital period of the sun with respect to the central body?
         bool SplineEphem_truncate_ephemeris_at_maximum_mission_epoch;//Truncate SplineEphem at maximum mission epoch?
