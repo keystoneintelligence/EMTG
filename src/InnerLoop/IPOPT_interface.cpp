@@ -360,6 +360,7 @@ namespace EMTG
                         this->myProblem->Xopt = this->X_NLP_incumbent_unscaled;
                         this->myProblem->F = this->F_NLP_incumbent;
                         this->myProblem->evaluate(this->X_NLP_incumbent_unscaled, this->F_NLP_incumbent, this->G, false);
+                        this->reset_evaluation_cache();
 
                         this->myProblem->what_the_heck_am_I_called(SolutionOutputType::SUCCESS);
                         this->myProblem->output(this->myProblem->options.outputfile);
@@ -390,6 +391,7 @@ namespace EMTG
                         this->myProblem->Xopt = this->X_NLP_incumbent_unscaled;
                         this->myProblem->F = this->F_NLP_incumbent;
                         this->myProblem->evaluate(this->X_NLP_incumbent_unscaled, this->F_NLP_incumbent, this->G, false);
+                        this->reset_evaluation_cache();
 
                         this->myProblem->what_the_heck_am_I_called(SolutionOutputType::SUCCESS);
                         this->myProblem->output(this->myProblem->options.outputfile);
@@ -409,6 +411,7 @@ namespace EMTG
                 this->myProblem->Xopt = this->X_NLP_incumbent_unscaled;
                 this->myProblem->F = this->F_NLP_incumbent;
                 this->myProblem->evaluate(this->X_NLP_incumbent_unscaled, this->F_NLP_incumbent, this->G, false);
+                this->reset_evaluation_cache();
                 this->myProblem->what_the_heck_am_I_called(SolutionOutputType::SUCCESS);
                 this->myProblem->output(this->myProblem->options.outputfile);
 
