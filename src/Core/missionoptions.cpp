@@ -54,7 +54,7 @@ namespace EMTG
         this->DLA_bounds = std::vector<double>({ -90.0, 90.0}); 
         this->RLA_bounds = std::vector<double>({ -2880.0, 2880.0}); 
         this->mission_type = (PhaseType) 2;
-        this->NLP_solver_type = 0;
+        this->NLP_solver_type = 2;
         this->NLP_solver_mode = (NLPMode) 1;
         this->quiet_NLP = (bool) 1;
         this->ACE_feasible_point_finder = (bool) 0;
@@ -2072,9 +2072,9 @@ namespace EMTG
             optionsFileStream << "mission_type " << this->mission_type << std::endl;
         }
     
-        if (this->NLP_solver_type != 0 || writeAll)
+        if (this->NLP_solver_type != 2 || writeAll)
         {
-            optionsFileStream << "#NLP solver type\n#0: SNOPT\n#1: WORHP\n#2: IPOPT" << std::endl;
+            optionsFileStream << "#NLP solver type\n#0: SNOPT\n#2: IPOPT" << std::endl;
             optionsFileStream << "NLP_solver_type " << this->NLP_solver_type << std::endl;
         }
     

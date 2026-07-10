@@ -20,6 +20,7 @@ import wx
 import wx.adv
 import wx.lib.scrolledpanel
 import platform
+from SolverAvailability import available_solver_choices, SOLVER_NAMES
 
 class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
     def __init__(self, parent, missionoptions):
@@ -39,8 +40,9 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.cmbInnerLoopSolver = wx.ComboBox(self, -1, choices = innerloopsolvertypes, style=wx.CB_READONLY)
 
         self.lblNLP_solver_type = wx.StaticText(self, -1, "NLP solver")
-        NLP_solver_types = ['SNOPT','WORHP','IPOPT']
-        self.cmbNLP_solver_type = wx.ComboBox(self, -1, choices = NLP_solver_types, style=wx.CB_READONLY)
+        solver_choices = available_solver_choices()
+        self.NLP_solver_type_values = [solver_type for solver_type, _ in solver_choices]
+        self.cmbNLP_solver_type = wx.ComboBox(self, -1, choices = [name for _, name in solver_choices], style=wx.CB_READONLY)
 
         self.lblNLP_solver_mode = wx.StaticText(self, -1, "NLP solver mode")
         NLP_solver_modes = ['Feasible point','Optimize','Satisfy equality constraints']
@@ -239,7 +241,19 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         if self.missionoptions.run_inner_loop == 1 and self.missionoptions.MBH_max_run_time < self.missionoptions.snopt_max_run_time: #MBH
             self.missionoptions.MBH_max_run_time = self.missionoptions.snopt_max_run_time + 1
         
-        self.cmbNLP_solver_type.SetSelection(self.missionoptions.NLP_solver_type)
+        if self.missionoptions.NLP_solver_type in self.NLP_solver_type_values:
+            self.cmbNLP_solver_type.SetSelection(self.NLP_solver_type_values.index(self.missionoptions.NLP_solver_type))
+            self.cmbNLP_solver_type.SetToolTip("")
+        else:
+            self.cmbNLP_solver_type.SetSelection(wx.NOT_FOUND)
+            unavailable_name = SOLVER_NAMES.get(self.missionoptions.NLP_solver_type, "unknown")
+            self.cmbNLP_solver_type.SetToolTip(
+                "This options file requests unavailable solver "
+                + unavailable_name
+                + " ("
+                + str(self.missionoptions.NLP_solver_type)
+                + "). Select a solver compiled into the current EMTG build."
+            )
         self.cmbNLP_solver_mode.SetSelection(self.missionoptions.NLP_solver_mode)
         self.chkquiet_NLP.SetValue(self.missionoptions.quiet_NLP)
         self.chkenable_NLP_chaperone.SetValue(self.missionoptions.enable_NLP_chaperone)
@@ -609,7 +623,9 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
 
     def ChangeNLP_solver_type(self, e):
         e.Skip()
-        self.missionoptions.NLP_solver_type = self.cmbNLP_solver_type.GetSelection()
+        selection = self.cmbNLP_solver_type.GetSelection()
+        if selection != wx.NOT_FOUND:
+            self.missionoptions.NLP_solver_type = self.NLP_solver_type_values[selection]
         self.update()
 
     def ChangeNLP_solver_mode(self, e):

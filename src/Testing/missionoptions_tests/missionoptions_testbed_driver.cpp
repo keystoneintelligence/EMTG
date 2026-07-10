@@ -126,6 +126,13 @@ int main(int argc, char* argv[])
         check_equal("roundtrip forced working directory", reparsed_options.forced_working_directory, regression_options.forced_working_directory);
         check_true("default SPICE derivative fidelity disabled", !reparsed_options.SPICE_high_fidelity_derivatives);
 
+        check_true("open-source default NLP solver is IPOPT", options.NLP_solver_type == 2);
+        regression_options.NLP_solver_type = 2;
+        const std::string ipopt_roundtrip_file = "tests/missionoptions_ipopt_roundtrip.emtgopt";
+        regression_options.write(ipopt_roundtrip_file, true);
+        EMTG::missionoptions ipopt_options(ipopt_roundtrip_file);
+        check_true("IPOPT numeric solver ID roundtrip", ipopt_options.NLP_solver_type == 2);
+
         regression_options.SPICE_high_fidelity_derivatives = true;
         const std::string derivative_option_file = "tests/missionoptions_spice_derivative_mode.emtgopt";
         regression_options.write(derivative_option_file, false);

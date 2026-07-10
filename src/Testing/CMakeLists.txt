@@ -15,6 +15,7 @@ option(RUN_MISSIONOPTIONS_TESTBED "Do you want to run the missionoptions testbed
 option(RUN_ADOUBLE_TESTBED "Do you want to run the local adouble compatibility tests?" ON)
 option(RUN_INTEGRATION_TESTBED "Do you want to run the local integration tests?" ON)
 option(RUN_EPHEMERIS_DERIVATIVE_TESTBED "Do you want to run the ephemeris derivative quality tests?" ON)
+option(RUN_IPOPT_INTERFACE_TESTBED "Do you want to run the analytic IPOPT interface tests?" OFF)
 option(USE_AD_INSTRUMENTATION "Do you want to perform derivative accuracy checks with AD?" ON)
 
 set(EMTG_TESTBED_DEFAULT_OPTIONS "${CMAKE_SOURCE_DIR}/PyEMTG/default.emtgopt" CACHE FILEPATH "Default options file passed to CTest-registered EMTG testbed executables")
@@ -170,4 +171,11 @@ endif()
 
 if (RUN_MISSIONOPTIONS_TESTBED)
     add_subdirectory(missionoptions_tests)
+endif()
+
+if (RUN_IPOPT_INTERFACE_TESTBED)
+    if(NOT ENABLE_IPOPT OR NOT TARGET emtg)
+        message(FATAL_ERROR "RUN_IPOPT_INTERFACE_TESTBED requires a full build with ENABLE_IPOPT=ON")
+    endif()
+    add_subdirectory(ipopt_interface_tests)
 endif()

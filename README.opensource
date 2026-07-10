@@ -22,9 +22,9 @@ the build guide.
 ~~~~~~~~~~~~~
 Dependencies:
 ~~~~~~~~~~~~~
-EMTG has several software dependencies but all, except the Sparse Nonlinear OPTimizer (SNOPT), are free software. 
-The current EMTG software is configured to work best with SNOPT 7.6. To acquire SNOPT visit their product page 
-(http://sbsi-sol-optimize.com/asp/sol_product_snopt.htm). 
+EMTG has a fully open-source solver path using the Interior Point OPTimizer (IPOPT). IPOPT 3.14 or newer is the default nonlinear solver. The commercial Sparse Nonlinear OPTimizer (SNOPT) remains an optional backend for licensed users.
+
+Clean IPOPT-only build and test instructions are in `docs/1_Developers/ipopt.md`.
 
 The following dependencies have been bundled with this release and files associated with them can be found in /depend/:
 -– Boost 1.79.0
@@ -89,6 +89,9 @@ Q: I have a different SNOPT version than what is listed in the build system inst
 A: It is possible other versions will work. Feel free to try it and if you succeed consider providing us with updates we 
 can incorporate in future releases. You can make changes to /src/InnerLoop/snoptProblemExtension.h to get it to talk to 
 your SNOPT.
+
+Q: Do I need SNOPT to build or run EMTG?
+A: No. Configure with ENABLE_SNOPT=OFF and ENABLE_IPOPT=ON, or use the `ipopt-only` CMake preset. SNOPT is optional.
 
 Q: Can I use this commercially?
 A: Yes.

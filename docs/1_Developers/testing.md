@@ -49,7 +49,7 @@ cd testatron
 python testatron.py -a -e path\to\EMTGv9.exe -p ..\PyEMTG
 ```
 
-The asteroid integration folder is marked expected-no-truth until a reviewed `.emtg` baseline is added.
+The IPOPT asteroid integration uses reviewed numerical acceptance envelopes rather than byte-identical truth output. Run it with `python testatron/run_asteroid_integration.py --emtg path/to/EMTGv9`.
 
 ## GitHub Testatron Smoke Asset Strategy
 

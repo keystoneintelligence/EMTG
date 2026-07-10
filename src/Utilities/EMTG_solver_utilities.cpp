@@ -20,6 +20,7 @@
 //Jacob Englander 8-31-2016
 
 #include "EMTG_solver_utilities.h"
+#include <cstdint>
 #include <sstream>
 #include <iostream>
 

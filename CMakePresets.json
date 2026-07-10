@@ -18,18 +18,51 @@
         "RUN_EPHEMERIS_DERIVATIVE_TESTBED": "ON",
         "USE_AD_INSTRUMENTATION": "OFF"
       }
+    },
+    {
+      "name": "ipopt-only",
+      "displayName": "IPOPT-only EMTG development build",
+      "description": "Builds EMTG and the analytic solver tests with IPOPT as the only NLP backend. Set IPOPT_ROOT_DIR or use a discoverable system package.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/_local/builds/ipopt-only",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ENABLE_SNOPT": "OFF",
+        "ENABLE_IPOPT": "ON",
+        "BUILD_EMTG_TESTBED": "ON",
+        "RUN_IPOPT_INTERFACE_TESTBED": "ON",
+        "RUN_MISSION_TESTBED": "OFF",
+        "RUN_ACCELERATION_MODEL_TESTBED": "OFF",
+        "RUN_MISSIONOPTIONS_TESTBED": "ON",
+        "RUN_ADOUBLE_TESTBED": "ON",
+        "RUN_INTEGRATION_TESTBED": "ON",
+        "RUN_EPHEMERIS_DERIVATIVE_TESTBED": "ON",
+        "USE_AD_INSTRUMENTATION": "OFF",
+        "SPLINE_EPHEM": "ON"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "ci-fast",
       "configurePreset": "ci-fast"
+    },
+    {
+      "name": "ipopt-only",
+      "configurePreset": "ipopt-only"
     }
   ],
   "testPresets": [
     {
       "name": "ci-fast",
       "configurePreset": "ci-fast",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ipopt-only",
+      "configurePreset": "ipopt-only",
       "output": {
         "outputOnFailure": true
       }

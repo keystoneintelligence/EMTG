@@ -5,6 +5,7 @@ from test_selection import UNIT_TEST_FOLDERS
 CASE_LIST_KEYS = [
     'expected_failure_cases',
     'expected_no_truth_cases',
+    'numerical_acceptance_cases',
     'requires_spice_cases',
     'requires_ipopt_cases',
     'requires_snopt_cases',
@@ -57,15 +58,18 @@ def test_every_case_has_exactly_one_primary_inventory_category():
 def test_expected_no_truth_inventory_matches_missing_truth_files_and_markers():
     inventory = load_inventory()
     expected_no_truth = sorted(inventory['expected_no_truth_cases'])
+    numerical_acceptance = sorted(inventory['numerical_acceptance_cases'])
     missing_truths = sorted(
         case_id
         for case_id in all_case_ids()
         if not (TEST_ROOT / (case_id + '.emtg')).is_file()
     )
 
-    assert expected_no_truth == missing_truths
+    assert sorted(expected_no_truth + numerical_acceptance) == missing_truths
     for case_id in expected_no_truth:
         assert (TEST_ROOT / case_id).parent.joinpath('EXPECTED_NO_TRUTH.md').is_file()
+    for case_id in numerical_acceptance:
+        assert (TEST_ROOT / case_id).parent.joinpath('NUMERICAL_ACCEPTANCE.md').is_file()
 
 
 def test_requires_spice_inventory_matches_spice_ephemeris_cases():
@@ -81,3 +85,4 @@ def test_requires_ipopt_inventory_matches_ipopt_cases():
 def test_expected_failure_cases_are_explicit_and_disjoint_from_no_truth_cases():
     inventory = load_inventory()
     assert set(inventory['expected_failure_cases']).isdisjoint(inventory['expected_no_truth_cases'])
+    assert set(inventory['expected_failure_cases']).isdisjoint(inventory['numerical_acceptance_cases'])

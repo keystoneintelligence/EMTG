@@ -58,3 +58,21 @@ def test_regression_options_roundtrip_preserves_core_schema(tmp_path):
     original, reparsed = roundtrip_options(source, tmp_path)
 
     assert_options_match(original, reparsed)
+
+
+def test_ipopt_solver_selection_roundtrips_with_stable_numeric_id(tmp_path):
+    options = MissionOptions.MissionOptions()
+    options.NLP_solver_type = 2
+    output = tmp_path / 'ipopt.emtgopt'
+
+    options.write_options_file(str(output), writeAll=True)
+    reparsed = MissionOptions.MissionOptions(str(output))
+
+    assert reparsed.NLP_solver_type == 2
+    text = output.read_text(encoding='utf-8')
+    assert '#2: IPOPT' in text
+    assert '#1: WORHP' not in text
+
+
+def test_open_source_default_solver_is_ipopt():
+    assert MissionOptions.MissionOptions().NLP_solver_type == 2

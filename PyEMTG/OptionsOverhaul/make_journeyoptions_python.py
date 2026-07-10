@@ -109,6 +109,9 @@ def make_PyEMTG_JourneyOptions(OptionsDefinitions, now, path = '.'):
                 file.write('                        self.' + option['name'] + ' = ' + converter_in + 'linecell[1]' + converter_out + '\n')
             else:
                 file.write('                        self.' + option['name'] + ' = [' + converter_in + 'entry' + converter_out + ' for entry in linecell[1:]]\n')
+            if option['name'] == 'phase_type':
+                file.write('                        # Check for phase types that are not supported in PyEMTG\n')
+                file.write('                        if (self.phase_type < 2): print("WARNING: The selected options file contains an unsupported phase type. The supported phase types are MGALT, FBLT, PSBI, PSFB, MGAnDSMs, CoastPhase, SundmanCoastPhase, ProbeEntryPhase, and ControlLawThrustPhase.")\n')
             file.write('                  \n')
             ifelse = 'el'
 

@@ -17,12 +17,57 @@
 #endif
 
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 
 namespace EMTG
 {
     namespace Solvers
     {
+        bool IsNLPSolverAvailable(const int solverType)
+        {
+            switch (solverType)
+            {
+            case 0:
+#ifdef EMTG_ENABLE_SNOPT
+                return true;
+#else
+                return false;
+#endif
+            case 2:
+#ifdef EMTG_ENABLE_IPOPT
+                return true;
+#else
+                return false;
+#endif
+            default:
+                return false;
+            }
+        }
+
+        std::vector<int> GetAvailableNLPSolverTypes()
+        {
+            std::vector<int> solverTypes;
+            if (IsNLPSolverAvailable(0))
+                solverTypes.push_back(0);
+            if (IsNLPSolverAvailable(2))
+                solverTypes.push_back(2);
+            return solverTypes;
+        }
+
+        std::string GetAvailableNLPSolverDescription()
+        {
+            std::ostringstream description;
+            const std::vector<int> solverTypes = GetAvailableNLPSolverTypes();
+            for (size_t index = 0; index < solverTypes.size(); ++index)
+            {
+                if (index > 0)
+                    description << ", ";
+                description << (solverTypes[index] == 0 ? "SNOPT (0)" : "IPOPT (2)");
+            }
+            return description.str();
+        }
+
         std::unique_ptr<NLP_interface> CreateNLPInterface(problem* myProblem,
             const NLPoptions& myOptions)
         {
@@ -45,24 +90,16 @@ namespace EMTG
             {
                 return std::unique_ptr<NLP_interface>(new IPOPT_interface(myProblem, myOptions));
             }
-
-#ifndef EMTG_ENABLE_SNOPT
-            if (requestedSolver == 0)
-            {
-                std::cout << "WARNING: NLP_solver_type=0 requested SNOPT, but this EMTG build does not include SNOPT. Falling back to IPOPT." << std::endl;
-                return std::unique_ptr<NLP_interface>(new IPOPT_interface(myProblem, myOptions));
-            }
-#endif
 #endif
 
             if (requestedSolver == 0)
             {
-                throw std::runtime_error("NLP_solver_type=0 requested SNOPT, but this EMTG build does not include SNOPT support.");
+                throw std::runtime_error("NLP_solver_type=0 requested SNOPT, but this EMTG build does not include SNOPT support. Available solvers: " + GetAvailableNLPSolverDescription() + ".");
             }
 
             if (requestedSolver == 2)
             {
-                throw std::runtime_error("NLP_solver_type=2 requested IPOPT, but this EMTG build does not include IPOPT support.");
+                throw std::runtime_error("NLP_solver_type=2 requested IPOPT, but this EMTG build does not include IPOPT support. Available solvers: " + GetAvailableNLPSolverDescription() + ".");
             }
 
             throw std::runtime_error("Unsupported NLP_solver_type " + std::to_string(requestedSolver) + ".");

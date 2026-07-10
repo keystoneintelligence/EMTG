@@ -38,6 +38,7 @@ namespace EMTG
             max_step(1.0),
             feasibility_tolerance(1.0e-5),
             optimality_tolerance(1.0e-6),
+            objective_goal(1.0e+100),
             specs_file_path(""),
             output_file_path("")
         {

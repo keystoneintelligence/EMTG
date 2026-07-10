@@ -1,79 +1,70 @@
-#doohicky that makes missionoptions and journeyoptions C++ files based on JSON inputs
-#Jacob Englander 1/8/2019
+"""Generate EMTG C++ and Python option classes from the checked-in CSV schema."""
 
+from __future__ import annotations
+
+import argparse
 import csv
+from pathlib import Path
 import time
+
 from optionValidator import validate
- 
-#get the current epoch
-now = time.strftime("%c")
+from make_journeyoptions_header import make_journeyoptions_header
+from make_journeyoptions_source import make_journeyoptions_source
+from make_missionoptions_header import make_missionoptions_header
+from make_missionoptions_source import make_missionoptions_source
+from make_journeyoptions_python import make_PyEMTG_JourneyOptions
+from make_missionoptions_python import make_PyEMTG_MissionOptions
 
-#EMTG_path = 'C:/EMTG/'
-EMTG_path = 'C:/emtg/'
 
-EMTG_MissionOptionsStructure_file = EMTG_path + 'OptionsOverhaul/list_of_missionoptions.csv'
-EMTG_JourneyOptionsStructure_file = EMTG_path + 'OptionsOverhaul/list_of_journeyoptions.csv'
+SCRIPT_PATH = Path(__file__).resolve()
+DEFAULT_REPOSITORY_ROOT = SCRIPT_PATH.parents[2]
 
-#we need lists of all of the options of interest
-missionOptionsDefinitions = []
-journeyOptionsDefinitions = []
 
-with open(EMTG_JourneyOptionsStructure_file) as csvFile:
-    reader = csv.reader(csvFile)
-    for row in reader:
-        if reader.line_num == 1:
-            header = row
-        else:
-            optionDictionary = {}
-            for key, cell in zip(header, row):
-                if cell != '':
-                    optionDictionary[key] = cell
-            validate(optionDictionary)
-            journeyOptionsDefinitions.append(optionDictionary)
+def read_definitions(schema_file: Path) -> list[dict[str, str]]:
+    definitions: list[dict[str, str]] = []
+    with schema_file.open(newline="", encoding="utf-8-sig") as csv_file:
+        reader = csv.reader(csv_file)
+        header: list[str] | None = None
+        for row in reader:
+            if reader.line_num == 1:
+                header = row
+                continue
+            if header is None:
+                raise RuntimeError(f"Missing header in {schema_file}")
+            option = {key: cell for key, cell in zip(header, row) if cell != ""}
+            validate(option)
+            definitions.append(option)
+    return definitions
 
-with open(EMTG_MissionOptionsStructure_file) as csvFile:
-    reader = csv.reader(csvFile)
-    for row in reader:
-        if reader.line_num == 1:
-            header = row
-        else:
-            optionDictionary = {}
-            for key, cell in zip(header, row):
-                if cell != '':
-                    optionDictionary[key] = cell
-            validate(optionDictionary)
-            missionOptionsDefinitions.append(optionDictionary)
 
-#create journeyoptions.h
-from make_journeyoptions_header import *
-make_journeyoptions_header(journeyOptionsDefinitions, now, path=EMTG_path)
-#make_journeyoptions_header(journeyOptionsDefinitions, now)
+def generate(repository_root: Path) -> None:
+    repository_root = repository_root.resolve()
+    schema_root = repository_root / "OptionsOverhaul"
+    journey_definitions = read_definitions(schema_root / "list_of_journeyoptions.csv")
+    mission_definitions = read_definitions(schema_root / "list_of_missionoptions.csv")
+    generated_timestamp = time.strftime("%c")
 
-#create journeyoptions.cpp
-from make_journeyoptions_source import *
-make_journeyoptions_source(journeyOptionsDefinitions, now, path=EMTG_path)
-#make_journeyoptions_source(journeyOptionsDefinitions, now)
+    # The legacy generators concatenate their path argument, so retain one
+    # explicit trailing separator while keeping all machine paths out of source.
+    output_root = repository_root.as_posix() + "/"
+    make_journeyoptions_header(journey_definitions, generated_timestamp, path=output_root)
+    make_journeyoptions_source(journey_definitions, generated_timestamp, path=output_root)
+    make_missionoptions_header(mission_definitions, generated_timestamp, path=output_root)
+    make_missionoptions_source(mission_definitions, generated_timestamp, path=output_root)
+    make_PyEMTG_JourneyOptions(journey_definitions, generated_timestamp, path=output_root)
+    make_PyEMTG_MissionOptions(mission_definitions, generated_timestamp, path=output_root)
 
-#create missionoptions.h
-from make_missionoptions_header import *
-make_missionoptions_header(missionOptionsDefinitions, now, path=EMTG_path)
-#make_missionoptions_header(missionOptionsDefinitions, now)
 
-#create missionoptions.cpp
-from make_missionoptions_source import *
-make_missionoptions_source(missionOptionsDefinitions, now, path=EMTG_path)
-#make_missionoptions_source(missionOptionsDefinitions, now)
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=DEFAULT_REPOSITORY_ROOT,
+        help="EMTG repository root (defaults to the root containing this script)",
+    )
+    return parser.parse_args()
 
-#build PyMissionOptions.h
-from make_PyMissionOptions import *
-#make_PyMissionOptions(journeyOptionsDefinitions, missionOptionsDefinitions, now, path=EMTG_path + 'PyEMTG')
 
-#build PyEMTG JourneyOptions
-from make_journeyoptions_python import *
-make_PyEMTG_JourneyOptions(journeyOptionsDefinitions, now, path=EMTG_path)
-#make_PyEMTG_JourneyOptions(journeyOptionsDefinitions, now)
-
-#build PyEMTG MissionOptions
-from make_missionoptions_python import *
-make_PyEMTG_MissionOptions(missionOptionsDefinitions, now, path=EMTG_path)
-#make_PyEMTG_MissionOptions(missionOptionsDefinitions, now)
+if __name__ == "__main__":
+    generate(parse_args().root)
