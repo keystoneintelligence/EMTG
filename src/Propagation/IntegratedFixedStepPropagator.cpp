@@ -17,8 +17,6 @@
 // governing permissions and limitations under the License.
 
 #include "IntegratedFixedStepPropagator.h"
-#include "missionoptions.h"
-#include "universe.h"
 
 namespace EMTG {
     namespace Astrodynamics {

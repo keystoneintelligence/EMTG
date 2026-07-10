@@ -19,9 +19,7 @@
 #ifndef INTEGRATED_ADAPTIVE_STEP_PROPAGATOR_H
 #define INTEGRATED_ADAPTIVE_STEP_PROPAGATOR_H
 
-#include "missionoptions.h"
 #include "IntegratedPropagator.h"
-#include "universe.h"
 
 namespace EMTG {
     namespace Astrodynamics {
