@@ -22,7 +22,10 @@
 #include "EMTG_Matrix.h"
 #include "Integrand.h"
 #include "IntegrationScheme.h"
+#include "IntegrationStatistics.h"
 #include "PropagatorBase.h"
+
+#include <chrono>
 
 namespace EMTG {
     namespace Astrodynamics {
@@ -60,6 +63,9 @@ namespace EMTG {
             virtual void propagate(const doubleType & propagation_span, const bool & needSTM) = 0;
             virtual void propagate(const doubleType & propagation_span, const math::Matrix <doubleType> & control, const bool & needSTM) = 0;
 
+            const IntegrationStatistics& getIntegrationStatistics() const { return this->integration_statistics; }
+            void resetIntegrationStatistics() { this->integration_statistics.reset(); }
+
         protected:
 
             void propagatorSetup(const math::Matrix<doubleType> & state_left, 
@@ -69,6 +75,9 @@ namespace EMTG {
                                     math::Matrix<doubleType> & state_right,
                                     math::Matrix<double> & STM_ptr,
                                     const doubleType & propagation_span);
+            void beginStatistics(const double propagation_span);
+            void finishStatistics();
+            void recordAcceptedStep(const double step_size, const bool needSTM, const bool endpoint_capped);
 
             // fields
             Integration::Integrand * integrand;
@@ -89,6 +98,8 @@ namespace EMTG {
 
             // Partial of the current propagation step size w.r.t. the current propagation variable (flight times or total angle)
             double dstep_sizedProp_var;
+            IntegrationStatistics integration_statistics;
+            std::chrono::steady_clock::time_point statistics_start_time;
 
         };
 

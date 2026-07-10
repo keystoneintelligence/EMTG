@@ -1,5 +1,7 @@
 # Adaptive Step Driver Audit
 
+> This driver-only audit is superseded for current implementation and qualification status by [adaptive_integration_qualification.md](adaptive_integration_qualification.md). Its historical benchmark remains useful, but fixed step is still the default.
+
 ## Summary
 
 The adaptive RK error estimate is usable, but the integrated adaptive-step driver had two driver-level defects that made it unsafe to rely on for full propagation workflows:

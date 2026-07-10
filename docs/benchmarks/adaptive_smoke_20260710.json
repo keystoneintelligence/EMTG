@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "campaign": "paired_fixed_adaptive_smoke",
+  "date_utc": "2026-07-10",
+  "build": {
+    "configuration": "Release",
+    "compiler": "MSVC 19.44.35214.0",
+    "nlp_solver": "IPOPT 3.14.20",
+    "emtg_sha256": "243e1b2c63ceadf9354df6efcab2899111d1ad1b4dffad9acdb0e1bcd4ee3bb6"
+  },
+  "machine": {
+    "os": "Windows 10.0.19045",
+    "processor": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+  },
+  "case": {
+    "path": "testatron/tests/integration_asteroid_missions/A20136163_AEPS_IPOPT_FBLT.emtgopt",
+    "sha256": "ec1c585359d4c6b1f3f4d6382eff55f688adcc63a645867955fdee5d9e73f4ec",
+    "seed": 104729,
+    "run_order": ["fixed", "adaptive"]
+  },
+  "results": {
+    "fixed": {
+      "feasible": true,
+      "wall_seconds": 298.0680134,
+      "time_to_first_feasible_seconds": 289.688,
+      "objective": -0.7624281481407484,
+      "worst_constraint_violation": 4.68401702605555e-06,
+      "final_mass_kg": 1906.070370351871,
+      "flight_time_years": 5.736848451585919,
+      "solution_family": "de35b163a721346c"
+    },
+    "adaptive": {
+      "feasible": true,
+      "wall_seconds": 156.4010088,
+      "time_to_first_feasible_seconds": 145.509,
+      "objective": -0.7634110936036691,
+      "worst_constraint_violation": 9.23599544496377e-06,
+      "final_mass_kg": 1908.5277340091727,
+      "flight_time_years": 6.576941781847646,
+      "solution_family": "3094db90451b21d0"
+    }
+  },
+  "paired_comparison": {
+    "adaptive_runtime_change_percent": -47.528416,
+    "objective_difference_adaptive_minus_fixed": -0.0009829454629207,
+    "same_solution_family": false
+  },
+  "limitations": [
+    "One paired seed is smoke evidence, not a statistical convergence or novelty qualification.",
+    "Mission-level RHS and accepted/rejected-step totals were not emitted by this build.",
+    "Run order was fixed then adaptive; local/nightly tiers alternate order across seeds."
+  ]
+}

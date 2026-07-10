@@ -15,6 +15,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -67,9 +68,9 @@ namespace
     class DriverAuditIntegrand : public EMTG::Integration::Integrand
     {
     public:
-        DriverAuditIntegrand() : evaluation_count(0)
+        explicit DriverAuditIntegrand(const size_t stm_size = driver_stm_size) : evaluation_count(0)
         {
-            this->state_propagation_matrix.resize(driver_stm_size, driver_stm_size, 0.0);
+            this->state_propagation_matrix.resize(stm_size, stm_size, 0.0);
         }
 
         void evaluate(const EMTG::math::Matrix<doubleType>& state,
@@ -786,6 +787,433 @@ namespace
 
         return true;
     }
+
+    bool test_component_atol_rtol_contract()
+    {
+        OscillatoryIntegrand integrand(driver_forcing_omega);
+        EMTG::Integration::ExplicitRungeKutta rk(&integrand,
+                                                 EMTG::IntegrationCoefficientsType::rkdp87,
+                                                 1,
+                                                 1);
+        doubleType independent_variable = 0.0;
+        rk.setLeftHandIndependentVariablePtr(independent_variable);
+
+        EMTG::Integration::AdaptiveErrorControlSettings settings;
+        settings.relative_tolerance = 1.0e-6;
+        settings.absolute_tolerances = {1.0e-12};
+        settings.stm_policy = EMTG::Integration::STMErrorControlPolicy::state_only;
+        rk.setAdaptiveErrorControlSettings(settings);
+
+        EMTG::math::Matrix<doubleType> small_left(1, 1, 0.0);
+        EMTG::math::Matrix<doubleType> large_left(1, 1, 1.0e8);
+        EMTG::math::Matrix<doubleType> state_right(1, 1, 0.0);
+        EMTG::math::Matrix<doubleType> control(1, 1, 0.0);
+        EMTG::math::Matrix<double> stm_left(1, EMTG::math::identity);
+        EMTG::math::Matrix<double> stm_right(1, EMTG::math::identity);
+        EMTG::math::Matrix<double> legacy_scaling(2, 1, 1.0);
+        doubleType small_error = 0.0;
+        doubleType large_error = 0.0;
+
+        rk.errorControlledStep(small_left, stm_left, state_right, stm_right, control,
+                               1.0, 0.0, false, small_error, legacy_scaling);
+        independent_variable = 0.0;
+        rk.errorControlledStep(large_left, stm_left, state_right, stm_right, control,
+                               1.0, 0.0, false, large_error, legacy_scaling);
+
+        if (!(small_error > large_error * 1.0e6))
+        {
+            std::cerr << "Component error was not normalized by atol + rtol*max(|left|,|trial|): small="
+                      << small_error << " large=" << large_error << std::endl;
+            return false;
+        }
+
+        bool rejected_invalid_tolerance = false;
+        settings.absolute_tolerances[0] = 0.0;
+        try
+        {
+            rk.setAdaptiveErrorControlSettings(settings);
+        }
+        catch (const std::invalid_argument&)
+        {
+            rejected_invalid_tolerance = true;
+        }
+        return rejected_invalid_tolerance;
+    }
+
+    bool test_separate_stm_error_norm()
+    {
+        DriverAuditIntegrand integrand;
+        EMTG::Integration::ExplicitRungeKutta rk(&integrand,
+                                                 EMTG::IntegrationCoefficientsType::rkdp87,
+                                                 driver_state_size,
+                                                 driver_stm_size);
+        doubleType independent_variable = 0.0;
+        rk.setLeftHandIndependentVariablePtr(independent_variable);
+        EMTG::math::Matrix<doubleType> state_left = make_driver_initial_state();
+        EMTG::math::Matrix<doubleType> state_right(driver_state_size, 1, 0.0);
+        EMTG::math::Matrix<doubleType> control(4, 1, 0.0);
+        EMTG::math::Matrix<double> stm_left(driver_stm_size, EMTG::math::identity);
+        EMTG::math::Matrix<double> stm_right(driver_stm_size, EMTG::math::identity);
+        EMTG::math::Matrix<double> legacy_scaling(driver_state_size + driver_stm_size * driver_stm_size, 1, 1.0);
+        EMTG::Integration::AdaptiveErrorControlSettings settings;
+        settings.relative_tolerance = 1.0;
+        settings.absolute_tolerances.assign(driver_state_size, 1.0e6);
+        settings.stm_relative_tolerance = 1.0e-12;
+        settings.stm_absolute_tolerances.assign(driver_stm_size * driver_stm_size, 1.0e-14);
+        settings.stm_policy = EMTG::Integration::STMErrorControlPolicy::state_and_stm;
+        rk.setAdaptiveErrorControlSettings(settings);
+
+        doubleType error = 0.0;
+        rk.errorControlledStep(state_left, stm_left, state_right, stm_right, control,
+                               2.0, 0.0, true, error, legacy_scaling);
+        const auto estimate_with_stm = rk.getLastEmbeddedErrorEstimate();
+        if (!(estimate_with_stm.stm_normalized_error > estimate_with_stm.state_normalized_error
+              && estimate_with_stm.combined_normalized_error == estimate_with_stm.stm_normalized_error))
+        {
+            std::cerr << "Separate STM norm did not control the combined error." << std::endl;
+            return false;
+        }
+
+        settings.stm_policy = EMTG::Integration::STMErrorControlPolicy::state_only;
+        rk.setAdaptiveErrorControlSettings(settings);
+        independent_variable = 0.0;
+        rk.errorControlledStep(state_left, stm_left, state_right, stm_right, control,
+                               2.0, 0.0, true, error, legacy_scaling);
+        const auto estimate_state_only = rk.getLastEmbeddedErrorEstimate();
+        return estimate_state_only.stm_normalized_error == 0.0
+            && estimate_state_only.combined_normalized_error == estimate_state_only.state_normalized_error;
+    }
+
+    bool test_statistics_and_propagation_variable_derivative()
+    {
+        const size_t augmented_stm_size = driver_stm_size + 1;
+        DriverAuditIntegrand integrand(augmented_stm_size);
+        EMTG::Integration::ExplicitRungeKutta rk(&integrand,
+                                                 EMTG::IntegrationCoefficientsType::rkdp87,
+                                                 driver_state_size,
+                                                 augmented_stm_size);
+        EMTG::math::Matrix<doubleType> state_left = make_driver_initial_state();
+        EMTG::math::Matrix<doubleType> state_right(driver_state_size, 1, 0.0);
+        EMTG::math::Matrix<double> stm(augmented_stm_size, EMTG::math::identity);
+        EMTG::math::Matrix<double> derivative_state(driver_state_size, 2, 0.0);
+        EMTG::math::Matrix<double> legacy_scaling(driver_state_size + augmented_stm_size * augmented_stm_size, 1, 1.0);
+        double boundary_derivative = 1.0;
+
+        EMTG::Integration::AdaptiveErrorControlSettings settings;
+        settings.relative_tolerance = 1.0e-10;
+        settings.absolute_tolerances.assign(driver_state_size, 1.0e-12);
+        settings.stm_policy = EMTG::Integration::STMErrorControlPolicy::state_only;
+
+        EMTG::Astrodynamics::IntegratedAdaptiveStepPropagator propagator(driver_state_size, augmented_stm_size);
+        propagator.setIntegrand(&integrand);
+        propagator.setIntegrationScheme(&rk);
+        propagator.setStateLeft(state_left);
+        propagator.setStateRight(state_right);
+        propagator.setSTM(stm);
+        propagator.setdStatedIndependentVariable(derivative_state);
+        propagator.setCurrentEpoch(0.0);
+        propagator.setCurrentIndependentVariable(0.0);
+        propagator.setIndexOfEpochInStateVec(driver_epoch_index);
+        propagator.setPropagationStepSize(2.0);
+        propagator.setInitialStepSize(2.0);
+        propagator.setStorePropagationHistory(true);
+        propagator.setBoundaryTarget_dStepSizedPropVar(&boundary_derivative);
+        propagator.setErrorScalingFactors(legacy_scaling);
+        propagator.setAdaptiveErrorControlSettings(settings);
+        propagator.propagate(10.0, true);
+
+        const EMTG::Astrodynamics::IntegrationStatistics& statistics = propagator.getIntegrationStatistics();
+        if (statistics.accepted_steps != propagator.getPropagationHistory().size()
+            || statistics.attempted_steps != statistics.accepted_steps + statistics.rejected_steps
+            || statistics.rhs_evaluations != statistics.attempted_steps * 13
+            || statistics.stm_rhs_evaluations != statistics.rhs_evaluations
+            || statistics.rejected_steps == 0
+            || statistics.minimum_accepted_step <= 0.0
+            || statistics.maximum_accepted_step > 2.0
+            || statistics.maximum_normalized_error <= 1.0)
+        {
+            std::cerr << "Adaptive integration statistics are inconsistent." << std::endl;
+            return false;
+        }
+
+        const double expected_duration_derivative = -driver_omega * std::sin(driver_omega * 10.0);
+        if (std::fabs(stm(0, augmented_stm_size - 1) - expected_duration_derivative) > 1.0e-6)
+        {
+            std::cerr << "Adaptive propagation-variable derivative is inconsistent: observed="
+                      << stm(0, augmented_stm_size - 1)
+                      << " expected=" << expected_duration_derivative << std::endl;
+            return false;
+        }
+
+        EMTG::math::Matrix<doubleType> fixed_left = make_driver_initial_state();
+        EMTG::math::Matrix<doubleType> fixed_right(driver_state_size, 1, 0.0);
+        EMTG::math::Matrix<double> fixed_stm(augmented_stm_size, EMTG::math::identity);
+        EMTG::Astrodynamics::IntegratedFixedStepPropagator fixed(driver_state_size, augmented_stm_size);
+        fixed.setIntegrand(&integrand);
+        fixed.setIntegrationScheme(&rk);
+        fixed.setStateLeft(fixed_left);
+        fixed.setStateRight(fixed_right);
+        fixed.setSTM(fixed_stm);
+        fixed.setCurrentEpoch(0.0);
+        fixed.setCurrentIndependentVariable(0.0);
+        fixed.setIndexOfEpochInStateVec(driver_epoch_index);
+        fixed.setPropagationStepSize(3.0);
+        fixed.setBoundaryTarget_dStepSizedPropVar(&boundary_derivative);
+        fixed.propagate(10.0, false);
+        const auto& fixed_statistics = fixed.getIntegrationStatistics();
+        if (fixed_statistics.attempted_steps != 4
+            || fixed_statistics.accepted_steps != 4
+            || fixed_statistics.rejected_steps != 0
+            || fixed_statistics.rhs_evaluations != 52
+            || fixed_statistics.endpoint_capped_steps != 1
+            || fixed_statistics.minimum_accepted_step != 1.0
+            || fixed_statistics.maximum_accepted_step != 3.0)
+        {
+            std::cerr << "Fixed-step integration statistics are inconsistent." << std::endl;
+            return false;
+        }
+
+        return true;
+    }
+
+    double run_dense_output_case(const double maximum_step)
+    {
+        DriverAuditIntegrand integrand;
+        EMTG::Integration::ExplicitRungeKutta rk(&integrand,
+                                                 EMTG::IntegrationCoefficientsType::rkdp87,
+                                                 driver_state_size,
+                                                 driver_stm_size);
+        EMTG::math::Matrix<doubleType> state_left = make_driver_initial_state();
+        EMTG::math::Matrix<doubleType> state_right(driver_state_size, 1, 0.0);
+        EMTG::math::Matrix<double> stm(driver_stm_size, EMTG::math::identity);
+        EMTG::math::Matrix<double> derivative_state(driver_state_size, 2, 0.0);
+        EMTG::math::Matrix<double> legacy_scaling(driver_state_size + driver_stm_size * driver_stm_size, 1, 1.0);
+        double boundary_derivative = 0.0;
+        EMTG::Integration::AdaptiveErrorControlSettings settings;
+        settings.relative_tolerance = 1.0;
+        settings.absolute_tolerances.assign(driver_state_size, 100.0);
+        settings.stm_policy = EMTG::Integration::STMErrorControlPolicy::state_only;
+
+        EMTG::Astrodynamics::IntegratedAdaptiveStepPropagator propagator(driver_state_size, driver_stm_size);
+        propagator.setIntegrand(&integrand);
+        propagator.setIntegrationScheme(&rk);
+        propagator.setStateLeft(state_left);
+        propagator.setStateRight(state_right);
+        propagator.setSTM(stm);
+        propagator.setdStatedIndependentVariable(derivative_state);
+        propagator.setCurrentEpoch(0.0);
+        propagator.setCurrentIndependentVariable(0.0);
+        propagator.setIndexOfEpochInStateVec(driver_epoch_index);
+        propagator.setPropagationStepSize(maximum_step);
+        propagator.setInitialStepSize(maximum_step);
+        propagator.setBoundaryTarget_dStepSizedPropVar(&boundary_derivative);
+        propagator.setErrorScalingFactors(legacy_scaling);
+        propagator.setAdaptiveErrorControlSettings(settings);
+        propagator.setRequestedEpochs({0.25, 0.75, 1.25, 1.75, 2.0});
+        propagator.propagate(2.0, false);
+
+        double maximum_error = 0.0;
+        const auto& points = propagator.getRequestedEpochStates();
+        if (points.size() != 5
+            || propagator.getIntegrationStatistics().requested_epoch_evaluations != points.size())
+            return std::numeric_limits<double>::infinity();
+        for (const auto& point : points)
+        {
+            maximum_error = std::max(maximum_error,
+                max_abs_state_error(extract_state(point.state), exact_driver_state(point.independent_variable)));
+        }
+        return maximum_error;
+    }
+
+    bool test_dense_output_and_events()
+    {
+        const double coarse_dense_error = run_dense_output_case(1.0);
+        const double fine_dense_error = run_dense_output_case(0.5);
+        if (!(fine_dense_error < 0.3 * coarse_dense_error && coarse_dense_error < 2.5e-1))
+        {
+            std::cerr << "Cubic Hermite dense output did not show the expected convergence trend: coarse="
+                      << coarse_dense_error << " fine=" << fine_dense_error << std::endl;
+            return false;
+        }
+
+        DriverAuditIntegrand integrand;
+        EMTG::Integration::ExplicitRungeKutta rk(&integrand,
+                                                 EMTG::IntegrationCoefficientsType::rkdp87,
+                                                 driver_state_size,
+                                                 driver_stm_size);
+        EMTG::math::Matrix<doubleType> state_left = make_driver_initial_state();
+        EMTG::math::Matrix<doubleType> state_right(driver_state_size, 1, 0.0);
+        EMTG::math::Matrix<double> stm(driver_stm_size, EMTG::math::identity);
+        EMTG::math::Matrix<double> derivative_state(driver_state_size, 2, 0.0);
+        EMTG::math::Matrix<double> legacy_scaling(driver_state_size + driver_stm_size * driver_stm_size, 1, 1.0);
+        double boundary_derivative = 0.0;
+        EMTG::Integration::AdaptiveErrorControlSettings settings;
+        settings.relative_tolerance = 1.0e-10;
+        settings.absolute_tolerances.assign(driver_state_size, 1.0e-12);
+        settings.stm_policy = EMTG::Integration::STMErrorControlPolicy::state_only;
+
+        EMTG::Astrodynamics::IntegratedAdaptiveStepPropagator propagator(driver_state_size, driver_stm_size);
+        propagator.setIntegrand(&integrand);
+        propagator.setIntegrationScheme(&rk);
+        propagator.setStateLeft(state_left);
+        propagator.setStateRight(state_right);
+        propagator.setSTM(stm);
+        propagator.setdStatedIndependentVariable(derivative_state);
+        propagator.setCurrentEpoch(0.0);
+        propagator.setCurrentIndependentVariable(0.0);
+        propagator.setIndexOfEpochInStateVec(driver_epoch_index);
+        propagator.setPropagationStepSize(2.0);
+        propagator.setBoundaryTarget_dStepSizedPropVar(&boundary_derivative);
+        propagator.setErrorScalingFactors(legacy_scaling);
+        propagator.setAdaptiveErrorControlSettings(settings);
+        propagator.setScalarEvent(
+            [](const EMTG::math::Matrix<doubleType>& state, const double) { return state(0) _GETVALUE; },
+            -1,
+            false,
+            1.0e-9);
+        propagator.propagate(5.0, false);
+
+        const auto& events = propagator.getLocatedEvents();
+        const double expected_event_time = std::acos(0.0) / driver_omega;
+        if (events.size() != 1
+            || std::fabs(events[0].independent_variable - expected_event_time) > 2.0e-7
+            || std::fabs(events[0].event_value) > 2.0e-7
+            || propagator.getIntegrationStatistics().event_landings != 1)
+        {
+            std::cerr << "Directional scalar event localization failed." << std::endl;
+            return false;
+        }
+
+        state_left = make_driver_initial_state();
+        state_right.assign_zeros();
+        stm.construct_identity_matrix();
+        propagator.setStateLeft(state_left);
+        propagator.setStateRight(state_right);
+        propagator.setSTM(stm);
+        propagator.setCurrentEpoch(0.0);
+        propagator.setCurrentIndependentVariable(0.0);
+        propagator.setScalarEvent(
+            [](const EMTG::math::Matrix<doubleType>& state, const double) { return state(0) _GETVALUE; },
+            -1,
+            true,
+            1.0e-9);
+        propagator.propagate(5.0, false);
+        if (std::fabs(state_right(driver_epoch_index) _GETVALUE - expected_event_time) > 2.0e-7
+            || propagator.getLocatedEvents().size() != 1
+            || !propagator.getLocatedEvents()[0].terminal)
+        {
+            std::cerr << "Terminal scalar event did not stop at the located root." << std::endl;
+            return false;
+        }
+
+        bool rejected_stm_dense_output = false;
+        state_left = make_driver_initial_state();
+        propagator.setStateLeft(state_left);
+        propagator.setRequestedEpochs({0.1});
+        try
+        {
+            propagator.propagate(1.0, true);
+        }
+        catch (const std::runtime_error&)
+        {
+            rejected_stm_dense_output = true;
+        }
+        return rejected_stm_dense_output;
+    }
+
+    struct ContinuitySweepResult
+    {
+        double span;
+        double terminal_state;
+        double propagated_derivative;
+        size_t accepted_steps;
+        size_t rejected_steps;
+        std::vector<double> schedule;
+    };
+
+    ContinuitySweepResult run_continuity_sweep_point(const double span)
+    {
+        const size_t augmented_stm_size = driver_stm_size + 1;
+        DriverAuditIntegrand integrand(augmented_stm_size);
+        EMTG::Integration::ExplicitRungeKutta rk(&integrand,
+                                                 EMTG::IntegrationCoefficientsType::rkdp87,
+                                                 driver_state_size,
+                                                 augmented_stm_size);
+        EMTG::math::Matrix<doubleType> state_left = make_driver_initial_state();
+        EMTG::math::Matrix<doubleType> state_right(driver_state_size, 1, 0.0);
+        EMTG::math::Matrix<double> stm(augmented_stm_size, EMTG::math::identity);
+        EMTG::math::Matrix<double> derivative_state(driver_state_size, 2, 0.0);
+        EMTG::math::Matrix<double> legacy_scaling(driver_state_size + augmented_stm_size * augmented_stm_size, 1, 1.0);
+        double boundary_derivative = 1.0;
+        EMTG::Integration::AdaptiveErrorControlSettings settings;
+        settings.relative_tolerance = 1.0e-11;
+        settings.absolute_tolerances.assign(driver_state_size, 1.0e-13);
+        settings.stm_policy = EMTG::Integration::STMErrorControlPolicy::state_only;
+
+        EMTG::Astrodynamics::IntegratedAdaptiveStepPropagator propagator(driver_state_size, augmented_stm_size);
+        propagator.setIntegrand(&integrand);
+        propagator.setIntegrationScheme(&rk);
+        propagator.setStateLeft(state_left);
+        propagator.setStateRight(state_right);
+        propagator.setSTM(stm);
+        propagator.setdStatedIndependentVariable(derivative_state);
+        propagator.setCurrentEpoch(0.0);
+        propagator.setCurrentIndependentVariable(0.0);
+        propagator.setIndexOfEpochInStateVec(driver_epoch_index);
+        propagator.setPropagationStepSize(2.0);
+        propagator.setInitialStepSize(2.0);
+        propagator.setStorePropagationHistory(true);
+        propagator.setBoundaryTarget_dStepSizedPropVar(&boundary_derivative);
+        propagator.setErrorScalingFactors(legacy_scaling);
+        propagator.setAdaptiveErrorControlSettings(settings);
+        propagator.propagate(span, true);
+        const auto& statistics = propagator.getIntegrationStatistics();
+        return {span,
+                state_right(0) _GETVALUE,
+                stm(0, augmented_stm_size - 1),
+                statistics.accepted_steps,
+                statistics.rejected_steps,
+                propagator.getPropagationHistory()};
+    }
+
+    bool test_derivative_continuity_sweep()
+    {
+        const ContinuitySweepResult center = run_continuity_sweep_point(10.0);
+        const ContinuitySweepResult repeated = run_continuity_sweep_point(10.0);
+        if (center.terminal_state != repeated.terminal_state
+            || center.propagated_derivative != repeated.propagated_derivative
+            || center.schedule != repeated.schedule)
+        {
+            std::cerr << "Repeated adaptive evaluations are not deterministic." << std::endl;
+            return false;
+        }
+
+        for (const double perturbation : {1.0e-3, 1.0e-4, 1.0e-5})
+        {
+            const ContinuitySweepResult minus = run_continuity_sweep_point(10.0 - perturbation);
+            const ContinuitySweepResult plus = run_continuity_sweep_point(10.0 + perturbation);
+            const double finite_difference = (plus.terminal_state - minus.terminal_state) / (2.0 * perturbation);
+            const double derivative_error = std::fabs(finite_difference - center.propagated_derivative);
+            std::cout << "derivative_sweep perturbation=" << std::scientific << perturbation
+                      << " finite_difference=" << finite_difference
+                      << " propagated_derivative=" << center.propagated_derivative
+                      << " derivative_error=" << derivative_error
+                      << " steps_minus=" << minus.accepted_steps
+                      << " steps_center=" << center.accepted_steps
+                      << " steps_plus=" << plus.accepted_steps
+                      << " rejects_minus=" << minus.rejected_steps
+                      << " rejects_center=" << center.rejected_steps
+                      << " rejects_plus=" << plus.rejected_steps
+                      << std::endl;
+            if (derivative_error > 2.0e-6)
+            {
+                std::cerr << "Adaptive propagated derivative does not agree with the local directional finite difference."
+                          << std::endl;
+                return false;
+            }
+        }
+        return true;
+    }
 }
 
 int main()
@@ -838,6 +1266,15 @@ int main()
     }
 
     if (!test_driver_ab_comparison())
+    {
+        return 1;
+    }
+
+    if (!test_component_atol_rtol_contract()
+        || !test_separate_stm_error_norm()
+        || !test_statistics_and_propagation_variable_derivative()
+        || !test_dense_output_and_events()
+        || !test_derivative_continuity_sweep())
     {
         return 1;
     }

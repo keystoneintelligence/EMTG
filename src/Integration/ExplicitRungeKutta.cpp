@@ -21,6 +21,9 @@
 #include "RungeKutta4Tableau.h"
 #include "RungeKuttaDP87Tableau.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace EMTG
 {
     namespace Integration
@@ -337,6 +340,7 @@ namespace EMTG
         void ExplicitRungeKutta::computeError(doubleType & error, math::Matrix<double> & error_scaling_factors)
         {
             error = 0.0;
+            this->last_error_estimate = EmbeddedErrorEstimate();
             doubleType current_error = 0.0;
             doubleType state_error = 0.0;
 
@@ -355,14 +359,33 @@ namespace EMTG
                         * this->error_step_size;
                 }
 
-                current_error = fabs(state_error) * error_scaling_factors(k);
+                if (this->has_adaptive_error_control_settings)
+                {
+                    const double left_value = (*this->error_state_left)(k) _GETVALUE;
+                    const double right_value = this->y(k) _GETVALUE;
+                    const double denominator = this->adaptive_error_control_settings.absolute_tolerances[k]
+                        + this->adaptive_error_control_settings.relative_tolerance
+                        * std::max(std::fabs(left_value), std::fabs(right_value));
+                    current_error = fabs(state_error) / denominator;
+                }
+                else
+                {
+                    current_error = fabs(state_error) * error_scaling_factors(k);
+                }
                 if (current_error > error)
                 {
                     error = current_error;
                 }
+                if ((current_error _GETVALUE) > this->last_error_estimate.state_normalized_error)
+                {
+                    this->last_error_estimate.state_normalized_error = current_error _GETVALUE;
+                    this->last_error_estimate.worst_state_index = k;
+                }
             }
 
-            if (this->error_step_includes_STM)
+            if (this->error_step_includes_STM
+                && (!this->has_adaptive_error_control_settings
+                    || this->adaptive_error_control_settings.stm_policy == STMErrorControlPolicy::state_and_stm))
             {
                 size_t scaling_index = this->num_states;
 
@@ -377,14 +400,35 @@ namespace EMTG
                                 * (this->bUpper(stage_index) - this->bLower(stage_index));
                         }
 
-                        current_error = fabs(STM_error) * error_scaling_factors(scaling_index++);
+                        if (this->has_adaptive_error_control_settings)
+                        {
+                            const double left_value = (*this->error_stm_left)(row, column);
+                            const double right_value = this->STM(row, column);
+                            const double denominator = this->adaptive_error_control_settings.stm_absolute_tolerances[scaling_index - this->num_states]
+                                + this->adaptive_error_control_settings.stm_relative_tolerance
+                                * std::max(std::fabs(left_value), std::fabs(right_value));
+                            current_error = fabs(STM_error) / denominator;
+                            ++scaling_index;
+                        }
+                        else
+                        {
+                            current_error = fabs(STM_error) * error_scaling_factors(scaling_index++);
+                        }
                         if (current_error > error)
                         {
                             error = current_error;
                         }
+                        if ((current_error _GETVALUE) > this->last_error_estimate.stm_normalized_error)
+                        {
+                            this->last_error_estimate.stm_normalized_error = current_error _GETVALUE;
+                            this->last_error_estimate.worst_stm_row = row;
+                            this->last_error_estimate.worst_stm_column = column;
+                        }
                     }
                 }
             }
+
+            this->last_error_estimate.combined_normalized_error = error _GETVALUE;
         }
 
         void ExplicitRungeKutta::errorControlledStep(const math::Matrix<doubleType> & state_left,
@@ -401,6 +445,8 @@ namespace EMTG
             this->dstep_sizedProp_var = dstep_sizedProp_var;
             this->error_step_size = step_size;
             this->error_step_includes_STM = needSTM;
+            this->error_state_left = &state_left;
+            this->error_stm_left = &STM_left;
             
             this->y.shallow_copy(state_left);
 

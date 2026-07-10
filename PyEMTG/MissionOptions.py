@@ -120,9 +120,41 @@ class MissionOptions(object):
         self.integratorType = 1
         """Integrator type. Choices are 0 - rk7813M adaptive step, 1 - rk8 fixed step"""
         self.integrator_tolerance = 1.00E-08
-        """adaptive step integrator tolerance"""
+        """legacy adaptive local-error tolerance; used as rtol and to derive dimensional atols when integrator_error_control_mode is 0"""
+        self.integrator_error_control_mode = 0
+        """adaptive error-control contract: 0 migrates integrator_tolerance, 1 uses explicit component tolerances"""
+        self.integrator_relative_tolerance = 1.00E-08
+        """global state relative tolerance for explicit component error control"""
+        self.integrator_absolute_tolerance_position = 1.00E-06
+        """position absolute tolerance in km"""
+        self.integrator_absolute_tolerance_velocity = 1.00E-09
+        """velocity absolute tolerance in km/s"""
+        self.integrator_absolute_tolerance_mass = 1.00E-09
+        """mass and virtual-propellant absolute tolerance in kg"""
+        self.integrator_absolute_tolerance_time = 1.00E-06
+        """epoch or independent-variable absolute tolerance in seconds"""
+        self.integrator_absolute_tolerance_other = 1.00E-10
+        """absolute tolerance for formulation-specific auxiliary states"""
+        self.integrator_stm_error_control = 1
+        """STM error-control policy: 0 state only, 1 separate normalized state and STM infinity norms combined by max"""
+        self.integrator_stm_relative_tolerance = 1.00E-08
+        """relative tolerance for each STM entry"""
+        self.integrator_stm_absolute_tolerance = 1.00E-10
+        """base STM absolute tolerance, scaled by output/input characteristic-unit ratio"""
         self.integration_time_step_size = 86400
         """integration step size (maximum for adaptive, fixed for fixed)"""
+        self.integrator_initial_step_size = 0
+        """adaptive initial step in seconds; 0 uses integration_time_step_size"""
+        self.integrator_minimum_step_size = 0
+        """adaptive minimum step in seconds; 0 derives a scale-aware machine-precision floor"""
+        self.integrator_safety_factor = 0.9
+        """adaptive controller safety factor"""
+        self.integrator_minimum_step_scale = 0.2
+        """minimum adaptive controller resize factor"""
+        self.integrator_maximum_step_scale = 5
+        """maximum adaptive controller growth factor"""
+        self.integrator_rejection_limit = 50
+        """maximum consecutive adaptive rejections before failure"""
         self.num_timesteps = 20
         """number of timesteps per phase"""
         self.spiral_segments = 1
@@ -558,15 +590,61 @@ class MissionOptions(object):
                   
                     elif linecell[0] == "integratorType":
                         self.integratorType = int(linecell[1])
-                        # Check for integrator types that are not supported in PyEMTG
-                        if (self.integratorType < 1): print("WARNING: The selected options file contains an unsupported integrator type. The supported integrator type is rk8 fixed step. Please select this type from the Physics Options tab.")
-                  
+
                     elif linecell[0] == "integrator_tolerance":
                         self.integrator_tolerance = float(linecell[1])
                   
+                    elif linecell[0] == "integrator_error_control_mode":
+                        self.integrator_error_control_mode = int(linecell[1])
+
+                    elif linecell[0] == "integrator_relative_tolerance":
+                        self.integrator_relative_tolerance = float(linecell[1])
+
+                    elif linecell[0] == "integrator_absolute_tolerance_position":
+                        self.integrator_absolute_tolerance_position = float(linecell[1])
+
+                    elif linecell[0] == "integrator_absolute_tolerance_velocity":
+                        self.integrator_absolute_tolerance_velocity = float(linecell[1])
+
+                    elif linecell[0] == "integrator_absolute_tolerance_mass":
+                        self.integrator_absolute_tolerance_mass = float(linecell[1])
+
+                    elif linecell[0] == "integrator_absolute_tolerance_time":
+                        self.integrator_absolute_tolerance_time = float(linecell[1])
+
+                    elif linecell[0] == "integrator_absolute_tolerance_other":
+                        self.integrator_absolute_tolerance_other = float(linecell[1])
+
+                    elif linecell[0] == "integrator_stm_error_control":
+                        self.integrator_stm_error_control = int(linecell[1])
+
+                    elif linecell[0] == "integrator_stm_relative_tolerance":
+                        self.integrator_stm_relative_tolerance = float(linecell[1])
+
+                    elif linecell[0] == "integrator_stm_absolute_tolerance":
+                        self.integrator_stm_absolute_tolerance = float(linecell[1])
+
                     elif linecell[0] == "integration_time_step_size":
                         self.integration_time_step_size = float(linecell[1])
-                  
+
+                    elif linecell[0] == "integrator_initial_step_size":
+                        self.integrator_initial_step_size = float(linecell[1])
+
+                    elif linecell[0] == "integrator_minimum_step_size":
+                        self.integrator_minimum_step_size = float(linecell[1])
+
+                    elif linecell[0] == "integrator_safety_factor":
+                        self.integrator_safety_factor = float(linecell[1])
+
+                    elif linecell[0] == "integrator_minimum_step_scale":
+                        self.integrator_minimum_step_scale = float(linecell[1])
+
+                    elif linecell[0] == "integrator_maximum_step_scale":
+                        self.integrator_maximum_step_scale = float(linecell[1])
+
+                    elif linecell[0] == "integrator_rejection_limit":
+                        self.integrator_rejection_limit = int(linecell[1])
+
                     elif linecell[0] == "num_timesteps":
                         self.num_timesteps = int(linecell[1])
                   
@@ -1158,13 +1236,77 @@ class MissionOptions(object):
                 optionsFile.write("integratorType " + str(self.integratorType) + "\n")
     
             if (self.integrator_tolerance != 1.00E-08 or writeAll):
-                optionsFile.write("#adaptive step integrator tolerance\n")
+                optionsFile.write("#legacy adaptive local-error tolerance (compatibility mode only; this is not a terminal-accuracy guarantee)\n")
                 optionsFile.write("integrator_tolerance " + str(self.integrator_tolerance) + "\n")
     
+            if (self.integrator_error_control_mode != 0 or writeAll):
+                optionsFile.write("#adaptive error-control contract\n#0: legacy migration\n#1: explicit component atol/rtol\n")
+                optionsFile.write("integrator_error_control_mode " + str(self.integrator_error_control_mode) + "\n")
+
+            if (self.integrator_relative_tolerance != 1.00E-08 or writeAll):
+                optionsFile.write("#global adaptive state relative tolerance\n")
+                optionsFile.write("integrator_relative_tolerance " + str(self.integrator_relative_tolerance) + "\n")
+
+            if (self.integrator_absolute_tolerance_position != 1.00E-06 or writeAll):
+                optionsFile.write("#adaptive position absolute tolerance (km)\n")
+                optionsFile.write("integrator_absolute_tolerance_position " + str(self.integrator_absolute_tolerance_position) + "\n")
+
+            if (self.integrator_absolute_tolerance_velocity != 1.00E-09 or writeAll):
+                optionsFile.write("#adaptive velocity absolute tolerance (km/s)\n")
+                optionsFile.write("integrator_absolute_tolerance_velocity " + str(self.integrator_absolute_tolerance_velocity) + "\n")
+
+            if (self.integrator_absolute_tolerance_mass != 1.00E-09 or writeAll):
+                optionsFile.write("#adaptive mass/virtual-propellant absolute tolerance (kg)\n")
+                optionsFile.write("integrator_absolute_tolerance_mass " + str(self.integrator_absolute_tolerance_mass) + "\n")
+
+            if (self.integrator_absolute_tolerance_time != 1.00E-06 or writeAll):
+                optionsFile.write("#adaptive epoch/independent-variable absolute tolerance (s)\n")
+                optionsFile.write("integrator_absolute_tolerance_time " + str(self.integrator_absolute_tolerance_time) + "\n")
+
+            if (self.integrator_absolute_tolerance_other != 1.00E-10 or writeAll):
+                optionsFile.write("#adaptive auxiliary-state absolute tolerance\n")
+                optionsFile.write("integrator_absolute_tolerance_other " + str(self.integrator_absolute_tolerance_other) + "\n")
+
+            if (self.integrator_stm_error_control != 1 or writeAll):
+                optionsFile.write("#STM error-control policy\n#0: state only\n#1: state and STM\n")
+                optionsFile.write("integrator_stm_error_control " + str(self.integrator_stm_error_control) + "\n")
+
+            if (self.integrator_stm_relative_tolerance != 1.00E-08 or writeAll):
+                optionsFile.write("#adaptive STM relative tolerance\n")
+                optionsFile.write("integrator_stm_relative_tolerance " + str(self.integrator_stm_relative_tolerance) + "\n")
+
+            if (self.integrator_stm_absolute_tolerance != 1.00E-10 or writeAll):
+                optionsFile.write("#adaptive dimensionally scaled STM absolute tolerance\n")
+                optionsFile.write("integrator_stm_absolute_tolerance " + str(self.integrator_stm_absolute_tolerance) + "\n")
+
             if (self.integration_time_step_size != 86400 or writeAll):
                 optionsFile.write("#integration step size (maximum for adaptive, fixed for fixed)\n")
                 optionsFile.write("integration_time_step_size " + str(self.integration_time_step_size) + "\n")
-    
+
+            if (self.integrator_initial_step_size != 0 or writeAll):
+                optionsFile.write("#adaptive initial step (0 uses maximum step)\n")
+                optionsFile.write("integrator_initial_step_size " + str(self.integrator_initial_step_size) + "\n")
+
+            if (self.integrator_minimum_step_size != 0 or writeAll):
+                optionsFile.write("#adaptive minimum step (0 selects automatic floor)\n")
+                optionsFile.write("integrator_minimum_step_size " + str(self.integrator_minimum_step_size) + "\n")
+
+            if (self.integrator_safety_factor != 0.9 or writeAll):
+                optionsFile.write("#adaptive controller safety factor\n")
+                optionsFile.write("integrator_safety_factor " + str(self.integrator_safety_factor) + "\n")
+
+            if (self.integrator_minimum_step_scale != 0.2 or writeAll):
+                optionsFile.write("#minimum adaptive controller step-scale factor\n")
+                optionsFile.write("integrator_minimum_step_scale " + str(self.integrator_minimum_step_scale) + "\n")
+
+            if (self.integrator_maximum_step_scale != 5 or writeAll):
+                optionsFile.write("#maximum adaptive controller step-scale factor\n")
+                optionsFile.write("integrator_maximum_step_scale " + str(self.integrator_maximum_step_scale) + "\n")
+
+            if (self.integrator_rejection_limit != 50 or writeAll):
+                optionsFile.write("#adaptive consecutive-step rejection limit\n")
+                optionsFile.write("integrator_rejection_limit " + str(self.integrator_rejection_limit) + "\n")
+
             if (self.num_timesteps != 20 or writeAll):
                 optionsFile.write("#number of timesteps per phase\n")
                 optionsFile.write("num_timesteps " + str(self.num_timesteps) + "\n")

@@ -155,9 +155,6 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
                 if option['name'] == 'mission_type':
                     file.write('                        # Check for mission types that are not supported in PyEMTG\n')
                     file.write('                        if (self.mission_type < 2): print("WARNING: The selected options file contains an unsupported mission type. The supported mission types are MGALT, FBLT, PSBI, PSFB, MGAnDSMs, CoastPhase, SundmanCoastPhase, variable phase type, ProbeEntryPhase, and ControlLawThrustPhase. Please select one of these types from the Global Mission Options tab.")\n')
-                elif option['name'] == 'integratorType':
-                    file.write('                        # Check for integrator types that are not supported in PyEMTG\n')
-                    file.write('                        if (self.integratorType < 1): print("WARNING: The selected options file contains an unsupported integrator type. The supported integrator type is rk8 fixed step. Please select this type from the Physics Options tab.")\n')
             if option['name'] == 'SPICE_high_fidelity_derivatives':
                 file.write('\n')
             else:

@@ -97,7 +97,23 @@ namespace EMTG
         this->propagatorType = (PropagatorType) 0;
         this->integratorType = (IntegratorType) 1;
         this->integrator_tolerance = 1.00E-08;
+        this->integrator_error_control_mode = 0;
+        this->integrator_relative_tolerance = 1.00E-08;
+        this->integrator_absolute_tolerance_position = 1.00E-06;
+        this->integrator_absolute_tolerance_velocity = 1.00E-09;
+        this->integrator_absolute_tolerance_mass = 1.00E-09;
+        this->integrator_absolute_tolerance_time = 1.00E-06;
+        this->integrator_absolute_tolerance_other = 1.00E-10;
+        this->integrator_stm_error_control = 1;
+        this->integrator_stm_relative_tolerance = 1.00E-08;
+        this->integrator_stm_absolute_tolerance = 1.00E-10;
         this->integration_time_step_size = 86400;
+        this->integrator_initial_step_size = 0;
+        this->integrator_minimum_step_size = 0;
+        this->integrator_safety_factor = 0.9;
+        this->integrator_minimum_step_scale = 0.2;
+        this->integrator_maximum_step_scale = 5;
+        this->integrator_rejection_limit = 50;
         this->num_timesteps = 20;
         this->spiral_segments = 1;
         this->allow_initial_mass_to_vary = (bool) 0;
@@ -278,8 +294,40 @@ namespace EMTG
         this->integratorType_upperBound = (IntegratorType) 1;
         this->integrator_tolerance_lowerBound = 1.00E-12;
         this->integrator_tolerance_upperBound = 1;
+        this->integrator_error_control_mode_lowerBound = 0;
+        this->integrator_error_control_mode_upperBound = 1;
+        this->integrator_relative_tolerance_lowerBound = 1.00E-14;
+        this->integrator_relative_tolerance_upperBound = 1;
+        this->integrator_absolute_tolerance_position_lowerBound = 1.00E-16;
+        this->integrator_absolute_tolerance_position_upperBound = math::LARGE;
+        this->integrator_absolute_tolerance_velocity_lowerBound = 1.00E-16;
+        this->integrator_absolute_tolerance_velocity_upperBound = math::LARGE;
+        this->integrator_absolute_tolerance_mass_lowerBound = 1.00E-16;
+        this->integrator_absolute_tolerance_mass_upperBound = math::LARGE;
+        this->integrator_absolute_tolerance_time_lowerBound = 1.00E-16;
+        this->integrator_absolute_tolerance_time_upperBound = math::LARGE;
+        this->integrator_absolute_tolerance_other_lowerBound = 1.00E-16;
+        this->integrator_absolute_tolerance_other_upperBound = math::LARGE;
+        this->integrator_stm_error_control_lowerBound = 0;
+        this->integrator_stm_error_control_upperBound = 1;
+        this->integrator_stm_relative_tolerance_lowerBound = 1.00E-14;
+        this->integrator_stm_relative_tolerance_upperBound = 1;
+        this->integrator_stm_absolute_tolerance_lowerBound = 1.00E-16;
+        this->integrator_stm_absolute_tolerance_upperBound = math::LARGE;
         this->integration_time_step_size_lowerBound = 1.00E-10;
         this->integration_time_step_size_upperBound = math::LARGE;
+        this->integrator_initial_step_size_lowerBound = 0;
+        this->integrator_initial_step_size_upperBound = math::LARGE;
+        this->integrator_minimum_step_size_lowerBound = 0;
+        this->integrator_minimum_step_size_upperBound = math::LARGE;
+        this->integrator_safety_factor_lowerBound = 0.01;
+        this->integrator_safety_factor_upperBound = 1;
+        this->integrator_minimum_step_scale_lowerBound = 0.01;
+        this->integrator_minimum_step_scale_upperBound = 1;
+        this->integrator_maximum_step_scale_lowerBound = 1;
+        this->integrator_maximum_step_scale_upperBound = 100;
+        this->integrator_rejection_limit_lowerBound = 1;
+        this->integrator_rejection_limit_upperBound = 10000;
         this->num_timesteps_lowerBound = 1;
         this->num_timesteps_upperBound = INT_MAX;
         this->spiral_segments_lowerBound = 1;
@@ -958,7 +1006,7 @@ namespace EMTG
         if (linecell[0] == "integrator_tolerance")
         {
             this->integrator_tolerance = std::stod(linecell[1]);
-            
+
             //bounds check
             if (this->integrator_tolerance < this->integrator_tolerance_lowerBound || this->integrator_tolerance > this->integrator_tolerance_upperBound)
             {
@@ -966,14 +1014,190 @@ namespace EMTG
             }
             return;
         }
+        if (linecell[0] == "integrator_error_control_mode")
+        {
+            this->integrator_error_control_mode = std::stoi(linecell[1]);
+
+            //bounds check
+            if (this->integrator_error_control_mode < this->integrator_error_control_mode_lowerBound || this->integrator_error_control_mode > this->integrator_error_control_mode_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_error_control_mode is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_error_control_mode) + ", bounds are [" + std::to_string(this->integrator_error_control_mode_lowerBound) + ", " + std::to_string(this->integrator_error_control_mode_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_relative_tolerance")
+        {
+            this->integrator_relative_tolerance = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_relative_tolerance < this->integrator_relative_tolerance_lowerBound || this->integrator_relative_tolerance > this->integrator_relative_tolerance_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_relative_tolerance is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_relative_tolerance) + ", bounds are [" + std::to_string(this->integrator_relative_tolerance_lowerBound) + ", " + std::to_string(this->integrator_relative_tolerance_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_absolute_tolerance_position")
+        {
+            this->integrator_absolute_tolerance_position = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_absolute_tolerance_position < this->integrator_absolute_tolerance_position_lowerBound || this->integrator_absolute_tolerance_position > this->integrator_absolute_tolerance_position_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_absolute_tolerance_position is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_absolute_tolerance_position) + ", bounds are [" + std::to_string(this->integrator_absolute_tolerance_position_lowerBound) + ", " + std::to_string(this->integrator_absolute_tolerance_position_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_absolute_tolerance_velocity")
+        {
+            this->integrator_absolute_tolerance_velocity = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_absolute_tolerance_velocity < this->integrator_absolute_tolerance_velocity_lowerBound || this->integrator_absolute_tolerance_velocity > this->integrator_absolute_tolerance_velocity_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_absolute_tolerance_velocity is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_absolute_tolerance_velocity) + ", bounds are [" + std::to_string(this->integrator_absolute_tolerance_velocity_lowerBound) + ", " + std::to_string(this->integrator_absolute_tolerance_velocity_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_absolute_tolerance_mass")
+        {
+            this->integrator_absolute_tolerance_mass = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_absolute_tolerance_mass < this->integrator_absolute_tolerance_mass_lowerBound || this->integrator_absolute_tolerance_mass > this->integrator_absolute_tolerance_mass_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_absolute_tolerance_mass is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_absolute_tolerance_mass) + ", bounds are [" + std::to_string(this->integrator_absolute_tolerance_mass_lowerBound) + ", " + std::to_string(this->integrator_absolute_tolerance_mass_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_absolute_tolerance_time")
+        {
+            this->integrator_absolute_tolerance_time = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_absolute_tolerance_time < this->integrator_absolute_tolerance_time_lowerBound || this->integrator_absolute_tolerance_time > this->integrator_absolute_tolerance_time_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_absolute_tolerance_time is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_absolute_tolerance_time) + ", bounds are [" + std::to_string(this->integrator_absolute_tolerance_time_lowerBound) + ", " + std::to_string(this->integrator_absolute_tolerance_time_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_absolute_tolerance_other")
+        {
+            this->integrator_absolute_tolerance_other = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_absolute_tolerance_other < this->integrator_absolute_tolerance_other_lowerBound || this->integrator_absolute_tolerance_other > this->integrator_absolute_tolerance_other_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_absolute_tolerance_other is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_absolute_tolerance_other) + ", bounds are [" + std::to_string(this->integrator_absolute_tolerance_other_lowerBound) + ", " + std::to_string(this->integrator_absolute_tolerance_other_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_stm_error_control")
+        {
+            this->integrator_stm_error_control = std::stoi(linecell[1]);
+
+            //bounds check
+            if (this->integrator_stm_error_control < this->integrator_stm_error_control_lowerBound || this->integrator_stm_error_control > this->integrator_stm_error_control_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_stm_error_control is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_stm_error_control) + ", bounds are [" + std::to_string(this->integrator_stm_error_control_lowerBound) + ", " + std::to_string(this->integrator_stm_error_control_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_stm_relative_tolerance")
+        {
+            this->integrator_stm_relative_tolerance = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_stm_relative_tolerance < this->integrator_stm_relative_tolerance_lowerBound || this->integrator_stm_relative_tolerance > this->integrator_stm_relative_tolerance_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_stm_relative_tolerance is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_stm_relative_tolerance) + ", bounds are [" + std::to_string(this->integrator_stm_relative_tolerance_lowerBound) + ", " + std::to_string(this->integrator_stm_relative_tolerance_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_stm_absolute_tolerance")
+        {
+            this->integrator_stm_absolute_tolerance = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_stm_absolute_tolerance < this->integrator_stm_absolute_tolerance_lowerBound || this->integrator_stm_absolute_tolerance > this->integrator_stm_absolute_tolerance_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_stm_absolute_tolerance is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_stm_absolute_tolerance) + ", bounds are [" + std::to_string(this->integrator_stm_absolute_tolerance_lowerBound) + ", " + std::to_string(this->integrator_stm_absolute_tolerance_upperBound) + "].");
+            }
+            return;
+        }
         if (linecell[0] == "integration_time_step_size")
         {
             this->integration_time_step_size = std::stod(linecell[1]);
-            
+
             //bounds check
             if (this->integration_time_step_size < this->integration_time_step_size_lowerBound || this->integration_time_step_size > this->integration_time_step_size_upperBound)
             {
                 throw std::out_of_range("Input option integration_time_step_size is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integration_time_step_size) + ", bounds are [" + std::to_string(this->integration_time_step_size_lowerBound) + ", " + std::to_string(this->integration_time_step_size_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_initial_step_size")
+        {
+            this->integrator_initial_step_size = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_initial_step_size < this->integrator_initial_step_size_lowerBound || this->integrator_initial_step_size > this->integrator_initial_step_size_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_initial_step_size is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_initial_step_size) + ", bounds are [" + std::to_string(this->integrator_initial_step_size_lowerBound) + ", " + std::to_string(this->integrator_initial_step_size_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_minimum_step_size")
+        {
+            this->integrator_minimum_step_size = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_minimum_step_size < this->integrator_minimum_step_size_lowerBound || this->integrator_minimum_step_size > this->integrator_minimum_step_size_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_minimum_step_size is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_minimum_step_size) + ", bounds are [" + std::to_string(this->integrator_minimum_step_size_lowerBound) + ", " + std::to_string(this->integrator_minimum_step_size_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_safety_factor")
+        {
+            this->integrator_safety_factor = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_safety_factor < this->integrator_safety_factor_lowerBound || this->integrator_safety_factor > this->integrator_safety_factor_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_safety_factor is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_safety_factor) + ", bounds are [" + std::to_string(this->integrator_safety_factor_lowerBound) + ", " + std::to_string(this->integrator_safety_factor_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_minimum_step_scale")
+        {
+            this->integrator_minimum_step_scale = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_minimum_step_scale < this->integrator_minimum_step_scale_lowerBound || this->integrator_minimum_step_scale > this->integrator_minimum_step_scale_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_minimum_step_scale is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_minimum_step_scale) + ", bounds are [" + std::to_string(this->integrator_minimum_step_scale_lowerBound) + ", " + std::to_string(this->integrator_minimum_step_scale_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_maximum_step_scale")
+        {
+            this->integrator_maximum_step_scale = std::stod(linecell[1]);
+
+            //bounds check
+            if (this->integrator_maximum_step_scale < this->integrator_maximum_step_scale_lowerBound || this->integrator_maximum_step_scale > this->integrator_maximum_step_scale_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_maximum_step_scale is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_maximum_step_scale) + ", bounds are [" + std::to_string(this->integrator_maximum_step_scale_lowerBound) + ", " + std::to_string(this->integrator_maximum_step_scale_upperBound) + "].");
+            }
+            return;
+        }
+        if (linecell[0] == "integrator_rejection_limit")
+        {
+            this->integrator_rejection_limit = std::stoi(linecell[1]);
+
+            //bounds check
+            if (this->integrator_rejection_limit < this->integrator_rejection_limit_lowerBound || this->integrator_rejection_limit > this->integrator_rejection_limit_upperBound)
+            {
+                throw std::out_of_range("Input option integrator_rejection_limit is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->integrator_rejection_limit) + ", bounds are [" + std::to_string(this->integrator_rejection_limit_lowerBound) + ", " + std::to_string(this->integrator_rejection_limit_upperBound) + "].");
             }
             return;
         }
@@ -2323,31 +2547,127 @@ namespace EMTG
             optionsFileStream << "#Integrator type\n#0: rk7813M adaptive step\n#1: rk8 fixed step" << std::endl;
             optionsFileStream << "integratorType " << this->integratorType << std::endl;
         }
-    
+
         if (this->integrator_tolerance != 1.00E-08 || writeAll)
         {
-            optionsFileStream << "#adaptive step integrator tolerance" << std::endl;
+            optionsFileStream << "#legacy adaptive local-error tolerance (compatibility mode only; this is not a terminal-accuracy guarantee)" << std::endl;
             optionsFileStream << "integrator_tolerance " << this->integrator_tolerance << std::endl;
         }
-    
+
+        if (this->integrator_error_control_mode != 0 || writeAll)
+        {
+            optionsFileStream << "#adaptive error-control contract\n#0: legacy migration\n#1: explicit component atol/rtol" << std::endl;
+            optionsFileStream << "integrator_error_control_mode " << this->integrator_error_control_mode << std::endl;
+        }
+
+        if (this->integrator_relative_tolerance != 1.00E-08 || writeAll)
+        {
+            optionsFileStream << "#global adaptive state relative tolerance" << std::endl;
+            optionsFileStream << "integrator_relative_tolerance " << this->integrator_relative_tolerance << std::endl;
+        }
+
+        if (this->integrator_absolute_tolerance_position != 1.00E-06 || writeAll)
+        {
+            optionsFileStream << "#adaptive position absolute tolerance (km)" << std::endl;
+            optionsFileStream << "integrator_absolute_tolerance_position " << this->integrator_absolute_tolerance_position << std::endl;
+        }
+
+        if (this->integrator_absolute_tolerance_velocity != 1.00E-09 || writeAll)
+        {
+            optionsFileStream << "#adaptive velocity absolute tolerance (km/s)" << std::endl;
+            optionsFileStream << "integrator_absolute_tolerance_velocity " << this->integrator_absolute_tolerance_velocity << std::endl;
+        }
+
+        if (this->integrator_absolute_tolerance_mass != 1.00E-09 || writeAll)
+        {
+            optionsFileStream << "#adaptive mass/virtual-propellant absolute tolerance (kg)" << std::endl;
+            optionsFileStream << "integrator_absolute_tolerance_mass " << this->integrator_absolute_tolerance_mass << std::endl;
+        }
+
+        if (this->integrator_absolute_tolerance_time != 1.00E-06 || writeAll)
+        {
+            optionsFileStream << "#adaptive epoch/independent-variable absolute tolerance (s)" << std::endl;
+            optionsFileStream << "integrator_absolute_tolerance_time " << this->integrator_absolute_tolerance_time << std::endl;
+        }
+
+        if (this->integrator_absolute_tolerance_other != 1.00E-10 || writeAll)
+        {
+            optionsFileStream << "#adaptive auxiliary-state absolute tolerance" << std::endl;
+            optionsFileStream << "integrator_absolute_tolerance_other " << this->integrator_absolute_tolerance_other << std::endl;
+        }
+
+        if (this->integrator_stm_error_control != 1 || writeAll)
+        {
+            optionsFileStream << "#STM error-control policy\n#0: state only\n#1: state and STM" << std::endl;
+            optionsFileStream << "integrator_stm_error_control " << this->integrator_stm_error_control << std::endl;
+        }
+
+        if (this->integrator_stm_relative_tolerance != 1.00E-08 || writeAll)
+        {
+            optionsFileStream << "#adaptive STM relative tolerance" << std::endl;
+            optionsFileStream << "integrator_stm_relative_tolerance " << this->integrator_stm_relative_tolerance << std::endl;
+        }
+
+        if (this->integrator_stm_absolute_tolerance != 1.00E-10 || writeAll)
+        {
+            optionsFileStream << "#adaptive dimensionally scaled STM absolute tolerance" << std::endl;
+            optionsFileStream << "integrator_stm_absolute_tolerance " << this->integrator_stm_absolute_tolerance << std::endl;
+        }
+
         if (this->integration_time_step_size != 86400 || writeAll)
         {
             optionsFileStream << "#integration step size (maximum for adaptive, fixed for fixed)" << std::endl;
             optionsFileStream << "integration_time_step_size " << this->integration_time_step_size << std::endl;
         }
-    
+
+        if (this->integrator_initial_step_size != 0 || writeAll)
+        {
+            optionsFileStream << "#adaptive initial step (0 uses maximum step)" << std::endl;
+            optionsFileStream << "integrator_initial_step_size " << this->integrator_initial_step_size << std::endl;
+        }
+
+        if (this->integrator_minimum_step_size != 0 || writeAll)
+        {
+            optionsFileStream << "#adaptive minimum step (0 selects automatic floor)" << std::endl;
+            optionsFileStream << "integrator_minimum_step_size " << this->integrator_minimum_step_size << std::endl;
+        }
+
+        if (this->integrator_safety_factor != 0.9 || writeAll)
+        {
+            optionsFileStream << "#adaptive controller safety factor" << std::endl;
+            optionsFileStream << "integrator_safety_factor " << this->integrator_safety_factor << std::endl;
+        }
+
+        if (this->integrator_minimum_step_scale != 0.2 || writeAll)
+        {
+            optionsFileStream << "#minimum adaptive controller step-scale factor" << std::endl;
+            optionsFileStream << "integrator_minimum_step_scale " << this->integrator_minimum_step_scale << std::endl;
+        }
+
+        if (this->integrator_maximum_step_scale != 5 || writeAll)
+        {
+            optionsFileStream << "#maximum adaptive controller step-scale factor" << std::endl;
+            optionsFileStream << "integrator_maximum_step_scale " << this->integrator_maximum_step_scale << std::endl;
+        }
+
+        if (this->integrator_rejection_limit != 50 || writeAll)
+        {
+            optionsFileStream << "#adaptive consecutive-step rejection limit" << std::endl;
+            optionsFileStream << "integrator_rejection_limit " << this->integrator_rejection_limit << std::endl;
+        }
+
         if (this->num_timesteps != 20 || writeAll)
         {
             optionsFileStream << "#number of timesteps per phase" << std::endl;
             optionsFileStream << "num_timesteps " << this->num_timesteps << std::endl;
         }
-    
+
         if (this->spiral_segments != 1 || writeAll)
         {
             optionsFileStream << "#number of spiral segments" << std::endl;
             optionsFileStream << "spiral_segments " << this->spiral_segments << std::endl;
         }
-    
+
         if (this->allow_initial_mass_to_vary != 0 || writeAll)
         {
             optionsFileStream << "#Allow the mass at the beginning of the first journey to vary up to the allowed maximum?" << std::endl;

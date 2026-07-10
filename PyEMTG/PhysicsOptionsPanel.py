@@ -21,6 +21,15 @@ import wx.adv
 import wx.lib.scrolledpanel
 import platform
 
+from adaptive_integration_options import (
+    ERROR_CONTROL_MODE_CHOICES,
+    INTEGRATOR_TYPE_CHOICES,
+    STM_ERROR_CONTROL_CHOICES,
+    integrator_type_to_selection,
+    selection_to_integrator_type,
+    validate_adaptive_options,
+)
+
 class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):    
     def __init__(self, parent, missionoptions):
         self.missionoptions = missionoptions
@@ -30,7 +39,7 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
 
         ephemerisgrid = wx.FlexGridSizer(10,2,5,5)
         perturbgrid = wx.GridSizer(8,2,8,8)
-        integratorgrid = wx.GridSizer(10,2,5,5)
+        integratorgrid = wx.FlexGridSizer(cols=2, vgap=5, hgap=5)
         
         self.lblephemeris_source = wx.StaticText(self, -1, "Ephemeris Source")
         ephemeris_source_typestypes = ['Static','SPICE','SplineEphem']
@@ -79,7 +88,7 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.lblspiral_segments = wx.StaticText(self, -1, "Number of spiral segments")
         self.txtspiral_segments = wx.TextCtrl(self, -1, "spiral_segments")
 
-        self.lblintegrator_tolerance = wx.StaticText(self, -1, "Integrator tolerance")
+        self.lblintegrator_tolerance = wx.StaticText(self, -1, "Legacy adaptive tolerance")
         self.txtintegrator_tolerance = wx.TextCtrl(self, -1, "integrator_tolerance")
 
         self.lblpropagatorType = wx.StaticText(self, -1, "Propagator type")
@@ -110,11 +119,44 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         lblBottomTitle.SetFont(font)
 
         self.lblintegratorType = wx.StaticText(self, -1, "Integrator type")
-        integratorType_choices = ["rk8 fixed step"]
-        self.cmbintegratorType = wx.ComboBox(self, -1, choices=integratorType_choices, style=wx.CB_READONLY)
+        self.cmbintegratorType = wx.ComboBox(self, -1, choices=INTEGRATOR_TYPE_CHOICES, style=wx.CB_READONLY)
+        self.cmbintegratorType.SetToolTip("Adaptive integration is optional and remains under numerical/optimizer qualification. Fixed step is the default.")
+
+        self.lblintegrator_error_control_mode = wx.StaticText(self, -1, "Adaptive error contract")
+        self.cmbintegrator_error_control_mode = wx.ComboBox(self, -1, choices=ERROR_CONTROL_MODE_CHOICES, style=wx.CB_READONLY)
+        self.lblintegrator_relative_tolerance = wx.StaticText(self, -1, "State relative tolerance")
+        self.txtintegrator_relative_tolerance = wx.TextCtrl(self, -1)
+        self.lblintegrator_absolute_tolerance_position = wx.StaticText(self, -1, "Position absolute tolerance (km)")
+        self.txtintegrator_absolute_tolerance_position = wx.TextCtrl(self, -1)
+        self.lblintegrator_absolute_tolerance_velocity = wx.StaticText(self, -1, "Velocity absolute tolerance (km/s)")
+        self.txtintegrator_absolute_tolerance_velocity = wx.TextCtrl(self, -1)
+        self.lblintegrator_absolute_tolerance_mass = wx.StaticText(self, -1, "Mass/propellant absolute tolerance (kg)")
+        self.txtintegrator_absolute_tolerance_mass = wx.TextCtrl(self, -1)
+        self.lblintegrator_absolute_tolerance_time = wx.StaticText(self, -1, "Epoch absolute tolerance (s)")
+        self.txtintegrator_absolute_tolerance_time = wx.TextCtrl(self, -1)
+        self.lblintegrator_absolute_tolerance_other = wx.StaticText(self, -1, "Auxiliary-state absolute tolerance")
+        self.txtintegrator_absolute_tolerance_other = wx.TextCtrl(self, -1)
+        self.lblintegrator_stm_error_control = wx.StaticText(self, -1, "STM error-control policy")
+        self.cmbintegrator_stm_error_control = wx.ComboBox(self, -1, choices=STM_ERROR_CONTROL_CHOICES, style=wx.CB_READONLY)
+        self.lblintegrator_stm_relative_tolerance = wx.StaticText(self, -1, "STM relative tolerance")
+        self.txtintegrator_stm_relative_tolerance = wx.TextCtrl(self, -1)
+        self.lblintegrator_stm_absolute_tolerance = wx.StaticText(self, -1, "STM base absolute tolerance")
+        self.txtintegrator_stm_absolute_tolerance = wx.TextCtrl(self, -1)
 
         self.lblintegration_time_step_size = wx.StaticText(self, -1, "Integrator time step size (seconds)")
         self.txtintegration_time_step_size = wx.TextCtrl(self, -1, "integration_time_step_size")
+        self.lblintegrator_initial_step_size = wx.StaticText(self, -1, "Adaptive initial step (s; 0 = maximum)")
+        self.txtintegrator_initial_step_size = wx.TextCtrl(self, -1)
+        self.lblintegrator_minimum_step_size = wx.StaticText(self, -1, "Adaptive minimum step (s; 0 = automatic)")
+        self.txtintegrator_minimum_step_size = wx.TextCtrl(self, -1)
+        self.lblintegrator_safety_factor = wx.StaticText(self, -1, "Adaptive safety factor")
+        self.txtintegrator_safety_factor = wx.TextCtrl(self, -1)
+        self.lblintegrator_minimum_step_scale = wx.StaticText(self, -1, "Minimum controller scale")
+        self.txtintegrator_minimum_step_scale = wx.TextCtrl(self, -1)
+        self.lblintegrator_maximum_step_scale = wx.StaticText(self, -1, "Maximum controller scale")
+        self.txtintegrator_maximum_step_scale = wx.TextCtrl(self, -1)
+        self.lblintegrator_rejection_limit = wx.StaticText(self, -1, "Consecutive rejection limit")
+        self.txtintegrator_rejection_limit = wx.TextCtrl(self, -1)
 
         spiralgrid = wx.GridSizer(2,2,5,5)
         spiralgrid.AddMany([self.lblspiral_segments, self.txtspiral_segments])
@@ -125,7 +167,23 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         integratorgrid.AddMany([self.lblintegrator_tolerance, self.txtintegrator_tolerance,
                                 self.lblpropagatorType, self.cmbpropagatorType,
                                 self.lblintegratorType, self.cmbintegratorType,
-                                self.lblintegration_time_step_size, self.txtintegration_time_step_size])
+                                self.lblintegrator_error_control_mode, self.cmbintegrator_error_control_mode,
+                                self.lblintegrator_relative_tolerance, self.txtintegrator_relative_tolerance,
+                                self.lblintegrator_absolute_tolerance_position, self.txtintegrator_absolute_tolerance_position,
+                                self.lblintegrator_absolute_tolerance_velocity, self.txtintegrator_absolute_tolerance_velocity,
+                                self.lblintegrator_absolute_tolerance_mass, self.txtintegrator_absolute_tolerance_mass,
+                                self.lblintegrator_absolute_tolerance_time, self.txtintegrator_absolute_tolerance_time,
+                                self.lblintegrator_absolute_tolerance_other, self.txtintegrator_absolute_tolerance_other,
+                                self.lblintegrator_stm_error_control, self.cmbintegrator_stm_error_control,
+                                self.lblintegrator_stm_relative_tolerance, self.txtintegrator_stm_relative_tolerance,
+                                self.lblintegrator_stm_absolute_tolerance, self.txtintegrator_stm_absolute_tolerance,
+                                self.lblintegration_time_step_size, self.txtintegration_time_step_size,
+                                self.lblintegrator_initial_step_size, self.txtintegrator_initial_step_size,
+                                self.lblintegrator_minimum_step_size, self.txtintegrator_minimum_step_size,
+                                self.lblintegrator_safety_factor, self.txtintegrator_safety_factor,
+                                self.lblintegrator_minimum_step_scale, self.txtintegrator_minimum_step_scale,
+                                self.lblintegrator_maximum_step_scale, self.txtintegrator_maximum_step_scale,
+                                self.lblintegrator_rejection_limit, self.txtintegrator_rejection_limit])
 
         StateRepresentationgrid = wx.GridSizer(3,2,5,5)
         StateRepresentationChoices = ['Cartesian', 'SphericalRADEC', 'SphericalAZFPA', 'COE', 'MEE', "IncomingBplane", "OutgoingBplane", "IncomingBplaneRpTA", "OutgoingBplaneRpTA"]
@@ -222,7 +280,24 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.txtintegrator_tolerance.Bind(wx.EVT_KILL_FOCUS, self.ChangeIntegratorTolerance)
         self.cmbpropagatorType.Bind(wx.EVT_COMBOBOX, self.ChangepropagatorType)
         self.cmbintegratorType.Bind(wx.EVT_COMBOBOX, self.ChangeintegratorType)
+        self.cmbintegrator_error_control_mode.Bind(wx.EVT_COMBOBOX, self.Changeintegrator_error_control_mode)
+        self.cmbintegrator_stm_error_control.Bind(wx.EVT_COMBOBOX, self.Changeintegrator_stm_error_control)
         self.txtintegration_time_step_size.Bind(wx.EVT_KILL_FOCUS, self.Changeintegration_time_step_size)
+        for control in [self.txtintegrator_relative_tolerance,
+                        self.txtintegrator_absolute_tolerance_position,
+                        self.txtintegrator_absolute_tolerance_velocity,
+                        self.txtintegrator_absolute_tolerance_mass,
+                        self.txtintegrator_absolute_tolerance_time,
+                        self.txtintegrator_absolute_tolerance_other,
+                        self.txtintegrator_stm_relative_tolerance,
+                        self.txtintegrator_stm_absolute_tolerance,
+                        self.txtintegrator_initial_step_size,
+                        self.txtintegrator_minimum_step_size,
+                        self.txtintegrator_safety_factor,
+                        self.txtintegrator_minimum_step_scale,
+                        self.txtintegrator_maximum_step_scale,
+                        self.txtintegrator_rejection_limit]:
+            control.Bind(wx.EVT_KILL_FOCUS, self.ChangeAdaptiveIntegratorSetting)
         self.cmbPeriapseBoundaryStateRepresentation.Bind(wx.EVT_COMBOBOX, self.ChangePeriapseBoundaryStateRepresentation)
         self.cmbParallelShootingStateRepresentation.Bind(wx.EVT_COMBOBOX, self.ChangeParallelShootingStateRepresentation)
         self.cmbParallelShootingConstraintStateRepresentation.Bind(wx.EVT_COMBOBOX, self.ChangeParallelShootingConstraintStateRepresentation)
@@ -254,11 +329,24 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.txtspiral_segments.SetValue(str(self.missionoptions.spiral_segments))
         self.txtintegrator_tolerance.SetValue(str(self.missionoptions.integrator_tolerance))
         self.cmbpropagatorType.SetSelection(self.missionoptions.propagatorType)
-        # convert the integrator type to correspond to the dropdown
-        # EMTG integrator types 0, 1
-        pyemtg_integrator_types_conversion = [-1, 0]
-        self.cmbintegratorType.SetSelection(pyemtg_integrator_types_conversion[self.missionoptions.integratorType])
+        self.cmbintegratorType.SetSelection(integrator_type_to_selection(self.missionoptions.integratorType))
+        self.cmbintegrator_error_control_mode.SetSelection(self.missionoptions.integrator_error_control_mode)
+        self.txtintegrator_relative_tolerance.SetValue(str(self.missionoptions.integrator_relative_tolerance))
+        self.txtintegrator_absolute_tolerance_position.SetValue(str(self.missionoptions.integrator_absolute_tolerance_position))
+        self.txtintegrator_absolute_tolerance_velocity.SetValue(str(self.missionoptions.integrator_absolute_tolerance_velocity))
+        self.txtintegrator_absolute_tolerance_mass.SetValue(str(self.missionoptions.integrator_absolute_tolerance_mass))
+        self.txtintegrator_absolute_tolerance_time.SetValue(str(self.missionoptions.integrator_absolute_tolerance_time))
+        self.txtintegrator_absolute_tolerance_other.SetValue(str(self.missionoptions.integrator_absolute_tolerance_other))
+        self.cmbintegrator_stm_error_control.SetSelection(self.missionoptions.integrator_stm_error_control)
+        self.txtintegrator_stm_relative_tolerance.SetValue(str(self.missionoptions.integrator_stm_relative_tolerance))
+        self.txtintegrator_stm_absolute_tolerance.SetValue(str(self.missionoptions.integrator_stm_absolute_tolerance))
         self.txtintegration_time_step_size.SetValue(str(self.missionoptions.integration_time_step_size))
+        self.txtintegrator_initial_step_size.SetValue(str(self.missionoptions.integrator_initial_step_size))
+        self.txtintegrator_minimum_step_size.SetValue(str(self.missionoptions.integrator_minimum_step_size))
+        self.txtintegrator_safety_factor.SetValue(str(self.missionoptions.integrator_safety_factor))
+        self.txtintegrator_minimum_step_scale.SetValue(str(self.missionoptions.integrator_minimum_step_scale))
+        self.txtintegrator_maximum_step_scale.SetValue(str(self.missionoptions.integrator_maximum_step_scale))
+        self.txtintegrator_rejection_limit.SetValue(str(self.missionoptions.integrator_rejection_limit))
         self.cmbPeriapseBoundaryStateRepresentation.SetSelection(self.missionoptions.PeriapseBoundaryStateRepresentation)
         self.cmbParallelShootingStateRepresentation.SetSelection(self.missionoptions.ParallelShootingStateRepresentation)
         self.cmbParallelShootingConstraintStateRepresentation.SetSelection(self.missionoptions.ParallelShootingConstraintStateRepresentation)
@@ -310,13 +398,31 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.lblpropagatorType.Show(False)
             self.cmbpropagatorType.Show(False)
 
-        #only enable integrator tolerance for mission types that integrate
-        if self.missionoptions.integratorType == 0:
-            self.lblintegrator_tolerance.Show(True)
-            self.txtintegrator_tolerance.Show(True)
-        else:
-            self.lblintegrator_tolerance.Show(False)
-            self.txtintegrator_tolerance.Show(False)
+        adaptive = self.missionoptions.integratorType == 0
+        explicit_contract = adaptive and self.missionoptions.integrator_error_control_mode == 1
+        legacy_controls = [self.lblintegrator_tolerance, self.txtintegrator_tolerance]
+        explicit_controls = [self.lblintegrator_relative_tolerance, self.txtintegrator_relative_tolerance,
+                             self.lblintegrator_absolute_tolerance_position, self.txtintegrator_absolute_tolerance_position,
+                             self.lblintegrator_absolute_tolerance_velocity, self.txtintegrator_absolute_tolerance_velocity,
+                             self.lblintegrator_absolute_tolerance_mass, self.txtintegrator_absolute_tolerance_mass,
+                             self.lblintegrator_absolute_tolerance_time, self.txtintegrator_absolute_tolerance_time,
+                             self.lblintegrator_absolute_tolerance_other, self.txtintegrator_absolute_tolerance_other,
+                             self.lblintegrator_stm_relative_tolerance, self.txtintegrator_stm_relative_tolerance,
+                             self.lblintegrator_stm_absolute_tolerance, self.txtintegrator_stm_absolute_tolerance]
+        adaptive_controls = [self.lblintegrator_error_control_mode, self.cmbintegrator_error_control_mode,
+                             self.lblintegrator_stm_error_control, self.cmbintegrator_stm_error_control,
+                             self.lblintegrator_initial_step_size, self.txtintegrator_initial_step_size,
+                             self.lblintegrator_minimum_step_size, self.txtintegrator_minimum_step_size,
+                             self.lblintegrator_safety_factor, self.txtintegrator_safety_factor,
+                             self.lblintegrator_minimum_step_scale, self.txtintegrator_minimum_step_scale,
+                             self.lblintegrator_maximum_step_scale, self.txtintegrator_maximum_step_scale,
+                             self.lblintegrator_rejection_limit, self.txtintegrator_rejection_limit]
+        for control in legacy_controls:
+            control.Show(adaptive and not explicit_contract)
+        for control in explicit_controls:
+            control.Show(explicit_contract)
+        for control in adaptive_controls:
+            control.Show(adaptive)
 
         self.lblintegratorType.Show(True)
         self.cmbintegratorType.Show(True)
@@ -450,7 +556,14 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
 
     def ChangeIntegratorTolerance(self, e):
         e.Skip()
-        self.missionoptions.integrator_tolerance = eval(self.txtintegrator_tolerance.GetValue())
+        previous = self.missionoptions.integrator_tolerance
+        try:
+            self.missionoptions.integrator_tolerance = float(self.txtintegrator_tolerance.GetValue())
+            validate_adaptive_options(self.missionoptions)
+        except (TypeError, ValueError) as error:
+            self.missionoptions.integrator_tolerance = previous
+            wx.MessageBox(str(error), "Invalid adaptive integration option", wx.OK | wx.ICON_ERROR)
+            self.update()
 
     def ChangepropagatorType(self, e):
         self.missionoptions.propagatorType = self.cmbpropagatorType.GetSelection()
@@ -458,15 +571,60 @@ class PhysicsOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         e.Skip()
 
     def ChangeintegratorType(self, e):
-        # convert the integrator type back from the dropdown
-        # PyEMTG integrator types -1, 0
-        emtg_integrator_types_conversion = [1, 0]
-        self.missionoptions.integratorType = emtg_integrator_types_conversion[self.cmbintegratorType.GetSelection()]
+        self.missionoptions.integratorType = selection_to_integrator_type(self.cmbintegratorType.GetSelection())
         self.parent.update()
         e.Skip()
 
+    def Changeintegrator_error_control_mode(self, e):
+        self.missionoptions.integrator_error_control_mode = self.cmbintegrator_error_control_mode.GetSelection()
+        self.update()
+        e.Skip()
+
+    def Changeintegrator_stm_error_control(self, e):
+        self.missionoptions.integrator_stm_error_control = self.cmbintegrator_stm_error_control.GetSelection()
+        self.update()
+        e.Skip()
+
+    def ChangeAdaptiveIntegratorSetting(self, e):
+        e.Skip()
+        control_to_attribute = {
+            self.txtintegrator_relative_tolerance: 'integrator_relative_tolerance',
+            self.txtintegrator_absolute_tolerance_position: 'integrator_absolute_tolerance_position',
+            self.txtintegrator_absolute_tolerance_velocity: 'integrator_absolute_tolerance_velocity',
+            self.txtintegrator_absolute_tolerance_mass: 'integrator_absolute_tolerance_mass',
+            self.txtintegrator_absolute_tolerance_time: 'integrator_absolute_tolerance_time',
+            self.txtintegrator_absolute_tolerance_other: 'integrator_absolute_tolerance_other',
+            self.txtintegrator_stm_relative_tolerance: 'integrator_stm_relative_tolerance',
+            self.txtintegrator_stm_absolute_tolerance: 'integrator_stm_absolute_tolerance',
+            self.txtintegrator_initial_step_size: 'integrator_initial_step_size',
+            self.txtintegrator_minimum_step_size: 'integrator_minimum_step_size',
+            self.txtintegrator_safety_factor: 'integrator_safety_factor',
+            self.txtintegrator_minimum_step_scale: 'integrator_minimum_step_scale',
+            self.txtintegrator_maximum_step_scale: 'integrator_maximum_step_scale',
+            self.txtintegrator_rejection_limit: 'integrator_rejection_limit',
+        }
+        control = e.GetEventObject()
+        attribute = control_to_attribute[control]
+        previous = getattr(self.missionoptions, attribute)
+        try:
+            value = int(control.GetValue()) if attribute == 'integrator_rejection_limit' else float(control.GetValue())
+            setattr(self.missionoptions, attribute, value)
+            validate_adaptive_options(self.missionoptions)
+        except (TypeError, ValueError) as error:
+            setattr(self.missionoptions, attribute, previous)
+            wx.MessageBox(str(error), "Invalid adaptive integration option", wx.OK | wx.ICON_ERROR)
+            self.update()
+
     def Changeintegration_time_step_size(self, e):
-        self.missionoptions.integration_time_step_size = eval(self.txtintegration_time_step_size.GetValue())
+        previous = self.missionoptions.integration_time_step_size
+        try:
+            self.missionoptions.integration_time_step_size = float(self.txtintegration_time_step_size.GetValue())
+            if self.missionoptions.integration_time_step_size <= 0.0:
+                raise ValueError("integration_time_step_size must be strictly positive.")
+        except (TypeError, ValueError) as error:
+            self.missionoptions.integration_time_step_size = previous
+            wx.MessageBox(str(error), "Invalid integration option", wx.OK | wx.ICON_ERROR)
+            self.update()
         self.parent.update()
         e.Skip()
         

@@ -51,8 +51,24 @@ double,earliestPossibleEpoch,,,51554.5,33251,100000,Beginning of the SplineEphem
 double,latestPossibleEpoch,,,88058,33251,100000,End of the SplineEphem data set,End of the SplineEphem data set
 PropagatorType,propagatorType,,,0,0,1,"Propagator type. Choices are 0 - Keplerian propagator, 1 - Integrated propagator",Propagator type\n#0: Keplerian propagator\n#1: Integrated propagator
 IntegratorType,integratorType,,,1,0,1,"Integrator type. Choices are 0 - rk7813M adaptive step, 1 - rk8 fixed step",Integrator type\n#0: rk7813M adaptive step\n#1: rk8 fixed step
-double,integrator_tolerance,,,1.00E-08,1.00E-12,1,adaptive step integrator tolerance,adaptive step integrator tolerance
+double,integrator_tolerance,,,1.00E-08,1.00E-12,1,"legacy adaptive local-error tolerance; used as rtol and to derive dimensional atols when integrator_error_control_mode is 0","legacy adaptive local-error tolerance (compatibility mode only; this is not a terminal-accuracy guarantee)"
+int,integrator_error_control_mode,,,0,0,1,"adaptive error-control contract: 0 migrates integrator_tolerance, 1 uses explicit component tolerances","adaptive error-control contract\n#0: legacy migration\n#1: explicit component atol/rtol"
+double,integrator_relative_tolerance,,,1.00E-08,1.00E-14,1,global state relative tolerance for explicit component error control,global adaptive state relative tolerance
+double,integrator_absolute_tolerance_position,,,1.00E-06,1.00E-16,inf,position absolute tolerance in km,adaptive position absolute tolerance (km)
+double,integrator_absolute_tolerance_velocity,,,1.00E-09,1.00E-16,inf,velocity absolute tolerance in km/s,adaptive velocity absolute tolerance (km/s)
+double,integrator_absolute_tolerance_mass,,,1.00E-09,1.00E-16,inf,mass and virtual-propellant absolute tolerance in kg,adaptive mass/virtual-propellant absolute tolerance (kg)
+double,integrator_absolute_tolerance_time,,,1.00E-06,1.00E-16,inf,epoch or independent-variable absolute tolerance in seconds,adaptive epoch/independent-variable absolute tolerance (s)
+double,integrator_absolute_tolerance_other,,,1.00E-10,1.00E-16,inf,absolute tolerance for formulation-specific auxiliary states,adaptive auxiliary-state absolute tolerance
+int,integrator_stm_error_control,,,1,0,1,"STM error-control policy: 0 state only, 1 separate normalized state and STM infinity norms combined by max","STM error-control policy\n#0: state only\n#1: state and STM"
+double,integrator_stm_relative_tolerance,,,1.00E-08,1.00E-14,1,relative tolerance for each STM entry,adaptive STM relative tolerance
+double,integrator_stm_absolute_tolerance,,,1.00E-10,1.00E-16,inf,"base STM absolute tolerance, scaled by output/input characteristic-unit ratio",adaptive dimensionally scaled STM absolute tolerance
 double,integration_time_step_size,,,86400,1.00E-10,inf,"integration step size (maximum for adaptive, fixed for fixed)","integration step size (maximum for adaptive, fixed for fixed)"
+double,integrator_initial_step_size,,,0,0,inf,"adaptive initial step in seconds; 0 uses integration_time_step_size",adaptive initial step (0 uses maximum step)
+double,integrator_minimum_step_size,,,0,0,inf,"adaptive minimum step in seconds; 0 derives a scale-aware machine-precision floor",adaptive minimum step (0 selects automatic floor)
+double,integrator_safety_factor,,,0.9,0.01,1,adaptive controller safety factor,adaptive controller safety factor
+double,integrator_minimum_step_scale,,,0.2,0.01,1,minimum adaptive controller resize factor,minimum adaptive controller step-scale factor
+double,integrator_maximum_step_scale,,,5,1,100,maximum adaptive controller growth factor,maximum adaptive controller step-scale factor
+size_t,integrator_rejection_limit,,,50,1,10000,maximum consecutive adaptive rejections before failure,adaptive consecutive-step rejection limit
 int,num_timesteps,,,20,1,inf,number of timesteps per phase,number of timesteps per phase
 size_t,spiral_segments,,,1,1,inf,number of spiral segments,number of spiral segments
 bool,allow_initial_mass_to_vary,,,0,0,1,Allow the mass at the beginning of the first journey to vary up to the allowed maximum?,Allow the mass at the beginning of the first journey to vary up to the allowed maximum?

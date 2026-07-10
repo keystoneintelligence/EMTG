@@ -75,6 +75,9 @@ namespace EMTG {
                                              doubleType & error,
                                              math::Matrix<double> & error_scaling_factors);
 
+            virtual size_t getLastStepRhsEvaluations() const override { return this->num_stages; }
+            virtual EmbeddedErrorEstimate getLastEmbeddedErrorEstimate() const override { return this->last_error_estimate; }
+
         protected:
             // methods
 
@@ -151,6 +154,9 @@ namespace EMTG {
             math::Matrix<doubleType> f, y, x_left, x_right;
             doubleType error_step_size;
             bool error_step_includes_STM;
+            const math::Matrix<doubleType>* error_state_left = nullptr;
+            const math::Matrix<double>* error_stm_left = nullptr;
+            EmbeddedErrorEstimate last_error_estimate;
 
             RungeKuttaTableau * RK_tableau;
 
