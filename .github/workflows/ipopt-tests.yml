@@ -41,12 +41,12 @@ jobs:
 
       - name: Build IPOPT 3.14.19 with the system MUMPS solver
         run: |
+          mkdir -p _local "$IPOPT_SOURCE" "$IPOPT_PREFIX" "${IPOPT_SOURCE}-build"
           curl --fail --location --retry 3 --retry-all-errors \
             --output _local/Ipopt-3.14.19.tar.gz \
             https://github.com/coin-or/Ipopt/archive/refs/tags/releases/3.14.19.tar.gz
           echo "b3eb84a23812b53a3325bcd2c599de2b0f5df45a18ed251f9e3c1cd893136287  _local/Ipopt-3.14.19.tar.gz" \
             | sha256sum --check -
-          mkdir -p "$IPOPT_SOURCE" "$IPOPT_PREFIX" "${IPOPT_SOURCE}-build"
           tar --extract --gzip --strip-components=1 \
             --file=_local/Ipopt-3.14.19.tar.gz --directory="$IPOPT_SOURCE"
           cd "${IPOPT_SOURCE}-build"
