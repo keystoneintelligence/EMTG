@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 45
     env:
       CSPICE_ROOT: ${{ github.workspace }}/_local/cspice-linux/cspice
+      IPOPT_PREFIX: ${{ github.workspace }}/_local/ipopt-3.14.19
+      IPOPT_SOURCE: ${{ github.workspace }}/_local/ipopt-source-3.14.19
 
     steps:
       - name: Check out repository
@@ -24,14 +26,39 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            coinor-libipopt-dev \
+            build-essential \
             gfortran \
             libboost-filesystem-dev \
             libboost-serialization-dev \
             libboost-system-dev \
             libgsl-dev \
+            liblapack-dev \
+            libmetis-dev \
+            libmumps-seq-dev \
             ninja-build \
+            pkg-config \
             tcsh
+
+      - name: Build IPOPT 3.14.19 with the system MUMPS solver
+        run: |
+          curl --fail --location --retry 3 --retry-all-errors \
+            --output _local/Ipopt-3.14.19.tar.gz \
+            https://github.com/coin-or/Ipopt/archive/refs/tags/releases/3.14.19.tar.gz
+          echo "b3eb84a23812b53a3325bcd2c599de2b0f5df45a18ed251f9e3c1cd893136287  _local/Ipopt-3.14.19.tar.gz" \
+            | sha256sum --check -
+          mkdir -p "$IPOPT_SOURCE" "$IPOPT_PREFIX" "${IPOPT_SOURCE}-build"
+          tar --extract --gzip --strip-components=1 \
+            --file=_local/Ipopt-3.14.19.tar.gz --directory="$IPOPT_SOURCE"
+          cd "${IPOPT_SOURCE}-build"
+          "$IPOPT_SOURCE/configure" \
+            --prefix="$IPOPT_PREFIX" \
+            --disable-java \
+            --disable-sipopt \
+            --with-mumps-cflags="-I/usr/include/mumps_seq" \
+            --with-mumps-lflags="-ldmumps_seq"
+          make --jobs=2
+          make install
+          PKG_CONFIG_PATH="$IPOPT_PREFIX/lib/pkgconfig" pkg-config --modversion ipopt
 
       - name: Download and build the official Linux CSPICE toolkit
         run: |
@@ -49,7 +76,11 @@ jobs:
           test -f "$CSPICE_ROOT/lib/cspice.a"
 
       - name: Configure IPOPT-only EMTG
-        run: cmake --preset ipopt-only -DCSPICE_DIR="$CSPICE_ROOT"
+        run: |
+          export PKG_CONFIG_PATH="$IPOPT_PREFIX/lib/pkgconfig"
+          cmake --preset ipopt-only \
+            -DCSPICE_DIR="$CSPICE_ROOT" \
+            -DIPOPT_ROOT_DIR="$IPOPT_PREFIX"
 
       - name: Build full executable and analytic IPOPT tests
         run: cmake --build --preset ipopt-only --target EMTGv9 ipopt_interface_tests --parallel 2
