@@ -16,10 +16,21 @@ namespace EMTG
 {
     namespace Solvers
     {
+        struct IPOPTStatusMapping
+        {
+            NLPSolveStatus status;
+            bool solverAcceptedPoint;
+        };
+
+        IPOPTStatusMapping MapIPOPTStatus(const ApplicationReturnStatus status,
+            const bool stoppedOnGoalAttain,
+            const bool stoppedOnTimeLimit,
+            const bool callbackFailed);
+
         class IPOPT_interface : public NLP_interface
         {
         public:
-            IPOPT_interface() : NLP_interface::NLP_interface(), myIPOPT(nullptr), stoppedOnGoalAttain(false), stoppedOnTimeLimit(false) {};
+            IPOPT_interface() : NLP_interface::NLP_interface(), myIPOPT(nullptr), stoppedOnGoalAttain(false), stoppedOnTimeLimit(false), callbackFailed(false) {};
             IPOPT_interface(problem* myProblem,
                 const NLPoptions& myOptions);
             virtual ~IPOPT_interface();
@@ -29,12 +40,15 @@ namespace EMTG
         private:
             struct JacobianEntry
             {
-                bool isLinear;
-                size_t sourceIndex;
+                std::vector<size_t> linearSourceIndices;
+                std::vector<size_t> nonlinearSourceIndices;
             };
 
             void initialize_problem();
             bool process_current_iteration();
+            bool set_current_scaled_x(const ipindex n, const ipnumber* x);
+            bool current_functions_are_finite(const bool needG) const;
+            void report_callback_failure(const char* callbackName, const char* message = nullptr);
 
             static bool IPOPT_CALLCONV evaluate_objective(ipindex n,
                 ipnumber* x,
@@ -102,6 +116,7 @@ namespace EMTG
             std::vector<JacobianEntry> jacobianEntries;
             bool stoppedOnGoalAttain;
             bool stoppedOnTimeLimit;
+            bool callbackFailed;
         };//end class IPOPT_interface
     }//end namespace Solvers
 }//end namespace EMTG

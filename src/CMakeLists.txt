@@ -109,6 +109,11 @@ target_include_directories(EMTGv9 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/OuterLoop)
 target_compile_definitions(EMTGv9 PRIVATE BOOST_ALL_NO_LIB)
 target_link_libraries(EMTGv9 emtg ${EMTG_LIBRARIES})
 
+add_custom_command(TARGET EMTGv9 POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                       "${CMAKE_BINARY_DIR}/solver_capabilities.json"
+                       "${OUTPUTDESTINATION}/solver_capabilities.json")
+
 # if desired, build the testbeds
 if(BUILD_EMTG_TESTBED)
 	add_subdirectory(Testing)

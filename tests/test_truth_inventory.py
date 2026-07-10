@@ -6,6 +6,7 @@ from test_selection import SMOKE_TEST_CASES
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEST_ROOT = REPO_ROOT / 'testatron' / 'tests'
 EXPECTED_NO_TRUTH_MARKER = 'EXPECTED_NO_TRUTH.md'
+NUMERICAL_ACCEPTANCE_MARKER = 'NUMERICAL_ACCEPTANCE.md'
 
 
 def test_every_emtgopt_has_truth_or_expected_no_truth_marker():
@@ -13,7 +14,8 @@ def test_every_emtgopt_has_truth_or_expected_no_truth_marker():
     for options_file in TEST_ROOT.rglob('*.emtgopt'):
         truth_file = options_file.with_suffix('.emtg')
         marker = options_file.parent / EXPECTED_NO_TRUTH_MARKER
-        if not truth_file.is_file() and not marker.is_file():
+        numerical_marker = options_file.parent / NUMERICAL_ACCEPTANCE_MARKER
+        if not truth_file.is_file() and not marker.is_file() and not numerical_marker.is_file():
             missing_truths.append(options_file.relative_to(TEST_ROOT).as_posix())
 
     assert missing_truths == []

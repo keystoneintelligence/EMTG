@@ -16,7 +16,8 @@
     "integration_asteroid_missions"
   ],
   "expected_failure_cases": [],
-  "expected_no_truth_cases": [
+  "expected_no_truth_cases": [],
+  "numerical_acceptance_cases": [
     "integration_asteroid_missions/A20136163_AEPS_IPOPT_FBLT"
   ],
   "requires_spice_cases": [

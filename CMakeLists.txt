@@ -61,14 +61,20 @@ if(EMTG_PORTABLE_TESTBED_ONLY)
     return()
 endif()
 
-#pull in the user-defined configurations
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR})
-include(EMTG-Config.cmake)
+# Pull in optional machine-local hints. All dependencies can also be supplied
+# through ordinary CMake cache variables, package discovery, or a toolchain.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}")
+include(EMTG-Config.cmake OPTIONAL)
 
 #identify the project
 project(EMTG)
 
 include(CTest)
+
+set(CSPICE_DIR "${CSPICE_DIR}" CACHE PATH "CSPICE source/build root")
+if(NOT CSPICE_DIR)
+    set(CSPICE_DIR "${PROJECT_SOURCE_DIR}/depend/cspice" CACHE PATH "CSPICE source/build root" FORCE)
+endif()
 
 link_directories(${PROJECT_SOURCE_DIR}/Release)
 link_directories(${PROJECT_SOURCE_DIR}/Debug)
@@ -76,15 +82,15 @@ link_directories(${PROJECT_SOURCE_DIR}/Debug)
 
 # enable multicore build on Windows
 if (MSVC)
-    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} " /MP")
-    set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} " /MP")
+    string(APPEND CMAKE_CXX_FLAGS " /MP")
+    string(APPEND CMAKE_C_FLAGS " /MP")
 endif()
 
 # Boost spews auto_ptr deprecation warnings
 add_definitions(-D_HAS_AUTO_PTR_ETC)
 if (NOT MSVC)
-    set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} " -Wno-deprecated-declarations")
-    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} " -Wno-deprecated-declarations")
+    string(APPEND CMAKE_C_FLAGS " -Wno-deprecated-declarations")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-deprecated-declarations")
 endif()
 
 # Boost doesn't recognize newer compilers
@@ -106,12 +112,12 @@ endif(NOT IS_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 #compiler-time Define-level options  for EMTG
 
-option(ENABLE_SNOPT "Build EMTG with SNOPT support" ON)
-option(ENABLE_IPOPT "Build EMTG with IPOPT support" OFF)
+option(ENABLE_SNOPT "Build EMTG with SNOPT support" OFF)
+option(ENABLE_IPOPT "Build EMTG with IPOPT support" ON)
 
 # Optional user override of the snopt directory specified in the EMTG-Config.cmake file
 set(SNOPTDIR_OVRD "${SNOPT_ROOT_DIR}" CACHE PATH "SNOPT Root Directory") # Do not use the FORCE command here so the value the user enters in GUI is preserved
-set(IPOPTDIR_OVRD "${IPOPT_ROOT_DIR}" CACHE PATH "IPOPT Root Directory")
+set(IPOPTDIR_OVRD "${IPOPT_ROOT_DIR}" CACHE PATH "Legacy alias for IPOPT_ROOT_DIR")
 
 option(QUIET_SNOPT "Minimizes the SNOPT output to the log." OFF)
 option(SAFE_SNOPT "Trap things that could blow up SNOPT" ON)
@@ -147,15 +153,36 @@ if(ENABLE_IPOPT)
     add_definitions(-DEMTG_ENABLE_IPOPT)
 endif()
 
-if((NOT ENABLE_SNOPT) AND ENABLE_IPOPT)
-    add_definitions(-DEMTG_DEFAULT_NLP_SOLVER_TO_IPOPT)
+set(EMTG_CAPABILITY_SNOPT false)
+set(EMTG_CAPABILITY_IPOPT false)
+if(ENABLE_SNOPT)
+    set(EMTG_CAPABILITY_SNOPT true)
 endif()
+if(ENABLE_IPOPT)
+    set(EMTG_CAPABILITY_IPOPT true)
+endif()
+configure_file(
+    "${CMAKE_SOURCE_DIR}/cmake/solver_capabilities.json.in"
+    "${CMAKE_BINARY_DIR}/solver_capabilities.json"
+    @ONLY)
+
+set(EMTG_NLP_BACKENDS)
+if(ENABLE_SNOPT)
+    list(APPEND EMTG_NLP_BACKENDS SNOPT)
+endif()
+if(ENABLE_IPOPT)
+    list(APPEND EMTG_NLP_BACKENDS IPOPT)
+endif()
+if(NOT EMTG_NLP_BACKENDS)
+    message(FATAL_ERROR "No NLP solver backend is enabled. Enable IPOPT, SNOPT, or both.")
+endif()
+message(STATUS "Enabled EMTG NLP backends: ${EMTG_NLP_BACKENDS}")
 
 message(STATUS "Creating build files for " ${CMAKE_BUILD_TYPE} " mode... \n")
 
 if(CMAKE_BUILD_TYPE MATCHES Release)
     if (${CMAKE_CXX_COMPILER_ID} MATCHES "MSVC")
-        set(CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE} " /Ot /Ox /GL")
+        string(APPEND CMAKE_CXX_FLAGS_RELEASE " /Ot /Ox /GL")
     elseif (${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
         set(CMAKE_CXX_FLAGS_RELEASE " -g -O2")
     endif()
@@ -196,23 +223,37 @@ endif(HAS_BUILT_IN_THRUSTERS)
 
 if(SPLINE_EPHEM)
     add_definitions(-DSPLINE_EPHEM)
-	
-	# GNU Scientific Library
-    set(GSL_INCLUDE_DIRS ${GSL_PATH})    
-    include_directories(${GSL_INCLUDE_DIRS})
-    
-	add_library(gsl STATIC IMPORTED)
-	add_library(gslcblas STATIC IMPORTED)
-    if(MSVC)
-		set_property(TARGET gsl PROPERTY IMPORTED_LOCATION ${GSL_PATH}/${CMAKE_CFG_INTDIR}/gsl.lib)
-		set_property(TARGET gslcblas PROPERTY IMPORTED_LOCATION ${GSL_PATH}/${CMAKE_CFG_INTDIR}/gslcblas.lib)        
+
+    # Prefer explicit paths for the vendored Windows build, then fall back to
+    # CMake's standard GSL package discovery on Linux/macOS.
+    find_path(EMTG_GSL_INCLUDE_DIR
+        NAMES gsl/gsl_spline.h
+        HINTS "${GSL_PATH}" "${GSL_ROOT_DIR}"
+        PATH_SUFFIXES include)
+    find_library(EMTG_GSL_LIBRARY
+        NAMES gsl libgsl
+        HINTS "${GSL_PATH}" "${GSL_ROOT_DIR}"
+        PATH_SUFFIXES "${CMAKE_BUILD_TYPE}" Release Debug lib lib64)
+    find_library(EMTG_GSLCBLAS_LIBRARY
+        NAMES gslcblas libgslcblas
+        HINTS "${GSL_PATH}" "${GSL_ROOT_DIR}"
+        PATH_SUFFIXES "${CMAKE_BUILD_TYPE}" Release Debug lib lib64)
+
+    if(EMTG_GSL_INCLUDE_DIR AND EMTG_GSL_LIBRARY AND EMTG_GSLCBLAS_LIBRARY)
+        add_library(EMTG::gsl UNKNOWN IMPORTED)
+        add_library(EMTG::gslcblas UNKNOWN IMPORTED)
+        set_property(TARGET EMTG::gsl PROPERTY IMPORTED_LOCATION "${EMTG_GSL_LIBRARY}")
+        set_property(TARGET EMTG::gsl PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${EMTG_GSL_INCLUDE_DIR}")
+        set_property(TARGET EMTG::gslcblas PROPERTY IMPORTED_LOCATION "${EMTG_GSLCBLAS_LIBRARY}")
+        set(GSL_INCLUDE_DIRS "${EMTG_GSL_INCLUDE_DIR}")
+        set(GSL_LIBRARIES EMTG::gsl EMTG::gslcblas)
     else()
-        set_property(TARGET gsl PROPERTY IMPORTED_LOCATION ${GSL_PATH}/${CMAKE_CFG_INTDIR}/libgsl.a)
-		set_property(TARGET gslcblas PROPERTY IMPORTED_LOCATION ${GSL_PATH}/${CMAKE_CFG_INTDIR}/libgslcblas.a)
+        find_package(GSL REQUIRED)
+        set(GSL_LIBRARIES GSL::gsl GSL::gslcblas)
     endif()
 
-	set(GSL_LIBRARIES gsl gslcblas)
-	set(EMTG_LIBRARIES ${EMTG_LIBRARIES} ${GSL_LIBRARIES})
+    include_directories(${GSL_INCLUDE_DIRS})
+    set(EMTG_LIBRARIES ${EMTG_LIBRARIES} ${GSL_LIBRARIES})
 endif(SPLINE_EPHEM)
 
 #----------------CSpice Items------------------------------------------------------
@@ -398,113 +439,13 @@ endif()
 if(ENABLE_IPOPT)
 message(STATUS \n "Now checking on IPOPT...")
 
-set(IPOPT_INCLUDE_DIR "${IPOPT_INCLUDE_DIR}" CACHE PATH "Directory containing IPOPT headers")
-set(IPOPT_LIBRARY_DIR "${IPOPT_LIBRARY_DIR}" CACHE PATH "Directory containing IPOPT libraries")
-set(IPOPT_BIN_DIR "${IPOPT_BIN_DIR}" CACHE PATH "Directory containing IPOPT runtime DLLs")
-set(IPOPT_MINGW_BIN_DIR "${IPOPT_MINGW_BIN_DIR}" CACHE PATH "Directory containing MinGW runtime DLLs required by IPOPT")
-
-if(NOT IS_DIRECTORY ${IPOPTDIR_OVRD})
-    message(FATAL_ERROR "IPOPT directory specified (${IPOPTDIR_OVRD}) does not exist")
-endif()
-
-if(NOT IPOPT_INCLUDE_DIR)
-    set(IPOPT_INCLUDE_DIR "${IPOPTDIR_OVRD}/include")
-endif()
-
-if(NOT IPOPT_LIBRARY_DIR)
-    set(IPOPT_LIBRARY_DIR "${IPOPTDIR_OVRD}/lib")
-endif()
-
-if(NOT IPOPT_BIN_DIR)
-    set(IPOPT_BIN_DIR "${IPOPTDIR_OVRD}/bin")
-endif()
-
-if(NOT EXISTS "${IPOPT_INCLUDE_DIR}/coin-or/IpStdCInterface.h")
-    message(FATAL_ERROR "Could not find Ipopt C interface header at ${IPOPT_INCLUDE_DIR}/coin-or/IpStdCInterface.h")
-endif()
-
-if(MSVC AND IPOPT_MINGW_DLL)
-    file(GLOB IPOPT_DLL_CANDIDATES "${IPOPT_BIN_DIR}/libipopt-*.dll")
-    list(LENGTH IPOPT_DLL_CANDIDATES IPOPT_DLL_COUNT)
-    if(IPOPT_DLL_COUNT EQUAL 0)
-        message(FATAL_ERROR "Could not find libipopt-*.dll in ${IPOPT_BIN_DIR}")
-    endif()
-
-    list(GET IPOPT_DLL_CANDIDATES 0 IPOPT_DLL_PATH)
-    get_filename_component(IPOPT_DLL_NAME "${IPOPT_DLL_PATH}" NAME)
-    set(IPOPT_DEF_FILE "${PROJECT_SOURCE_DIR}/src/InnerLoop/ipopt/libipopt.def")
-    set(IPOPT_IMPORT_LIB_DIR "${CMAKE_BINARY_DIR}/ipopt_bridge")
-    set(IPOPT_IMPORT_LIB "${IPOPT_IMPORT_LIB_DIR}/libipopt.lib")
-    file(MAKE_DIRECTORY "${IPOPT_IMPORT_LIB_DIR}")
-
-    get_filename_component(EMTG_MSVC_TOOL_DIR "${CMAKE_C_COMPILER}" DIRECTORY)
-    find_program(EMTG_LIB_EXECUTABLE NAMES lib.exe PATHS "${EMTG_MSVC_TOOL_DIR}")
-    if(NOT EMTG_LIB_EXECUTABLE)
-        message(FATAL_ERROR "Could not find lib.exe needed to generate an MSVC import library for IPOPT")
-    endif()
-
-    execute_process(
-        COMMAND "${EMTG_LIB_EXECUTABLE}" /def:${IPOPT_DEF_FILE} /machine:x64 /name:${IPOPT_DLL_NAME} /out:${IPOPT_IMPORT_LIB}
-        RESULT_VARIABLE EMTG_IPOPT_IMPORTLIB_RESULT
-        OUTPUT_VARIABLE EMTG_IPOPT_IMPORTLIB_STDOUT
-        ERROR_VARIABLE EMTG_IPOPT_IMPORTLIB_STDERR)
-    if(NOT EMTG_IPOPT_IMPORTLIB_RESULT EQUAL 0)
-        message(FATAL_ERROR
-            "Failed to generate the MSVC IPOPT import library.\n"
-            "stdout:\n${EMTG_IPOPT_IMPORTLIB_STDOUT}\n"
-            "stderr:\n${EMTG_IPOPT_IMPORTLIB_STDERR}")
-    endif()
-
-    add_library(ipopt SHARED IMPORTED)
-    set_property(TARGET ipopt PROPERTY IMPORTED_IMPLIB "${IPOPT_IMPORT_LIB}")
-    set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_DLL_PATH}")
-else()
-    add_library(ipopt SHARED IMPORTED)
-
-    if(MSVC)
-        if(EXISTS "${IPOPT_LIBRARY_DIR}/ipopt.lib")
-            set_property(TARGET ipopt PROPERTY IMPORTED_IMPLIB "${IPOPT_LIBRARY_DIR}/ipopt.lib")
-        elseif(EXISTS "${IPOPT_LIBRARY_DIR}/libipopt.lib")
-            set_property(TARGET ipopt PROPERTY IMPORTED_IMPLIB "${IPOPT_LIBRARY_DIR}/libipopt.lib")
-        else()
-            message(FATAL_ERROR "Could not find an MSVC import library for IPOPT in ${IPOPT_LIBRARY_DIR}")
-        endif()
-
-        if(EXISTS "${IPOPT_BIN_DIR}/libipopt-3.dll")
-            set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_BIN_DIR}/libipopt-3.dll")
-        endif()
-    else()
-        if(EXISTS "${IPOPT_LIBRARY_DIR}/libipopt.so")
-            set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_LIBRARY_DIR}/libipopt.so")
-        elseif(EXISTS "${IPOPT_LIBRARY_DIR}/libipopt.dylib")
-            set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_LIBRARY_DIR}/libipopt.dylib")
-        else()
-            set_property(TARGET ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_LIBRARY_DIR}/libipopt.dll.a")
-        endif()
-    endif()
-endif()
-
-include_directories("${IPOPT_INCLUDE_DIR}" "${IPOPT_INCLUDE_DIR}/coin-or")
-set(IPOPT_LIBRARIES ipopt)
-set(EMTG_LIBRARIES ${EMTG_LIBRARIES} ${IPOPT_LIBRARIES})
-
-if(MSVC)
-    file(GLOB EMTG_IPOPT_RUNTIME_DLLS "${IPOPT_BIN_DIR}/*.dll")
-    if(IPOPT_MINGW_BIN_DIR AND IS_DIRECTORY "${IPOPT_MINGW_BIN_DIR}")
-        foreach(IPOPT_RUNTIME_NAME
-                libblas.dll
-                liblapack.dll
-                libmetis.dll
-                libgcc_s_seh-1.dll
-                libgfortran-5.dll
-                libquadmath-0.dll
-                libstdc++-6.dll
-                libwinpthread-1.dll)
-            if(EXISTS "${IPOPT_MINGW_BIN_DIR}/${IPOPT_RUNTIME_NAME}")
-                list(APPEND EMTG_IPOPT_RUNTIME_DLLS "${IPOPT_MINGW_BIN_DIR}/${IPOPT_RUNTIME_NAME}")
-            endif()
-        endforeach()
-    endif()
+find_package(Ipopt 3.14 REQUIRED)
+set(IPOPT_LIBRARIES Ipopt::Ipopt)
+set(EMTG_IPOPT_RUNTIME_DLLS ${IPOPT_RUNTIME_DLLS})
+set(EMTG_LIBRARIES ${EMTG_LIBRARIES} Ipopt::Ipopt)
+message(STATUS "Ipopt ${IPOPT_VERSION} include directory: ${IPOPT_INCLUDE_DIR}")
+if(IPOPT_RUNTIME_LIBRARY)
+    message(STATUS "Ipopt runtime library: ${IPOPT_RUNTIME_LIBRARY}")
 endif()
 else()
 message(STATUS "IPOPT support disabled")

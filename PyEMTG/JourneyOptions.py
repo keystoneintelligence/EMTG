@@ -316,8 +316,8 @@ class JourneyOptions(object):
                         self.sequence = [int(entry) for entry in linecell[1:]]
                   
                     elif linecell[0] == "phase_type":
-                        # Check for phase types that are not supported in PyEMTG
                         self.phase_type = int(linecell[1])
+                        # Check for phase types that are not supported in PyEMTG
                         if (self.phase_type < 2): print("WARNING: The selected options file contains an unsupported phase type. The supported phase types are MGALT, FBLT, PSBI, PSFB, MGAnDSMs, CoastPhase, SundmanCoastPhase, ProbeEntryPhase, and ControlLawThrustPhase.")
                   
                     elif linecell[0] == "impulses_per_phase":

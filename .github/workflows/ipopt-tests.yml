@@ -1,0 +1,47 @@
+name: IPOPT Open-Source Solver
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  linux-ipopt-only:
+    name: Linux IPOPT-only build and analytic regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install open-source build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            coinor-libipopt-dev \
+            gfortran \
+            libboost-filesystem-dev \
+            libboost-serialization-dev \
+            libboost-system-dev \
+            libgsl-dev \
+            ninja-build \
+            tcsh
+
+      - name: Build the checked-in CSPICE source
+        working-directory: depend/cspice
+        run: |
+          chmod +x makeall.csh
+          ./makeall.csh
+
+      - name: Configure IPOPT-only EMTG
+        run: cmake --preset ipopt-only
+
+      - name: Build full executable and analytic IPOPT tests
+        run: cmake --build --preset ipopt-only --target EMTGv9 ipopt_interface_tests --parallel 2
+
+      - name: Run IPOPT interface regression
+        run: ctest --preset ipopt-only -R ipopt

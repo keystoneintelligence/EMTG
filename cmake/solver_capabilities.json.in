@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "snopt": @EMTG_CAPABILITY_SNOPT@,
+  "ipopt": @EMTG_CAPABILITY_IPOPT@
+}

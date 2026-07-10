@@ -11,6 +11,8 @@
 #include "NLP_interface.h"
 
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace EMTG
 {
@@ -18,5 +20,8 @@ namespace EMTG
     {
         std::unique_ptr<NLP_interface> CreateNLPInterface(problem* myProblem,
             const NLPoptions& myOptions);
+        bool IsNLPSolverAvailable(const int solverType);
+        std::vector<int> GetAvailableNLPSolverTypes();
+        std::string GetAvailableNLPSolverDescription();
     }//end namespace Solvers
 }//end namespace EMTG

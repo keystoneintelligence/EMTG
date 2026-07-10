@@ -69,13 +69,16 @@ namespace EMTG
             void set_enable_auto_scale(const bool& enable_auto_scale) { this->enable_auto_scale = enable_auto_scale; }
             void set_enable_NLP_chaperone(const bool& enable_NLP_chaperone) { this->enable_NLP_chaperone = enable_NLP_chaperone; }
             void set_check_derivatives(const bool& check_derivatives) { this->check_derivatives = check_derivatives; }
+            void set_quiet_NLP(const bool& quiet_NLP) { this->quiet_NLP = quiet_NLP; }
             void set_print_NLP_movie_frames(const bool& print_NLP_movie_frames) { this->print_NLP_movie_frames = print_NLP_movie_frames; }
+            void set_stop_on_goal_attain(const bool& stop_on_goal_attain) { this->stop_on_goal_attain = stop_on_goal_attain; }
             void set_major_iterations_limit(const size_t& major_iterations_limit) { this->major_iterations_limit = major_iterations_limit; }
             void set_minor_iterations_limit(const size_t& minor_iterations_limit) { this->minor_iterations_limit = minor_iterations_limit; }
             void set_max_run_time_seconds(const time_t& max_run_time_seconds) { this->max_run_time_seconds = max_run_time_seconds; }
             void set_max_step(const double& max_step) { this->max_step = max_step; }
             void set_feasibility_tolerance(const double& feasibility_tolerance) { this->feasibility_tolerance = feasibility_tolerance; }
             void set_optimality_tolerance(const double& optimality_tolerance) { this->optimality_tolerance = optimality_tolerance; }
+            void set_objective_goal(const double& objective_goal) { this->objective_goal = objective_goal; }
             void set_specs_file_path(const std::string& specs_file_path) { this->specs_file_path = specs_file_path; }
             void set_output_file_path(const std::string& output_file_path) { this->output_file_path = output_file_path; }
 

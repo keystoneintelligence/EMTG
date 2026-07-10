@@ -35,8 +35,8 @@ class MissionOptions(object):
         """RLA in degrees"""
         self.mission_type = 2
         """mission type. Choices are 0 - MGALTS, 1 - FBLTS, 2 - MGALT, 3 - FBLT, 4 - PSBI, 5 - PSFB, 6 - MGAnDSMs, 7 - CoastPhase, 8 - SundmanCoastPhase, 9 - variable phase type, 10 - ProbeEntryPhase, 11 - ControlLawThrustPhase"""
-        self.NLP_solver_type = 0
-        """NLP solver type. Choices are 0 - SNOPT, 1 - WORHP"""
+        self.NLP_solver_type = 2
+        """NLP solver type. Choices are 0 - SNOPT and 2 - IPOPT. Legacy value 1 (WORHP) is parsed but unsupported."""
         self.NLP_solver_mode = 1
         """NLP solver mode. Choices are 0 -  find feasible point only, 1 - find optimal solution, 2 - satisfy equality constraints"""
         self.quiet_NLP = 1
@@ -429,8 +429,8 @@ class MissionOptions(object):
                         self.RLA_bounds = [float(entry) for entry in linecell[1:]]
                   
                     elif linecell[0] == "mission_type":
-                        # Check for mission types that are not supported in PyEMTG
                         self.mission_type = int(linecell[1])
+                        # Check for mission types that are not supported in PyEMTG
                         if (self.mission_type < 2): print("WARNING: The selected options file contains an unsupported mission type. The supported mission types are MGALT, FBLT, PSBI, PSFB, MGAnDSMs, CoastPhase, SundmanCoastPhase, variable phase type, ProbeEntryPhase, and ControlLawThrustPhase. Please select one of these types from the Global Mission Options tab.")
                   
                     elif linecell[0] == "NLP_solver_type":
@@ -557,8 +557,8 @@ class MissionOptions(object):
                         self.propagatorType = int(linecell[1])
                   
                     elif linecell[0] == "integratorType":
-                        # Check for integrator types that are not supported in PyEMTG
                         self.integratorType = int(linecell[1])
+                        # Check for integrator types that are not supported in PyEMTG
                         if (self.integratorType < 1): print("WARNING: The selected options file contains an unsupported integrator type. The supported integrator type is rk8 fixed step. Please select this type from the Physics Options tab.")
                   
                     elif linecell[0] == "integrator_tolerance":
@@ -989,8 +989,8 @@ class MissionOptions(object):
                 optionsFile.write("#phase type\n#0: MGALTS\n#1: FBLTS\n#2: MGALT\n#3: FBLT\n#4: PSBI\n#5: PSFB\n#6: MGAnDSMs\n#7: CoastPhase\n#8: SundmanCoastPhase\n#9: variable phase type\n#10: ProbeEntryPhase\n#11: ControlLawThrustPhase\n")
                 optionsFile.write("mission_type " + str(self.mission_type) + "\n")
     
-            if (self.NLP_solver_type != 0 or writeAll):
-                optionsFile.write("#NLP solver type\n#0: SNOPT\n#1: WORHP\n")
+            if (self.NLP_solver_type != 2 or writeAll):
+                optionsFile.write("#NLP solver type\n#0: SNOPT\n#2: IPOPT\n")
                 optionsFile.write("NLP_solver_type " + str(self.NLP_solver_type) + "\n")
     
             if (self.NLP_solver_mode != 1 or writeAll):
@@ -1479,10 +1479,10 @@ class MissionOptions(object):
                 optionsFile.write("#state representation for parallel shooting constraints (Cartesian or same as encoded states)\n")
                 optionsFile.write("ParallelShootingConstraintStateRepresentation " + str(self.ParallelShootingConstraintStateRepresentation) + "\n")
     
-			# Always output the non-default printing option
+            # Always output the non-default printing option
             optionsFile.write("#Write only options that are *not* default into the .emtgopt file?\n")
             optionsFile.write("print_only_non_default_options " + str(int(self.print_only_non_default_options)) + "\n")
-
+            optionsFile.write("\n")
             if (self.output_file_frame != 1 or writeAll):
                 optionsFile.write("#reference frame for output file (0: J2000_ICRF, 1: J2000_BCI, 2: J2000_BCF, 3: TrueOfDate_BCI, 4: TrueOfDate_BCF, 5: Principle Axes, 6: Topocentric, 7: Polar)\n")
                 optionsFile.write("output_file_frame " + str(self.output_file_frame) + "\n")

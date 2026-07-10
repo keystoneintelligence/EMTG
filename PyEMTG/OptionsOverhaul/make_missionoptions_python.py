@@ -84,16 +84,16 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
         file.write('   \n')
         file.write('    #************************************************************************************parse\n')
         file.write('    def parse_mission(self, optionsFileName):\n')
-        file.write('        self.filename = optionsFileName\n')
+        file.write('        self.filename = optionsFileName.replace("\\ufeff", "")\n')
         file.write('        \n')
         file.write('        inputFile = []\n')
         file.write('        lineNumber = 0\n')
         file.write('        from os.path import isfile\n')
         file.write('        if isfile(self.filename):\n')
-        file.write('            inputFile = open(optionsFileName, "r")\n')
+        file.write('            inputFile = open(self.filename, "r")\n')
         file.write('            self.success = 1\n')
         file.write('        else:\n')
-        file.write('            print("Unable to open", optionsFileName, "EMTG Error")\n')
+        file.write('            print("Python is unable to open", self.filename)\n')
         file.write('            return\n')
         file.write('        \n')
         file.write('        while True:\n')
@@ -152,7 +152,16 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
                     file.write('                        self.' + option['name'] + ' = ' + converter_in + 'linecell[1]' + converter_out + '\n')
                 else:
                     file.write('                        self.' + option['name'] + ' = [' + converter_in + 'entry' + converter_out + ' for entry in linecell[1:]]\n')
-            file.write('                  \n')
+                if option['name'] == 'mission_type':
+                    file.write('                        # Check for mission types that are not supported in PyEMTG\n')
+                    file.write('                        if (self.mission_type < 2): print("WARNING: The selected options file contains an unsupported mission type. The supported mission types are MGALT, FBLT, PSBI, PSFB, MGAnDSMs, CoastPhase, SundmanCoastPhase, variable phase type, ProbeEntryPhase, and ControlLawThrustPhase. Please select one of these types from the Global Mission Options tab.")\n')
+                elif option['name'] == 'integratorType':
+                    file.write('                        # Check for integrator types that are not supported in PyEMTG\n')
+                    file.write('                        if (self.integratorType < 1): print("WARNING: The selected options file contains an unsupported integrator type. The supported integrator type is rk8 fixed step. Please select this type from the Physics Options tab.")\n')
+            if option['name'] == 'SPICE_high_fidelity_derivatives':
+                file.write('\n')
+            else:
+                file.write('                  \n')
             ifelse = 'el'
 
         
@@ -186,7 +195,7 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
             name = option['name']
 
             if name == 'user_data':
-                file.write('            optionsFile.write("#Enter any user data that should be appended to the .emtg file.\\n")\n')
+                file.write('            optionsFile.write("\\n#Enter any user data that should be appended to the .emtg file.\\n")\n')
                 file.write('            optionsFile.write("#This is typically used in python wrappers\\n")\n')
                 file.write('            optionsFile.write("user_data ")\n')
                 file.write('            first_entry = True\n')
@@ -201,6 +210,12 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
                 file.write('                else:\n')
                 file.write('                    optionsFile.write(str(self.user_data[entry]) + ")")\n')
                 file.write('            optionsFile.write("\\n")\n')
+                file.write('            optionsFile.write("\\n")\n')
+
+            elif name == 'print_only_non_default_options':
+                file.write('            # Always output the non-default printing option\n')
+                file.write('            optionsFile.write("#' + option['description'] + '\\n")\n')
+                file.write('            optionsFile.write("' + name + ' " + str(int(self.' + name + ')) + "\\n")\n')
                 file.write('            optionsFile.write("\\n")\n')
 
             else:
@@ -226,7 +241,10 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
                         file.write('                optionsFile.write("' + name + ' " + str(int(self.' + name + ')) + "\\n")\n')
                     else:
                         file.write('                optionsFile.write("' + name + ' " + str(self.' + name + ') + "\\n")\n')
-                file.write('    \n')        
+                if name == 'SPICE_high_fidelity_derivatives':
+                    file.write('\n')
+                else:
+                    file.write('    \n')
         
         file.write('            \n')
         file.write('            optionsFile.close()\n')

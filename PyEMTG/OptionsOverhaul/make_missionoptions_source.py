@@ -334,6 +334,11 @@ def make_missionoptions_source(OptionsDefinitions, now, path = '.'):
                 file.write('        optionsFileStream << "#' + option['description'] + '" << std::endl;\n')
                 file.write('        optionsFileStream << "' + name + ' " << this->' + name + scale + ' << std::endl;\n') 
                 file.write('    \n')
+            elif option['name'] == 'print_only_non_default_options':
+                file.write('        // Always output the non-default printing option\n')
+                file.write('        optionsFileStream << "#' + option['description'] + '" << std::endl;\n')
+                file.write('        optionsFileStream << "' + name + ' " << this->' + name + scale + ' << std::endl;\n')
+                file.write('\n')
             elif 'std::vector' in option['dataType']:
                 if (len(eval(option['defaultValue'])) > 0):#sometimes an vector option has no default value, which means that it defaults to empty
                     elementType = dataType.replace('std::vector<','').replace('>','')
@@ -374,7 +379,10 @@ def make_missionoptions_source(OptionsDefinitions, now, path = '.'):
                 file.write('            optionsFileStream << "#' + option['description'] + '" << std::endl;\n')
                 file.write('            optionsFileStream << "' + name + ' " << this->' + name + scale + ' << std::endl;\n')
                 file.write('        }\n')
-                file.write('    \n')
+                if name == 'SPICE_high_fidelity_derivatives':
+                    file.write('\n')
+                else:
+                    file.write('    \n')
 
         file.write('        optionsFileStream << std::endl;\n')
         file.write('        optionsFileStream << std::endl;\n')
