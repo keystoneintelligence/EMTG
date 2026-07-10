@@ -17,6 +17,7 @@ jobs:
       CSPICE_ROOT: ${{ github.workspace }}/_local/cspice-linux/cspice
       IPOPT_PREFIX: ${{ github.workspace }}/_local/ipopt-3.14.19
       IPOPT_SOURCE: ${{ github.workspace }}/_local/ipopt-source-3.14.19
+      CCACHE_DIR: ${{ github.workspace }}/_local/ccache
 
     steps:
       - name: Check out repository
@@ -27,6 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
+            ccache \
             gfortran \
             libboost-filesystem-dev \
             libboost-serialization-dev \
@@ -36,10 +38,19 @@ jobs:
             libmetis-dev \
             libmumps-seq-dev \
             ninja-build \
-            pkg-config \
-            tcsh
+            pkg-config
+
+      - name: Restore solver dependency cache
+        id: solver-deps-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.IPOPT_PREFIX }}
+            ${{ env.CSPICE_ROOT }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ipopt-3.14.19-mumps-cspice-n0067-v1
 
       - name: Build IPOPT 3.14.19 with the system MUMPS solver
+        if: steps.solver-deps-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p _local "$IPOPT_SOURCE" "$IPOPT_PREFIX" "${IPOPT_SOURCE}-build"
           curl --fail --location --retry 3 --retry-all-errors \
@@ -56,11 +67,12 @@ jobs:
             --disable-sipopt \
             --with-mumps-cflags="-I/usr/include/mumps_seq" \
             --with-mumps-lflags="-ldmumps_seq"
-          make --jobs=2
+          make --jobs="$(nproc)"
           make install
           PKG_CONFIG_PATH="$IPOPT_PREFIX/lib/pkgconfig" pkg-config --modversion ipopt
 
-      - name: Download and build the official Linux CSPICE toolkit
+      - name: Install the official Linux CSPICE toolkit
+        if: steps.solver-deps-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p "$(dirname "$CSPICE_ROOT")"
           curl --fail --location --retry 3 --retry-all-errors \
@@ -70,20 +82,44 @@ jobs:
             | sha256sum --check -
           gzip --decompress --stdout "$(dirname "$CSPICE_ROOT")/cspice.tar.Z" \
             | tar --extract --file=- --directory="$(dirname "$CSPICE_ROOT")"
-          find "$CSPICE_ROOT" -type f -name '*.csh' -exec chmod +x {} +
-          cd "$CSPICE_ROOT"
-          ./makeall.csh
           test -f "$CSPICE_ROOT/lib/cspice.a"
+
+      - name: Save solver dependency cache
+        if: steps.solver-deps-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.IPOPT_PREFIX }}
+            ${{ env.CSPICE_ROOT }}
+          key: ${{ steps.solver-deps-cache.outputs.cache-primary-key }}
+
+      - name: Restore compiler cache
+        id: ccache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-${{ runner.arch }}-emtg-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-emtg-ccache-
 
       - name: Configure IPOPT-only EMTG
         run: |
           export PKG_CONFIG_PATH="$IPOPT_PREFIX/lib/pkgconfig"
           cmake --preset ipopt-only \
             -DCSPICE_DIR="$CSPICE_ROOT" \
-            -DIPOPT_ROOT_DIR="$IPOPT_PREFIX"
+            -DIPOPT_ROOT_DIR="$IPOPT_PREFIX" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build full executable and analytic IPOPT tests
-        run: cmake --build --preset ipopt-only --target EMTGv9 ipopt_interface_tests --parallel 2
+        run: cmake --build --preset ipopt-only --target EMTGv9 ipopt_interface_tests --parallel "$(nproc)"
+
+      - name: Save compiler cache
+        if: always() && steps.ccache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
       - name: Run IPOPT interface regression
         run: ctest --preset ipopt-only -R ipopt
