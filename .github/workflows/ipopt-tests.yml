@@ -13,6 +13,8 @@ jobs:
     name: Linux IPOPT-only build and analytic regression
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      CSPICE_ROOT: ${{ github.workspace }}/_local/cspice-linux/cspice
 
     steps:
       - name: Check out repository
@@ -31,14 +33,23 @@ jobs:
             ninja-build \
             tcsh
 
-      - name: Build the checked-in CSPICE source
-        working-directory: depend/cspice
+      - name: Download and build the official Linux CSPICE toolkit
         run: |
-          chmod +x makeall.csh
+          mkdir -p "$(dirname "$CSPICE_ROOT")"
+          curl --fail --location --retry 3 --retry-all-errors \
+            --output "$(dirname "$CSPICE_ROOT")/cspice.tar.Z" \
+            https://naif.jpl.nasa.gov/pub/naif/toolkit/C/PC_Linux_GCC_64bit/packages/cspice.tar.Z
+          echo "60a95b51a6472f1afe7e40d77ebdee43c12bb5b8823676ccc74692ddfede06ce  $(dirname "$CSPICE_ROOT")/cspice.tar.Z" \
+            | sha256sum --check -
+          gzip --decompress --stdout "$(dirname "$CSPICE_ROOT")/cspice.tar.Z" \
+            | tar --extract --file=- --directory="$(dirname "$CSPICE_ROOT")"
+          find "$CSPICE_ROOT" -type f -name '*.csh' -exec chmod +x {} +
+          cd "$CSPICE_ROOT"
           ./makeall.csh
+          test -f "$CSPICE_ROOT/lib/cspice.a"
 
       - name: Configure IPOPT-only EMTG
-        run: cmake --preset ipopt-only
+        run: cmake --preset ipopt-only -DCSPICE_DIR="$CSPICE_ROOT"
 
       - name: Build full executable and analytic IPOPT tests
         run: cmake --build --preset ipopt-only --target EMTGv9 ipopt_interface_tests --parallel 2
