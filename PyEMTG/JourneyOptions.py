@@ -1387,14 +1387,20 @@ class JourneyOptions(object):
             
     #************************************************************************************convert decision vector
     def ConvertDecisionVector(self, ParallelShootingStateRepresentation, PeriapseBoundaryStateRepresentation):                                                                                            
-        from StateConverter import StateConverter                                                                                                                                                                                 
+        try:
+            from .StateConverter import StateConverter
+        except ImportError:
+            from StateConverter import StateConverter
         myStateConverter = StateConverter()                                                                                                                                                                                 
                                                                                                                                                                                                               
         stateRepresentationNames = ["Cartesian", "SphericalRADEC", "SphericalAZFPA", "COE", "MEE", "IncomingBplane", "OutgoingBplane", "IncomingBplaneRpTA", "OutgoingBplaneRpTA"]                                                                                          
                                                                                                                                                                                                               
         mu = 1.0                                                                                                                                                                                              
         try:                                                                                                                                                                                                  
-            import Universe                                                                                                                                                                                   
+            try:
+                from . import Universe
+            except ImportError:
+                import Universe
             myUniverse = Universe.Universe(self.universe_folder + "/" + self.journey_central_body + ".emtg_universe")                                                                                         
             mu = myUniverse.mu                                                                                                                                                                                
         except:                                                                                                                                                                                               
@@ -1423,7 +1429,10 @@ class JourneyOptions(object):
             import os, sys, inspect                                                                                                        
             currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))                                         
             sys.path.append(currentdir + "/Converters")                                                                               
-            import convert_old_PeriapseLaunchOrImpulsiveDeparture_to_PeriapseLaunch as lc                                                  
+            try:
+                from .Converters import convert_old_PeriapseLaunchOrImpulsiveDeparture_to_PeriapseLaunch as lc
+            except ImportError:
+                import convert_old_PeriapseLaunchOrImpulsiveDeparture_to_PeriapseLaunch as lc
                                                                                                                                            
             self = lc.convert_launch(self, mu)                                                                                             
                                                                                                                                            

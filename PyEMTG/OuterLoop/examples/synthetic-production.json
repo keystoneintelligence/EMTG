@@ -1,0 +1,64 @@
+{
+  "schema_version": "outerloop/v2",
+  "run_directory": "../../../_local/outerloop-synthetic-production-v3-release",
+  "root_seed": 20260711,
+  "search": {
+    "max_journeys": 2,
+    "min_journeys": 1,
+    "max_flybys": 2,
+    "min_flybys": 0,
+    "fixed_start": "Earth",
+    "fixed_final": "Mars",
+    "chain_journeys": true,
+    "activation_mode": "tags",
+    "repairs": ["reconnect_endpoints"],
+    "mission_genes": {
+      "launch_epoch": {"kind": "integer", "lower": 60000, "upper": 60004},
+      "spacecraft_configuration": {"kind": "choice", "choices": ["light", "heavy"]}
+    },
+    "journey_genes": {
+      "arrival_destination": {"kind": "choice", "choices": ["Venus", "Earth", "Mars"]},
+      "phase_type": {"kind": "choice", "choices": [2, 6]}
+    },
+    "phase_genes": {"dsm_count": {"kind": "fixed", "value": 1}},
+    "flyby_bodies": ["Venus", "Earth"]
+  },
+  "groups": [{
+    "name": "inner_planets",
+    "members": ["Venus", "Earth"],
+    "minimum_visits": 1,
+    "score_per_member": 2.0,
+    "completion_bonus": 3.0,
+    "score_cap": 7.0,
+    "target_role": "optional"
+  }],
+  "objectives": ["flight_time", "delivered_mass", "point_group_value"],
+  "algorithm": {
+    "population_size": 128,
+    "generations": 200,
+    "tournament_size": 2,
+    "crossover_probability": 0.9,
+    "mutation_probability": 0.75,
+    "stall_generations": 50,
+    "trials": 10
+  },
+  "operators": {
+    "flyby_replacement": 3.0,
+    "insertion": 3.0,
+    "deletion": 2.0,
+    "activation": 2.0,
+    "point_group": 2.0,
+    "generic_gene": 2.0
+  },
+  "evaluator": {
+    "type": "synthetic",
+    "problem": "architecture",
+    "body_scores": {"Venus": 1.0, "Earth": 1.5, "Mars": 3.0},
+    "hardware_scores": {"light": 0.0, "heavy": 1.0},
+    "base_mass": 1000.0,
+    "mass_cost_scale": 12.0
+  },
+  "seeds": {"qualification_seed_set": {"name": "synthetic-production-v1", "seeds": [101]}},
+  "workers": {"count": 4, "infrastructure_retries": 1},
+  "checkpoint_every": 16
+}

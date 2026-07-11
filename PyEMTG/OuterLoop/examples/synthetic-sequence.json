@@ -1,0 +1,99 @@
+{
+  "schema_version": "outerloop/v2",
+  "run_directory": "../../../_local/outerloop-synthetic-v3",
+  "root_seed": 20260710,
+  "search": {
+    "max_journeys": 2,
+    "min_journeys": 1,
+    "max_flybys": 2,
+    "min_flybys": 0,
+    "fixed_start": "Earth",
+    "fixed_final": "Mars",
+    "chain_journeys": true,
+    "activation_mode": "tags",
+    "repairs": [],
+    "mission_genes": {
+      "launch_epoch": {
+        "kind": "integer",
+        "lower": 60000,
+        "upper": 60004
+      },
+      "spacecraft_configuration": {
+        "kind": "choice",
+        "choices": ["light", "heavy"]
+      }
+    },
+    "journey_genes": {
+      "arrival_destination": {
+        "kind": "choice",
+        "choices": ["Venus", "Earth", "Mars"]
+      },
+      "phase_type": {
+        "kind": "choice",
+        "choices": [2, 6]
+      }
+    },
+    "phase_genes": {
+      "dsm_count": {
+        "kind": "fixed",
+        "value": 1
+      }
+    },
+    "flyby_bodies": ["Venus", "Earth"]
+  },
+  "groups": [
+    {
+      "name": "inner_planets",
+      "members": ["Venus", "Earth"],
+      "minimum_visits": 1,
+      "score_per_member": 2.0,
+      "completion_bonus": 3.0,
+      "as_constraint": false
+    }
+  ],
+  "objectives": [
+    "flight_time",
+    "delivered_mass",
+    "point_group_value"
+  ],
+  "algorithm": {
+    "population_size": 32,
+    "generations": 30,
+    "tournament_size": 2,
+    "crossover_probability": 0.9,
+    "mutation_probability": 0.65,
+    "stall_generations": 12,
+    "improvement_tolerance": 1e-6,
+    "trials": 2
+  },
+  "operators": {
+    "flyby_replacement": 3.0,
+    "insertion": 2.0,
+    "deletion": 2.0,
+    "point_group": 2.0
+  },
+  "prefilters": [
+    {
+      "type": "successive_duplicate",
+      "heuristic": true,
+      "audit_fraction": 0.05
+    }
+  ],
+  "evaluator": {
+    "type": "synthetic",
+    "problem": "architecture",
+    "body_scores": {
+      "Venus": 1.0,
+      "Earth": 1.5,
+      "Mars": 3.0
+    },
+    "hardware_scores": {
+      "light": 0.0,
+      "heavy": 1.0
+    },
+    "base_mass": 1000.0,
+    "mass_cost_scale": 12.0
+  },
+  "workers": {"count": 4, "infrastructure_retries": 1},
+  "checkpoint_every": 1
+}
