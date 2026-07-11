@@ -21,6 +21,9 @@
 #include "IntegratedPropagator.h"
 #include "PropagatorBase.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace EMTG {
     namespace Astrodynamics {
 
@@ -30,6 +33,7 @@ namespace EMTG {
                                                    STM_size(STM_size_in)
         {
             this->numStates = numStates_in;
+            this->dstep_sizedProp_var = 0.0;
             this->state_left.resize(this->numStates, 1, 0.0);
             this->state_right.resize(this->numStates, 1, 0.0);
             this->STM_left.resize(STM_size_in, STM_size_in, 0.0);
@@ -52,12 +56,48 @@ namespace EMTG {
            {
                this->state_left(k) = state_left(index++);
            }
+           this->state_right = this->state_left;
            
            this->STM_left = STM;
            if (STM_needed)
            {               
                this->STM_left.construct_identity_matrix();
            }
+           this->STM_right = this->STM_left;
+       }
+
+       void IntegratedPropagator::beginStatistics(const double propagation_span)
+       {
+           this->integration_statistics.reset();
+           this->integration_statistics.propagation_span = propagation_span;
+           this->statistics_start_time = std::chrono::steady_clock::now();
+       }
+
+       void IntegratedPropagator::finishStatistics()
+       {
+           this->integration_statistics.wall_clock_seconds =
+               std::chrono::duration<double>(std::chrono::steady_clock::now() - this->statistics_start_time).count();
+           if (this->integration_statistics.accepted_steps == 0)
+               this->integration_statistics.minimum_accepted_step = 0.0;
+       }
+
+       void IntegratedPropagator::recordAcceptedStep(const double step_size,
+                                                      const bool needSTM,
+                                                      const bool endpoint_capped)
+       {
+           const double magnitude = std::fabs(step_size);
+           ++this->integration_statistics.attempted_steps;
+           ++this->integration_statistics.accepted_steps;
+           this->integration_statistics.rhs_evaluations += this->integration_scheme->getLastStepRhsEvaluations();
+           if (needSTM)
+               this->integration_statistics.stm_rhs_evaluations += this->integration_scheme->getLastStepRhsEvaluations();
+           this->integration_statistics.minimum_accepted_step =
+               std::min(this->integration_statistics.minimum_accepted_step, magnitude);
+           this->integration_statistics.maximum_accepted_step =
+               std::max(this->integration_statistics.maximum_accepted_step, magnitude);
+           this->integration_statistics.accumulated_accepted_step += magnitude;
+           if (endpoint_capped)
+               ++this->integration_statistics.endpoint_capped_steps;
        }
 
        void IntegratedPropagator::propagatorTeardown(const math::Matrix<doubleType> & state_left,

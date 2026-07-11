@@ -76,3 +76,44 @@ def test_ipopt_solver_selection_roundtrips_with_stable_numeric_id(tmp_path):
 
 def test_open_source_default_solver_is_ipopt():
     assert MissionOptions.MissionOptions().NLP_solver_type == 2
+
+
+def test_fixed_and_adaptive_integration_options_roundtrip(tmp_path):
+    for integrator_type in (0, 1):
+        options = MissionOptions.MissionOptions()
+        options.integratorType = integrator_type
+        options.integrator_error_control_mode = 1
+        options.integrator_relative_tolerance = 2.0e-9
+        options.integrator_absolute_tolerance_position = 3.0e-6
+        options.integrator_absolute_tolerance_velocity = 4.0e-9
+        options.integrator_absolute_tolerance_mass = 5.0e-9
+        options.integrator_absolute_tolerance_time = 6.0e-6
+        options.integrator_stm_error_control = 1
+        options.integrator_stm_relative_tolerance = 7.0e-9
+        options.integrator_stm_absolute_tolerance = 8.0e-10
+        options.integration_time_step_size = 900.0
+        options.integrator_initial_step_size = 30.0
+        options.integrator_minimum_step_size = 1.0e-8
+        options.integrator_rejection_limit = 17
+        output = tmp_path / f'integrator_{integrator_type}.emtgopt'
+
+        options.write_options_file(str(output), writeAll=True)
+        reparsed = MissionOptions.MissionOptions(str(output))
+
+        for attribute in (
+            'integratorType',
+            'integrator_error_control_mode',
+            'integrator_relative_tolerance',
+            'integrator_absolute_tolerance_position',
+            'integrator_absolute_tolerance_velocity',
+            'integrator_absolute_tolerance_mass',
+            'integrator_absolute_tolerance_time',
+            'integrator_stm_error_control',
+            'integrator_stm_relative_tolerance',
+            'integrator_stm_absolute_tolerance',
+            'integration_time_step_size',
+            'integrator_initial_step_size',
+            'integrator_minimum_step_size',
+            'integrator_rejection_limit',
+        ):
+            assert getattr(reparsed, attribute) == getattr(options, attribute)

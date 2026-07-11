@@ -23,6 +23,7 @@
 #include "doubleType.h"
 #include "EMTG_Matrix.h"
 #include "Integrand.h"
+#include "AdaptiveIntegration.h"
 
 namespace EMTG {
     namespace Integration {
@@ -45,6 +46,16 @@ namespace EMTG {
             inline void setNumStates(const size_t & num_states_in) { this->num_states = num_states_in; };
             inline void setSTMsize(const size_t & STM_size_in) { this->STM_size = STM_size_in; };
             inline void setIntegrand(Integrand * integrand_in) { this->integrand = integrand_in; };
+
+            virtual void setAdaptiveErrorControlSettings(const AdaptiveErrorControlSettings& settings)
+            {
+                settings.validate(this->num_states, this->STM_size);
+                this->adaptive_error_control_settings = settings;
+                this->has_adaptive_error_control_settings = true;
+            }
+
+            virtual size_t getLastStepRhsEvaluations() const { return 0; }
+            virtual EmbeddedErrorEstimate getLastEmbeddedErrorEstimate() const { return EmbeddedErrorEstimate(); }
 
             virtual void step(const math::Matrix<doubleType> & state_left,
                               const math::Matrix<double> & STM_left,
@@ -84,6 +95,9 @@ namespace EMTG {
 
             // Partial of the current propagation step size w.r.t. the current propagation variable (flight times or total angle)
             double dstep_sizedProp_var;
+
+            AdaptiveErrorControlSettings adaptive_error_control_settings;
+            bool has_adaptive_error_control_settings = false;
 
         };
 

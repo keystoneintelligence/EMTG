@@ -21,8 +21,25 @@
 
 #include "IntegratedPropagator.h"
 
+#include <functional>
+#include <vector>
+
 namespace EMTG {
     namespace Astrodynamics {
+
+        struct DenseOutputPoint
+        {
+            double independent_variable = 0.0;
+            math::Matrix<doubleType> state;
+        };
+
+        struct LocatedIntegrationEvent
+        {
+            double independent_variable = 0.0;
+            double event_value = 0.0;
+            bool terminal = false;
+            math::Matrix<doubleType> state;
+        };
 
         class IntegratedAdaptiveStepPropagator : public IntegratedPropagator
         {
@@ -42,6 +59,22 @@ namespace EMTG {
 
             inline void setErrorScalingFactors(math::Matrix<double> & error_scaling_factors_in) { this->error_scaling_factors = error_scaling_factors_in; };
             inline void setTolerance(const double& Tolerance) { this->integrator_tolerance = Tolerance; }
+            void setAdaptiveErrorControlSettings(const Integration::AdaptiveErrorControlSettings& settings);
+            inline void setInitialStepSize(const double value) { this->initial_step_size = value; }
+            inline void setMinimumStepSize(const double value) { this->minimum_step_size = value; }
+            inline void setControllerSafetyFactor(const double value) { this->controller_safety_factor = value; }
+            inline void setMinimumStepScale(const double value) { this->minimum_step_scale = value; }
+            inline void setMaximumStepScale(const double value) { this->maximum_step_scale = value; }
+            inline void setRejectionLimit(const size_t value) { this->rejection_limit = value; }
+            void setRequestedEpochs(const std::vector<double>& requested_epochs);
+            const std::vector<DenseOutputPoint>& getRequestedEpochStates() const { return this->requested_epoch_states; }
+            void clearRequestedEpochs();
+            void setScalarEvent(const std::function<double(const math::Matrix<doubleType>&, double)>& event_function,
+                                const int direction,
+                                const bool terminal,
+                                const double root_tolerance);
+            void clearScalarEvent();
+            const std::vector<LocatedIntegrationEvent>& getLocatedEvents() const { return this->located_events; }
 
             virtual void propagate(const doubleType & propagation_span, const bool & needSTM);
             virtual void propagate(const doubleType & propagation_span, const math::Matrix <doubleType> & control, const bool & needSTM);
@@ -50,6 +83,22 @@ namespace EMTG {
 
         private:
             double integrator_tolerance;
+            bool uses_normalized_error_control;
+            double initial_step_size;
+            double minimum_step_size;
+            double controller_safety_factor;
+            double minimum_step_scale;
+            double maximum_step_scale;
+            size_t rejection_limit;
+
+            std::vector<double> requested_epochs;
+            std::vector<bool> requested_epoch_emitted;
+            std::vector<DenseOutputPoint> requested_epoch_states;
+            std::function<double(const math::Matrix<doubleType>&, double)> scalar_event_function;
+            int scalar_event_direction = 0;
+            bool scalar_event_terminal = false;
+            double scalar_event_root_tolerance = 1.0e-8;
+            std::vector<LocatedIntegrationEvent> located_events;
 
             double boundary_target_dstep_sizedProp_var;
             math::Matrix<double> error_scaling_factors;
@@ -63,6 +112,21 @@ namespace EMTG {
                                         math::Matrix<doubleType> & state_left,
                                         math::Matrix<doubleType> & state_right,
                                         math::Matrix<double> & STM_left);
+
+            math::Matrix<doubleType> evaluateCubicHermiteState(
+                const math::Matrix<doubleType>& state_left,
+                const math::Matrix<doubleType>& state_right,
+                const math::Matrix<doubleType>& derivative_left,
+                const math::Matrix<doubleType>& derivative_right,
+                const double step_size,
+                const double theta) const;
+
+            bool processDenseOutputAndEvents(const math::Matrix<doubleType>& accepted_state_left,
+                                             math::Matrix<doubleType>& accepted_state_right,
+                                             const math::Matrix<doubleType>& control,
+                                             const double independent_variable_left,
+                                             double& accepted_step,
+                                             bool& event_detected);
 
         };
 

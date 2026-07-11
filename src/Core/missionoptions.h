@@ -127,8 +127,24 @@ namespace EMTG
         double latestPossibleEpoch;//End of the SplineEphem data set
         PropagatorType propagatorType;//Propagator type. Choices are 0 - Keplerian propagator, 1 - Integrated propagator
         IntegratorType integratorType;//Integrator type. Choices are 0 - rk7813M adaptive step, 1 - rk8 fixed step
-        double integrator_tolerance;//adaptive step integrator tolerance
+        double integrator_tolerance;//legacy adaptive local-error tolerance; used as rtol and to derive dimensional atols when integrator_error_control_mode is 0
+        int integrator_error_control_mode;//adaptive error-control contract: 0 migrates integrator_tolerance, 1 uses explicit component tolerances
+        double integrator_relative_tolerance;//global state relative tolerance for explicit component error control
+        double integrator_absolute_tolerance_position;//position absolute tolerance in km
+        double integrator_absolute_tolerance_velocity;//velocity absolute tolerance in km/s
+        double integrator_absolute_tolerance_mass;//mass and virtual-propellant absolute tolerance in kg
+        double integrator_absolute_tolerance_time;//epoch or independent-variable absolute tolerance in seconds
+        double integrator_absolute_tolerance_other;//absolute tolerance for formulation-specific auxiliary states
+        int integrator_stm_error_control;//STM error-control policy: 0 state only, 1 separate normalized state and STM infinity norms combined by max
+        double integrator_stm_relative_tolerance;//relative tolerance for each STM entry
+        double integrator_stm_absolute_tolerance;//base STM absolute tolerance, scaled by output/input characteristic-unit ratio
         double integration_time_step_size;//integration step size (maximum for adaptive, fixed for fixed)
+        double integrator_initial_step_size;//adaptive initial step in seconds; 0 uses integration_time_step_size
+        double integrator_minimum_step_size;//adaptive minimum step in seconds; 0 derives a scale-aware machine-precision floor
+        double integrator_safety_factor;//adaptive controller safety factor
+        double integrator_minimum_step_scale;//minimum adaptive controller resize factor
+        double integrator_maximum_step_scale;//maximum adaptive controller growth factor
+        size_t integrator_rejection_limit;//maximum consecutive adaptive rejections before failure
         int num_timesteps;//number of timesteps per phase
         size_t spiral_segments;//number of spiral segments
         bool allow_initial_mass_to_vary;//Allow the mass at the beginning of the first journey to vary up to the allowed maximum?
@@ -311,8 +327,40 @@ namespace EMTG
         IntegratorType integratorType_upperBound;
         double integrator_tolerance_lowerBound;
         double integrator_tolerance_upperBound;
+        int integrator_error_control_mode_lowerBound;
+        int integrator_error_control_mode_upperBound;
+        double integrator_relative_tolerance_lowerBound;
+        double integrator_relative_tolerance_upperBound;
+        double integrator_absolute_tolerance_position_lowerBound;
+        double integrator_absolute_tolerance_position_upperBound;
+        double integrator_absolute_tolerance_velocity_lowerBound;
+        double integrator_absolute_tolerance_velocity_upperBound;
+        double integrator_absolute_tolerance_mass_lowerBound;
+        double integrator_absolute_tolerance_mass_upperBound;
+        double integrator_absolute_tolerance_time_lowerBound;
+        double integrator_absolute_tolerance_time_upperBound;
+        double integrator_absolute_tolerance_other_lowerBound;
+        double integrator_absolute_tolerance_other_upperBound;
+        int integrator_stm_error_control_lowerBound;
+        int integrator_stm_error_control_upperBound;
+        double integrator_stm_relative_tolerance_lowerBound;
+        double integrator_stm_relative_tolerance_upperBound;
+        double integrator_stm_absolute_tolerance_lowerBound;
+        double integrator_stm_absolute_tolerance_upperBound;
         double integration_time_step_size_lowerBound;
         double integration_time_step_size_upperBound;
+        double integrator_initial_step_size_lowerBound;
+        double integrator_initial_step_size_upperBound;
+        double integrator_minimum_step_size_lowerBound;
+        double integrator_minimum_step_size_upperBound;
+        double integrator_safety_factor_lowerBound;
+        double integrator_safety_factor_upperBound;
+        double integrator_minimum_step_scale_lowerBound;
+        double integrator_minimum_step_scale_upperBound;
+        double integrator_maximum_step_scale_lowerBound;
+        double integrator_maximum_step_scale_upperBound;
+        size_t integrator_rejection_limit_lowerBound;
+        size_t integrator_rejection_limit_upperBound;
         int num_timesteps_lowerBound;
         int num_timesteps_upperBound;
         size_t spiral_segments_lowerBound;
