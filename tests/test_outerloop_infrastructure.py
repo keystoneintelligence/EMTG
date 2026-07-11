@@ -323,6 +323,13 @@ class CountingEvaluator(SyntheticEvaluator):
         return super().evaluate(request, cancel_event)
 
 
+def deterministic_metrics(rows):
+    return [
+        {name: value for name, value in result.metrics.items() if name != "runtime"}
+        for _, result in rows
+    ]
+
+
 def test_campaign_resume_matches_uninterrupted_and_deduplicates(tmp_path):
     interrupted_config = CampaignConfig.from_dict(campaign_data(str(tmp_path / "interrupted"), workers=3), tmp_path / "campaign-a.json")
     evaluator = CountingEvaluator(interrupted_config.evaluator)
@@ -342,7 +349,7 @@ def test_campaign_resume_matches_uninterrupted_and_deduplicates(tmp_path):
     interrupted_rows = interrupted_store.load_candidates(resumed.trial, resumed.generation, "parents")
     full_rows = full_store.load_candidates(uninterrupted.trial, uninterrupted.generation, "parents")
     assert [candidate.candidate_id for candidate, _ in interrupted_rows] == [candidate.candidate_id for candidate, _ in full_rows]
-    assert [result.metrics for _, result in interrupted_rows] == [result.metrics for _, result in full_rows]
+    assert deterministic_metrics(interrupted_rows) == deterministic_metrics(full_rows)
     assert interrupted_store.status()["archive_count"] == full_store.status()["archive_count"]
     # Fewer actual calls than individual slots demonstrates phenotype/context deduplication.
     total_calls = evaluator.count + resumed_evaluator.count
@@ -357,7 +364,7 @@ def test_worker_count_does_not_change_campaign_result(tmp_path):
     one_rows = CampaignStore(tmp_path / "one").load_candidates(0, one_outcome.generation, "parents")
     four_rows = CampaignStore(tmp_path / "four").load_candidates(0, four_outcome.generation, "parents")
     assert [candidate.candidate_id for candidate, _ in one_rows] == [candidate.candidate_id for candidate, _ in four_rows]
-    assert [result.metrics for _, result in one_rows] == [result.metrics for _, result in four_rows]
+    assert deterministic_metrics(one_rows) == deterministic_metrics(four_rows)
 
 
 def test_resume_class_uses_resolved_configuration_not_mutable_source(tmp_path):

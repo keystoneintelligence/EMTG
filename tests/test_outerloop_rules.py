@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from OuterLoop.model import JourneyPhenotype, MissionPhenotype, PhasePhenotype
-from OuterLoop.ephemeris import EphemerisCoverage
+import OuterLoop.ephemeris as ephemeris_module
+from OuterLoop.ephemeris import CoverageInterval, EphemerisCoverage
 from OuterLoop.hardware import HardwareCatalog
 from OuterLoop.prefilters import FilterPipeline, InclinationBandpassPrefilter, TopologyPrefilter
 from OuterLoop.physics import C3EnvelopeScreen, HohmannTimeScreen, hohmann_leg_estimate
@@ -76,11 +77,17 @@ def test_generic_resonance_screen_uses_universe_physics():
     assert metadata["chains"][0]["moon"] == "Europa"
 
 
-def test_ephemeris_coverage_catalog_reports_body_intervals():
-    coverage = EphemerisCoverage.from_directory(
-        ROOT / "testatron" / "universe" / "ephemeris_files",
-        brief_executable=ROOT / "depend" / "cspice" / "exe" / "brief.exe",
+def test_ephemeris_coverage_catalog_reports_body_intervals(tmp_path, monkeypatch):
+    kernel_directory = tmp_path / "ephemeris_files"
+    kernel_directory.mkdir()
+    (kernel_directory / "fixture.bsp").write_bytes(b"fixture")
+    monkeypatch.setattr(
+        ephemeris_module,
+        "_spiceypy_coverage",
+        lambda kernels: {399: [CoverageInterval(59000.0, 61000.0)]},
     )
+
+    coverage = EphemerisCoverage.from_directory(kernel_directory)
     assert coverage.covers(399, 60000.0, 60100.0)
     assert not coverage.covers(123456789, 60000.0, 60100.0)
     assert 123456789 in coverage.missing([399, 123456789], 60000.0, 60100.0)
