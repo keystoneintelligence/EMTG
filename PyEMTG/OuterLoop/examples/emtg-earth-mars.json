@@ -1,0 +1,119 @@
+{
+  "schema_version": "outerloop/v2",
+  "base_case": "../../../testatron/tests/transcription_tests/MGAnDSMs_EMintercept.emtgopt",
+  "run_directory": "../../../_local/outerloop-earth-mars-v3",
+  "root_seed": 20260710,
+  "assets": {
+    "executable": "../../../bin/EMTGv9.exe",
+    "universe_folder": "../../../testatron/universe",
+    "hardware_path": "../../../testatron/HardwareModels",
+    "brief_executable": "../../../depend/cspice/exe/brief.exe",
+    "capabilities_file": "../../../bin/solver_capabilities.json"
+  },
+  "search": {
+    "max_journeys": 1,
+    "min_journeys": 1,
+    "max_flybys": 2,
+    "min_flybys": 0,
+    "fixed_start": "Earth",
+    "fixed_final": "Mars",
+    "repairs": [],
+    "mission_genes": {
+      "launch_epoch": {
+        "kind": "integer",
+        "lower": 53701,
+        "upper": 53711
+      },
+      "launch_vehicle": {
+        "kind": "choice",
+        "choices": ["Falcon_9_FT_(RTLS)", "Falcon_9_FT_(ASDS)"]
+      }
+    },
+    "journey_genes": {
+      "phase_type": {
+        "kind": "fixed",
+        "value": 6
+      },
+      "arrival_type": {
+        "kind": "fixed",
+        "value": 2
+      }
+    },
+    "phase_genes": {
+      "dsm_count": {
+        "kind": "integer",
+        "lower": 1,
+        "upper": 2
+      }
+    },
+    "flyby_bodies": ["Venus", "Earth"]
+  },
+  "objectives": ["flight_time", "delivered_mass"],
+  "algorithm": {
+    "population_size": 12,
+    "generations": 8,
+    "tournament_size": 2,
+    "crossover_probability": 0.9,
+    "mutation_probability": 0.7,
+    "stall_generations": 5,
+    "trials": 2
+  },
+  "prefilters": [
+    {
+      "type": "successive_duplicate",
+      "heuristic": true,
+      "audit_fraction": 0.1
+    },
+    {
+      "type": "minimum_flight_time",
+      "factor": 0.2,
+      "heuristic": true,
+      "audit_fraction": 0.1
+    }
+  ],
+  "evaluator": {
+    "type": "emtg",
+    "timeout_seconds": 20,
+    "check_ephemeris_coverage": true,
+    "ephemeris_source_override": 1,
+    "supported_phase_types": [2, 3, 4, 5, 6, 7, 8, 11],
+    "budget": {
+      "inner_loop": "mbh",
+      "mbh_max_run_time": 10,
+      "mbh_max_trials": 200,
+      "nlp_solver_type": 2,
+      "nlp_max_run_time": 10,
+      "nlp_major_iterations": 200,
+      "quiet_nlp": 1
+    }
+  },
+  "fidelities": [
+    {
+      "name": "short_mbh",
+      "rank": 0,
+      "budget": {
+        "inner_loop": "mbh",
+        "mbh_max_run_time": 5,
+        "mbh_max_trials": 100,
+        "nlp_solver_type": 2
+      }
+    },
+    {
+      "name": "confirmed",
+      "rank": 1,
+      "promote_count": 4,
+      "budget": {
+        "inner_loop": "mbh",
+        "mbh_max_run_time": 20,
+        "mbh_max_trials": 500,
+        "nlp_solver_type": 2
+      }
+    }
+  ],
+  "seeds": {
+    "candidates": 2,
+    "converter": "same_transcription_shape",
+    "allow_fidelity_transfer": true
+  },
+  "workers": {"count": 2, "infrastructure_retries": 1}
+}
