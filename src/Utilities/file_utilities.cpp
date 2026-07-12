@@ -19,11 +19,9 @@
 #include <fstream>
 #include <iostream>
 
-#include <boost/filesystem.hpp>
-
 #include "file_utilities.h"
 
-namespace fs = ::boost::filesystem;
+namespace fs = std::filesystem;
 namespace EMTG 
 {
     namespace file_utilities
@@ -37,15 +35,10 @@ namespace EMTG
 
           if (fs::is_directory(root))
           {
-            fs::recursive_directory_iterator it(root);
-            fs::recursive_directory_iterator endit;
-            while(it != endit)
+            for (const fs::directory_entry& entry : fs::recursive_directory_iterator(root))
             {
-                fs::path file(*it);
-        
-                if (fs::is_regular_file(file) && file.extension() == ext)
-                ret.push_back(file.filename());
-              ++it;
+                if (entry.is_regular_file() && entry.path().extension() == ext)
+                    ret.push_back(entry.path().filename());
             }
           }
         }

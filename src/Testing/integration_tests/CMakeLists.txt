@@ -14,6 +14,7 @@ set(integration_tests_executable_files
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Propagation/IntegratedFixedStepPropagator.cpp)
 
 add_executable(integration_tests ${integration_tests_executable_files})
+emtg_configure_executable(integration_tests)
 target_include_directories(integration_tests PRIVATE ../../Astrodynamics ../../Core ../../Math ../../Integration ../../Propagation)
 target_compile_definitions(integration_tests PRIVATE BOOST_ALL_NO_LIB)
 

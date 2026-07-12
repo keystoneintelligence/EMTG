@@ -26,8 +26,7 @@
 #include <map>
 #include <stdexcept>
 
-#include "gsl/gsl_spline.h"
-#include "gsl/gsl_errno.h" //I'm not really sure what this is but the GSL examples all have it, probably error handling
+#include "NaturalCubicSpline.h"
 
 namespace EMTG
 {
@@ -39,7 +38,7 @@ namespace EMTG
 
         ephemeris_reader(const std::string& inputfilename, const std::string& leap_seconds_path);
 
-        virtual ~ephemeris_reader();
+        virtual ~ephemeris_reader() = default;
 
         void initialize(const std::string& inputfilename, const std::string& leap_seconds_path);
 
@@ -53,9 +52,9 @@ namespace EMTG
             }
             else
             {
-                PositionArray[0] = gsl_spline_eval(this->Spline_x, epoch, this->SplineAccelerator);
-                PositionArray[1] = gsl_spline_eval(this->Spline_y, epoch, this->SplineAccelerator);
-                PositionArray[2] = gsl_spline_eval(this->Spline_z, epoch, this->SplineAccelerator);
+                PositionArray[0] = this->Spline_x.evaluate(epoch);
+                PositionArray[1] = this->Spline_y.evaluate(epoch);
+                PositionArray[2] = this->Spline_z.evaluate(epoch);
             }
         }
 
@@ -67,9 +66,9 @@ namespace EMTG
             }
             else
             {
-                VelocityArray[0] = gsl_spline_eval(this->Spline_vx, epoch, this->SplineAccelerator);
-                VelocityArray[1] = gsl_spline_eval(this->Spline_vy, epoch, this->SplineAccelerator);
-                VelocityArray[2] = gsl_spline_eval(this->Spline_vz, epoch, this->SplineAccelerator);
+                VelocityArray[0] = this->Spline_vx.evaluate(epoch);
+                VelocityArray[1] = this->Spline_vy.evaluate(epoch);
+                VelocityArray[2] = this->Spline_vz.evaluate(epoch);
             }
         }
 
@@ -81,7 +80,7 @@ namespace EMTG
             }
             else
             {
-                *MassPointer = gsl_spline_eval(this->Spline_mass, epoch, this->SplineAccelerator);
+                *MassPointer = this->Spline_mass.evaluate(epoch);
             }
         }
 
@@ -89,7 +88,7 @@ namespace EMTG
         {
             this->getPosition(epoch, StateArray);
             this->getVelocity(epoch, StateArray + 3);
-            this->getMass(epoch, StateArray + 7);
+            this->getMass(epoch, StateArray + 6);
         }
 
         inline void getPositionDerivative(const double& epoch, double* PositionDerivativeArray)
@@ -100,9 +99,9 @@ namespace EMTG
             }
             else
             {
-                PositionDerivativeArray[0] = gsl_spline_eval_deriv(this->Spline_x, epoch, this->SplineAccelerator);
-                PositionDerivativeArray[1] = gsl_spline_eval_deriv(this->Spline_y, epoch, this->SplineAccelerator);
-                PositionDerivativeArray[2] = gsl_spline_eval_deriv(this->Spline_z, epoch, this->SplineAccelerator);
+                PositionDerivativeArray[0] = this->Spline_x.derivative(epoch);
+                PositionDerivativeArray[1] = this->Spline_y.derivative(epoch);
+                PositionDerivativeArray[2] = this->Spline_z.derivative(epoch);
             }
         }
 
@@ -114,9 +113,9 @@ namespace EMTG
             }
             else
             {
-                VelocityDerivativeArray[0] = gsl_spline_eval_deriv(this->Spline_vx, epoch, this->SplineAccelerator);
-                VelocityDerivativeArray[1] = gsl_spline_eval_deriv(this->Spline_vy, epoch, this->SplineAccelerator);
-                VelocityDerivativeArray[2] = gsl_spline_eval_deriv(this->Spline_vz, epoch, this->SplineAccelerator);
+                VelocityDerivativeArray[0] = this->Spline_vx.derivative(epoch);
+                VelocityDerivativeArray[1] = this->Spline_vy.derivative(epoch);
+                VelocityDerivativeArray[2] = this->Spline_vz.derivative(epoch);
             }
         }
 
@@ -128,7 +127,7 @@ namespace EMTG
             }
             else
             {
-                *MassDerivativePointer = gsl_spline_eval_deriv(this->Spline_mass, epoch, this->SplineAccelerator);
+                *MassDerivativePointer = this->Spline_mass.derivative(epoch);
             }
         }
 
@@ -151,15 +150,12 @@ namespace EMTG
         size_t dataRows;
         std::map< std::string, std::vector<double> > data;
 
-        //GSL spline structs
-        bool fitSplines;
-        gsl_interp_accel *SplineAccelerator;
-        gsl_spline *Spline_x;
-        gsl_spline *Spline_y;
-        gsl_spline *Spline_z;
-        gsl_spline *Spline_vx;
-        gsl_spline *Spline_vy;
-        gsl_spline *Spline_vz;
-        gsl_spline *Spline_mass;
+        math::NaturalCubicSpline Spline_x;
+        math::NaturalCubicSpline Spline_y;
+        math::NaturalCubicSpline Spline_z;
+        math::NaturalCubicSpline Spline_vx;
+        math::NaturalCubicSpline Spline_vy;
+        math::NaturalCubicSpline Spline_vz;
+        math::NaturalCubicSpline Spline_mass;
     };//end clss writey_thing
 }

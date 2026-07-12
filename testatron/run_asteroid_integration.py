@@ -43,6 +43,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--timeout", type=int, default=1200, help="Run timeout in seconds.")
     parser.add_argument(
+        "--run-budget-seconds",
+        type=int,
+        default=None,
+        help="Override the mission's NLP wall-clock budget in seconds.",
+    )
+    parser.add_argument(
         "--min-final-mass",
         type=float,
         default=1800.0,
@@ -64,7 +70,11 @@ def load_mission_options_module() -> object:
     return MissionOptions
 
 
-def write_run_options(case_file: Path, output_dir: Path) -> Path:
+def write_run_options(
+    case_file: Path,
+    output_dir: Path,
+    run_budget_seconds: int | None = None,
+) -> Path:
     mission_options = load_mission_options_module()
     options = mission_options.MissionOptions(str(case_file))
 
@@ -76,6 +86,10 @@ def write_run_options(case_file: Path, output_dir: Path) -> Path:
     options.background_mode = 1
     options.universe_folder = (TESTATRON_DIR / "universe").as_posix()
     options.HardwarePath = (TESTATRON_DIR / "HardwareModels").as_posix()
+    if run_budget_seconds is not None:
+        if run_budget_seconds <= 0:
+            raise ValueError("--run-budget-seconds must be positive")
+        options.snopt_max_run_time = run_budget_seconds
 
     run_options = output_dir / case_file.name
     options.write_options_file(str(run_options), not options.print_only_non_default_options)
@@ -204,7 +218,7 @@ def main() -> int:
     output_dir = output_root / f"A20136163_AEPS_IPOPT_FBLT_{run_stamp}"
     output_dir.mkdir(parents=True, exist_ok=False)
 
-    run_options = write_run_options(case_file, output_dir)
+    run_options = write_run_options(case_file, output_dir, args.run_budget_seconds)
     log_file = output_dir / "emtg_run.log"
 
     with log_file.open("w", encoding="utf-8") as log:

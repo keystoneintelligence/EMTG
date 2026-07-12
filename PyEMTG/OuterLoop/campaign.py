@@ -48,6 +48,7 @@ from .objectives import (
     ObjectiveRegistry,
     default_objective_registry,
 )
+from ..SolverAvailability import read_solver_capabilities
 from .operators import OperatorDefinition, OperatorRegistry, default_operator_registry, point_group_mutation
 from .physics import C3EnvelopeScreen, HohmannTimeScreen
 from .randomness import derive_seed, deterministic_id, random_stream
@@ -345,15 +346,13 @@ class Campaign:
             capability_path = self.config.assets.get("capabilities_file")
             if capability_path is None:
                 capability_path = emtg_evaluator.executable.parent / "solver_capabilities.json"
-            capability_file = Path(capability_path)
-            if not capability_file.is_file():
-                errors.append("solver_capabilities.json is required for EMTG pre-launch validation")
+            capabilities = read_solver_capabilities(
+                capability_file=capability_path,
+                executable=emtg_evaluator.executable,
+            )
+            if capabilities is None:
+                errors.append("cannot read solver capabilities from EMTG or its compatibility sidecar")
             else:
-                try:
-                    capabilities = __import__("json").loads(capability_file.read_text(encoding="utf-8"))
-                except (OSError, ValueError) as error:
-                    errors.append(f"cannot parse solver capabilities: {error}")
-                    capabilities = {}
                 budgets = [dict(value.get("budget", {})) for value in self.config.fidelities]
                 if not budgets:
                     budgets = [dict(self.config.evaluator.get("budget", {}))]
@@ -363,9 +362,9 @@ class Campaign:
                         errors.append(f"unsupported inner_loop mode {mode}")
                     solver = int(budget.get("nlp_solver_type", emtg_evaluator.builder._base.NLP_solver_type))
                     if solver == 0 and not bool(capabilities.get("snopt", False)):
-                        errors.append("SNOPT was selected but is unavailable in solver_capabilities.json")
+                        errors.append("SNOPT was selected but is unavailable in this EMTG executable")
                     elif solver == 2 and not bool(capabilities.get("ipopt", False)):
-                        errors.append("IPOPT was selected but is unavailable in solver_capabilities.json")
+                        errors.append("IPOPT was selected but is unavailable in this EMTG executable")
                     elif solver not in {0, 2}:
                         errors.append(f"unsupported NLP solver type {solver}")
                 supported_transcriptions = capabilities.get("supported_phase_types")

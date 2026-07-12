@@ -44,8 +44,7 @@
 
 #include "file_utilities.h"
 
-#include "boost/filesystem.hpp"
-#include "boost/filesystem/fstream.hpp"
+#include <filesystem>
 #include "boost/date_time.hpp"
 #include "boost/date_time/local_time/local_date_time.hpp"
 #include "boost/lexical_cast.hpp"

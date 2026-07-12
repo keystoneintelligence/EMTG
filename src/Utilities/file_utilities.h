@@ -20,16 +20,11 @@
 
 #pragma once
 
-#define BOOST_FILESYSTEM_VERSION 3
-#define BOOST_FILESYSTEM_NO_DEPRECATED 
-
+#include <filesystem>
 #include <vector>
 #include <string>
 
-#include <boost/filesystem.hpp>
-
-
-namespace fs = ::boost::filesystem;
+namespace fs = std::filesystem;
 
 namespace EMTG 
 {

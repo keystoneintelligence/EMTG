@@ -40,6 +40,17 @@ if(Ipopt_FOUND)
     endif()
 
     if(TARGET Ipopt::Ipopt)
+        get_target_property(_IPOPT_CONFIG_INCLUDE_DIRS Ipopt::Ipopt INTERFACE_INCLUDE_DIRECTORIES)
+        find_path(_IPOPT_CONFIG_C_INCLUDE_DIR
+            NAMES IpStdCInterface.h
+            HINTS ${_IPOPT_CONFIG_INCLUDE_DIRS} ${IPOPT_INCLUDE_DIR} ${IPOPT_ROOT_DIR}
+            PATH_SUFFIXES coin-or coin include/coin-or include/coin)
+        if(_IPOPT_CONFIG_C_INCLUDE_DIR)
+            set(IPOPT_INCLUDE_DIR "${_IPOPT_CONFIG_C_INCLUDE_DIR}" CACHE PATH
+                "Directory containing IpStdCInterface.h" FORCE)
+            set_property(TARGET Ipopt::Ipopt APPEND PROPERTY
+                INTERFACE_INCLUDE_DIRECTORIES "${_IPOPT_CONFIG_C_INCLUDE_DIR}")
+        endif()
         if(DEFINED Ipopt_VERSION)
             set(IPOPT_VERSION "${Ipopt_VERSION}")
         elseif(DEFINED IPOPT_VERSION_STRING)
@@ -195,17 +206,15 @@ find_package_handle_standard_args(Ipopt
 set(IPOPT_FOUND ${Ipopt_FOUND})
 
 if(Ipopt_FOUND AND NOT TARGET Ipopt::Ipopt)
-    if(WIN32)
+    if(WIN32 AND IPOPT_RUNTIME_LIBRARY)
         add_library(Ipopt::Ipopt SHARED IMPORTED)
     else()
         add_library(Ipopt::Ipopt UNKNOWN IMPORTED)
     endif()
     set_property(TARGET Ipopt::Ipopt PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${IPOPT_INCLUDE_DIR}")
-    if(WIN32)
+    if(WIN32 AND IPOPT_RUNTIME_LIBRARY)
         set_property(TARGET Ipopt::Ipopt PROPERTY IMPORTED_IMPLIB "${_IPOPT_LINK_ARTIFACT}")
-        if(IPOPT_RUNTIME_LIBRARY)
-            set_property(TARGET Ipopt::Ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_RUNTIME_LIBRARY}")
-        endif()
+        set_property(TARGET Ipopt::Ipopt PROPERTY IMPORTED_LOCATION "${IPOPT_RUNTIME_LIBRARY}")
     else()
         set_property(TARGET Ipopt::Ipopt PROPERTY IMPORTED_LOCATION "${_IPOPT_LINK_ARTIFACT}")
         if(PC_IPOPT_LINK_LIBRARIES)
@@ -217,7 +226,9 @@ endif()
 set(IPOPT_RUNTIME_DLLS)
 if(WIN32 AND IPOPT_RUNTIME_LIBRARY)
     get_filename_component(_IPOPT_RUNTIME_DIR "${IPOPT_RUNTIME_LIBRARY}" DIRECTORY)
-    file(GLOB IPOPT_RUNTIME_DLLS "${_IPOPT_RUNTIME_DIR}/*.dll")
+    list(APPEND IPOPT_RUNTIME_DLLS "${IPOPT_RUNTIME_LIBRARY}")
+    file(GLOB _IPOPT_MUMPS_RUNTIME_DLLS "${_IPOPT_RUNTIME_DIR}/libcoinmumps-*.dll")
+    list(APPEND IPOPT_RUNTIME_DLLS ${_IPOPT_MUMPS_RUNTIME_DLLS})
     if(IPOPT_MINGW_BIN_DIR AND IS_DIRECTORY "${IPOPT_MINGW_BIN_DIR}")
         foreach(_runtime_name
                 libblas.dll

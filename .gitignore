@@ -3,6 +3,7 @@
 #################
 build/*
 _local/
+dist/
 CMakeFiles/
 CMakeCache.txt
 CTestTestfile.cmake
@@ -16,6 +17,9 @@ depend/boost/tools/build/*
 bin/*
 EMTG_v9_Results/*
 scripts/*
+!scripts/audit-linux-dependencies.sh
+!scripts/audit-windows-dependencies.ps1
+!scripts/render-winget.ps1
 #EMTG-config.cmake
 *.debug
 *.d

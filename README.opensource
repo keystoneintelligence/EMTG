@@ -26,21 +26,23 @@ EMTG has a fully open-source solver path using the Interior Point OPTimizer (IPO
 
 Clean IPOPT-only build and test instructions are in `docs/1_Developers/ipopt.md`.
 
-The following dependencies have been bundled with this release and files associated with them can be found in /depend/:
--– Boost 1.79.0
--– CSPICE 64bit
--– GSL 2.4.0
--- MinGW 7.2.0 [Windows only](variant: 64-bit, posix (threading), and seh (exception handler))
--– randutils rev 2
+Release builds use a pinned managed dependency graph under `_local/`:
+header-only Boost components, CSPICE N0067, IPOPT 3.14.11, MUMPS 5.8.2,
+reference LAPACK, and OpenBLAS. Source archives are checksum-verified. GSL is
+no longer linked; EMTG provides its own natural cubic spline implementation.
+SNOPT is never included in public artifacts.
 
 ~~~~~~~~~~~~~
 Installation:
 ~~~~~~~~~~~~~
-The GSFC EMTG team is primarily using Windows and Linux. Both Windows and Linux build guides are included.
+The supported IPOPT-only command-line build is driven by one command on each platform:
 
-Navigate to the /docs/build_system/ directory for EMTG_*_build_system*.pdf documents detailing step-by-step instructions on 
-how to install the software dependencies and build EMTG. These documents are catered to specific software dependency 
-versions. Alternative versions may work but proceed at your own risk when deviating from the provided install guidance.
+- Windows: `.\build.ps1`
+- Linux (experimental): `./build.sh --bootstrap`
+
+See `BUILDING.md` for developer builds and `INSTALLING.md` for the portable
+Windows and experimental Linux bundles. The older PDF build guides are retained
+only as historical documentation.
 
 =============================================================================================================================
 *****************************************************************************************************************************
@@ -65,7 +67,9 @@ development team has limited availability to respond to all inquiries. There is 
 EMTG GitHub page where you can post and engage with the community for support.
 
 Q: Will EMTG work on Linux?
-A: Yes, it will. Linux build instructions are provided with this release.
+A: The Linux build and packaging support is currently experimental and has not
+yet been validated on a clean Linux host. Best-effort instructions are provided
+with this release.
 
 Q: Will EMTG work on a Mac? If so, why is there not a Mac build document?
 A: Yes EMTG should work on a Mac. The development team did not have access to a Mac to be able to do development/testing 
@@ -78,7 +82,9 @@ Q: How frequently will you update EMTG?
 A: Resources are limited for the development team so open source releases will occure infrequently.
 
 Q: Can you make me an executable?
-A: No. EMTG depends on a number of third-party packages and NASA does not have the rights to distribute all of them.
+A: Yes. Public releases provide an IPOPT-only standalone Windows executable, a
+portable ZIP, and an experimental Linux tarball. SNOPT remains excluded because
+it requires a separate commercial license.
 
 Q: Why doesn't my PyEMTG work?
 A: The various Python packages and libraries change fast and the development team has limited resources. The build system 
@@ -91,7 +97,7 @@ can incorporate in future releases. You can make changes to /src/InnerLoop/snopt
 your SNOPT.
 
 Q: Do I need SNOPT to build or run EMTG?
-A: No. Configure with ENABLE_SNOPT=OFF and ENABLE_IPOPT=ON, or use the `ipopt-only` CMake preset. SNOPT is optional.
+A: No. Configure with EMTG_ENABLE_SNOPT=OFF and EMTG_ENABLE_IPOPT=ON, or use the `ipopt-only` CMake preset. SNOPT is optional.
 
 Q: Can I use this commercially?
 A: Yes.

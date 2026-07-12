@@ -25,11 +25,28 @@
 // Description : EMTG_v9 is a generic optimizer that handles all mission types
 //============================================================================
 
+#include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <exception>
 #include <unordered_map>
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <iomanip>
+#include <optional>
+#include <vector>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "missionoptions.h"
 #include "mission.h"
@@ -49,10 +66,6 @@
 #include "ExponentialAtmosphere.h"
 #include "HarmonicGravityField.h"
 
-#include "boost/filesystem.hpp"
-#include "boost/filesystem/fstream.hpp"
-#include "boost/date_time.hpp"
-#include "boost/date_time/local_time/local_date_time.hpp"
 #include "boost/lexical_cast.hpp"
 #include "boost/ptr_container/ptr_vector.hpp"
 
@@ -66,23 +79,366 @@
 #include "SplineEphem_universe.h"
 #endif
 
-int main(int argc, char* argv[]) 
+#ifndef EMTG_VERSION
+#define EMTG_VERSION "unknown"
+#endif
+
+namespace
 {
-    std::cout << "program starting" << std::endl;
+    constexpr int EXIT_UNEXPECTED = 1;
+    constexpr int EXIT_CLI_OR_OPTIONS = 2;
+    constexpr int EXIT_MISSING_DATA = 3;
+    constexpr int EXIT_SOLVER = 4;
+    constexpr const char* NAIF_PLANETARY_BSP_URL =
+        "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/";
+    constexpr const char* NAIF_GENERIC_KERNEL_URL =
+        "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/";
+    constexpr const char* NAIF_MISSION_KERNEL_URL =
+        "https://naif.jpl.nasa.gov/pub/naif/";
+
+    struct CommandLineOptions
+    {
+        std::string optionsFile;
+        std::optional<std::filesystem::path> dataDirectory;
+        std::optional<std::filesystem::path> outputDirectory;
+        bool help = false;
+        bool version = false;
+        bool capabilities = false;
+        bool doctor = false;
+        bool pause = false;
+    };
+
+    void print_usage(std::ostream& stream)
+    {
+        stream << "Usage: EMTGv9 [options] OPTIONS_FILE\n\n"
+               << "Options:\n"
+               << "  --data-dir PATH    Root containing Universe and HardwareModels\n"
+               << "  --output-dir PATH  Override the mission results directory\n"
+               << "  --doctor           Check solver and runtime-data availability\n"
+               << "  --capabilities     Print compiled solver capabilities as JSON\n"
+               << "  --version          Print the EMTG version\n"
+               << "  --pause            Wait for Enter before exiting\n"
+               << "  -h, --help         Show this help\n";
+    }
+
+    CommandLineOptions parse_command_line(const int argc, char* argv[])
+    {
+        CommandLineOptions result;
+        for (int index = 1; index < argc; ++index)
+        {
+            const std::string argument(argv[index]);
+            if (argument == "-h" || argument == "--help")
+                result.help = true;
+            else if (argument == "--version")
+                result.version = true;
+            else if (argument == "--capabilities")
+                result.capabilities = true;
+            else if (argument == "--doctor")
+                result.doctor = true;
+            else if (argument == "--pause")
+                result.pause = true;
+            else if (argument == "--data-dir" || argument == "--output-dir")
+            {
+                if (++index >= argc)
+                    throw std::invalid_argument(argument + " requires a path");
+                if (argument == "--data-dir")
+                    result.dataDirectory = std::filesystem::path(argv[index]);
+                else
+                    result.outputDirectory = std::filesystem::path(argv[index]);
+            }
+            else if (!argument.empty() && argument.front() == '-')
+                throw std::invalid_argument("Unknown option: " + argument);
+            else if (result.optionsFile.empty())
+                result.optionsFile = argument;
+            else
+                throw std::invalid_argument("Only one OPTIONS_FILE may be provided");
+        }
+        return result;
+    }
+
+    std::filesystem::path executable_directory(char* argv0)
+    {
+#ifdef _WIN32
+        std::vector<char> buffer(32768, '\0');
+        const DWORD length = GetModuleFileNameA(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+        if (length > 0 && length < buffer.size())
+            return std::filesystem::path(std::string(buffer.data(), length)).parent_path();
+#else
+        std::vector<char> buffer(4096, '\0');
+        const ssize_t length = readlink("/proc/self/exe", buffer.data(), buffer.size() - 1);
+        if (length > 0)
+            return std::filesystem::path(std::string(buffer.data(), static_cast<std::size_t>(length))).parent_path();
+#endif
+        return std::filesystem::absolute(argv0).parent_path();
+    }
+
+    bool is_data_root(const std::filesystem::path& root)
+    {
+        return std::filesystem::is_directory(root / "Universe")
+            && std::filesystem::is_directory(root / "HardwareModels");
+    }
+
+    bool has_kernel_with_extension(const std::filesystem::path& directory,
+                                   std::string extension)
+    {
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+            [](const unsigned char character) { return static_cast<char>(std::tolower(character)); });
+
+        std::error_code error;
+        std::filesystem::directory_iterator entry(directory, error);
+        const std::filesystem::directory_iterator end;
+        while (!error && entry != end)
+        {
+            if (entry->is_regular_file(error))
+            {
+                std::string candidate = entry->path().extension().string();
+                std::transform(candidate.begin(), candidate.end(), candidate.begin(),
+                    [](const unsigned char character) { return static_cast<char>(std::tolower(character)); });
+                if (candidate == extension)
+                    return true;
+            }
+            entry.increment(error);
+        }
+        return false;
+    }
+
+    void print_kernel_download_help(std::ostream& stream,
+                                    const std::filesystem::path& kernelDirectory)
+    {
+        stream << "\nEMTG does not bundle large BSP or mission-specific SPICE kernels.\n"
+               << "Download planetary BSP files: " << NAIF_PLANETARY_BSP_URL << '\n'
+               << "Browse all generic kernels: " << NAIF_GENERIC_KERNEL_URL << '\n'
+               << "Browse mission archives: " << NAIF_MISSION_KERNEL_URL << '\n';
+        if (!kernelDirectory.empty())
+            stream << "Place the downloaded kernels in: " << kernelDirectory.string() << '\n';
+    }
+
+    std::optional<std::filesystem::path> discover_data_root(
+        const CommandLineOptions& commandLine,
+        const std::filesystem::path& executableDirectory)
+    {
+        if (commandLine.dataDirectory)
+        {
+            const auto candidate = std::filesystem::absolute(*commandLine.dataDirectory);
+            if (is_data_root(candidate))
+                return candidate;
+            return std::nullopt;
+        }
+
+        std::vector<std::filesystem::path> candidates;
+        if (const char* environmentRoot = std::getenv("EMTG_DATA_DIR"))
+            candidates.emplace_back(environmentRoot);
+        candidates.push_back(executableDirectory / "data");
+        candidates.push_back(executableDirectory / ".." / "share" / "emtg");
+        candidates.push_back(executableDirectory / "..");
+        candidates.push_back(std::filesystem::current_path());
+#ifdef _WIN32
+        candidates.emplace_back("C:/emtg");
+#endif
+
+        for (const auto& candidate : candidates)
+        {
+            std::error_code error;
+            const auto normalized = std::filesystem::weakly_canonical(candidate, error);
+            if (!error && is_data_root(normalized))
+                return normalized;
+        }
+        return std::nullopt;
+    }
+
+    bool options_file_sets(const std::string& filename, const std::string& key)
+    {
+        std::ifstream stream(filename);
+        std::string line;
+        while (std::getline(stream, line))
+        {
+            std::istringstream tokens(line);
+            std::string first;
+            tokens >> first;
+            if (!first.empty() && first.front() != '#' && first == key)
+                return true;
+        }
+        return false;
+    }
+
+    void print_capabilities()
+    {
+        std::cout << "{\"ipopt\":"
+#ifdef EMTG_ENABLE_IPOPT
+                  << "true"
+#else
+                  << "false"
+#endif
+                  << ",\"snopt\":"
+#ifdef EMTG_ENABLE_SNOPT
+                  << "true"
+#else
+                  << "false"
+#endif
+                  << "}\n";
+    }
+
+    std::string timestamp()
+    {
+        const std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        std::tm local{};
+#ifdef _WIN32
+        localtime_s(&local, &now);
+#else
+        localtime_r(&now, &local);
+#endif
+        std::ostringstream stream;
+        stream << std::put_time(&local, "%m%d%Y_%H%M%S");
+        return stream.str();
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    CommandLineOptions commandLine;
+    try
+    {
+        commandLine = parse_command_line(argc, argv);
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "EMTG command-line error: " << error.what() << "\n\n";
+        print_usage(std::cerr);
+        return EXIT_CLI_OR_OPTIONS;
+    }
+
+    if (commandLine.help)
+    {
+        print_usage(std::cout);
+        return 0;
+    }
+    if (commandLine.version)
+    {
+        std::cout << "EMTG " << EMTG_VERSION << '\n';
+        return 0;
+    }
+    if (commandLine.capabilities)
+    {
+        print_capabilities();
+        return 0;
+    }
+
+    const std::filesystem::path executableDirectory = executable_directory(argv[0]);
+    const auto discoveredDataRoot = discover_data_root(commandLine, executableDirectory);
+    if (commandLine.doctor)
+    {
+        std::cout << "EMTG executable: " << executableDirectory.string() << '\n';
+        std::cout << "Compiled solvers: ";
+        print_capabilities();
+        if (discoveredDataRoot)
+        {
+            const std::filesystem::path kernelDirectory =
+                *discoveredDataRoot / "Universe" / "ephemeris_files";
+            const bool hasBsp = has_kernel_with_extension(kernelDirectory, ".bsp");
+            const bool hasLeapSeconds = has_kernel_with_extension(kernelDirectory, ".tls");
+            const bool hasPlanetaryConstants = has_kernel_with_extension(kernelDirectory, ".tpc");
+
+            std::cout << "Core data directory: " << discoveredDataRoot->string() << '\n'
+                      << "Kernel directory: " << kernelDirectory.string() << '\n'
+                      << "BSP kernels: " << (hasBsp ? "found" : "not found") << '\n'
+                      << "Leap-seconds kernel (.tls): " << (hasLeapSeconds ? "found" : "not found") << '\n'
+                      << "Planetary constants kernel (.tpc): "
+                      << (hasPlanetaryConstants ? "found" : "not found") << '\n';
+
+            if (hasBsp && hasLeapSeconds && hasPlanetaryConstants)
+            {
+                std::cout << "Status: ready\n";
+                return 0;
+            }
+
+            std::cout << "Status: action required - install the SPICE kernels needed by your mission.\n";
+            print_kernel_download_help(std::cout, kernelDirectory);
+            return EXIT_MISSING_DATA;
+        }
+        std::cout << "Data directory: not found\n"
+                  << "Set EMTG_DATA_DIR or pass --data-dir with a directory containing Universe and HardwareModels.\n";
+        print_kernel_download_help(std::cout, {});
+        return EXIT_MISSING_DATA;
+    }
+
+    if (commandLine.optionsFile.empty())
+    {
+        std::cerr << "EMTG requires an OPTIONS_FILE.\n\n";
+        print_usage(std::cerr);
+        return EXIT_CLI_OR_OPTIONS;
+    }
+
+    std::cout << "EMTG starting\n";
 
     try
     {
-        //parse the options file
-        std::string options_file_name;
-        if (argc == 1)
-            options_file_name = "default.emtgopt";
-        else if (argc == 2)
-            options_file_name.assign(argv[1]);
-
+        const std::string options_file_name = commandLine.optionsFile;
         std::cout << options_file_name << std::endl;
 
         EMTG::missionoptions options;
-        options.parse_mission(options_file_name);
+        try
+        {
+            options.parse_mission(options_file_name);
+        }
+        catch (const std::exception& error)
+        {
+            std::cerr << "EMTG options error: " << error.what() << '\n';
+            return EXIT_CLI_OR_OPTIONS;
+        }
+
+        const bool explicitUniverse = options_file_sets(options_file_name, "universe_folder");
+        const bool explicitHardware = options_file_sets(options_file_name, "HardwarePath");
+        if (commandLine.dataDirectory || !explicitUniverse || !explicitHardware)
+        {
+            if (!discoveredDataRoot)
+            {
+                std::cerr << "EMTG runtime data was not found. Pass --data-dir or set EMTG_DATA_DIR.\n";
+                return EXIT_MISSING_DATA;
+            }
+            if (commandLine.dataDirectory || !explicitUniverse)
+                options.universe_folder = (*discoveredDataRoot / "Universe").string();
+            if (commandLine.dataDirectory || !explicitHardware)
+                options.HardwarePath = (*discoveredDataRoot / "HardwareModels").string();
+        }
+
+        if (!std::filesystem::is_directory(options.universe_folder)
+            || !std::filesystem::is_directory(options.HardwarePath))
+        {
+            std::cerr << "EMTG runtime data is incomplete. Universe='" << options.universe_folder
+                      << "', HardwareModels='" << options.HardwarePath << "'.\n";
+            return EXIT_MISSING_DATA;
+        }
+
+        const std::filesystem::path kernelDirectory =
+            std::filesystem::path(options.universe_folder) / "ephemeris_files";
+        if (options.ephemeris_source >= 1)
+        {
+            const std::filesystem::path leapSeconds =
+                kernelDirectory / options.SPICE_leap_seconds_kernel;
+            const std::filesystem::path planetaryConstants =
+                kernelDirectory / options.SPICE_reference_frame_kernel;
+            const bool hasBsp = has_kernel_with_extension(kernelDirectory, ".bsp");
+            const bool hasLeapSeconds = std::filesystem::is_regular_file(leapSeconds);
+            const bool hasPlanetaryConstants = std::filesystem::is_regular_file(planetaryConstants);
+
+            if (!hasBsp || !hasLeapSeconds || !hasPlanetaryConstants)
+            {
+                std::cerr << "EMTG cannot start this SPICE/SplineEphem mission because required kernels are missing.\n"
+                          << "BSP kernels: " << (hasBsp ? "found" : "not found") << '\n'
+                          << "Leap-seconds kernel: " << leapSeconds.string() << ' '
+                          << (hasLeapSeconds ? "[found]" : "[not found]") << '\n'
+                          << "Planetary constants kernel: " << planetaryConstants.string() << ' '
+                          << (hasPlanetaryConstants ? "[found]" : "[not found]") << '\n';
+                print_kernel_download_help(std::cerr, kernelDirectory);
+                return EXIT_MISSING_DATA;
+            }
+        }
+
+        if (commandLine.outputDirectory)
+        {
+            options.override_working_directory = true;
+            options.forced_working_directory = std::filesystem::absolute(*commandLine.outputDirectory).string();
+        }
 
         //configure the LaunchVehicleOptions and SpacecraftOptions objects
         EMTG::HardwareModels::LaunchVehicleOptions myLaunchVehicleOptions = EMTG::HardwareModels::CreateLaunchVehicleOptions(options);
@@ -95,16 +451,13 @@ int main(int argc, char* argv[])
             if (options.override_working_directory)
                 root_directory = options.forced_working_directory;
             else
-                root_directory = boost::filesystem::current_path().string() + "/..//EMTG_v9_results//";
+                root_directory = (std::filesystem::current_path() / "EMTG_v9_results").string();
 
             if (options.override_mission_subfolder)
                 mission_subfolder = options.forced_mission_subfolder;
             else
             {
-                boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-                std::stringstream timestream;
-                timestream << static_cast<int>(now.date().month()) << now.date().day() << now.date().year() << "_" << now.time_of_day().hours() << now.time_of_day().minutes() << now.time_of_day().seconds();
-                mission_subfolder = options.mission_name + "_" + timestream.str();
+                mission_subfolder = options.mission_name + "_" + timestamp();
             }
 
             //define a new working directory
@@ -113,8 +466,7 @@ int main(int argc, char* argv[])
             //create the working directory
             try
             {
-                boost::filesystem::path p(options.working_directory);
-                boost::filesystem::create_directories(p);
+                std::filesystem::create_directories(options.working_directory);
             }
             catch (std::exception &e)
             {
@@ -132,15 +484,15 @@ int main(int argc, char* argv[])
 
 
         //load all ephemeris data if using SPICE
-        std::vector<::boost::filesystem::path> SPICE_files_initial;
-        std::vector<::boost::filesystem::path> SPICE_files_not_required;
-        std::vector<::boost::filesystem::path> SPICE_files_required;
+        std::vector<std::filesystem::path> SPICE_files_initial;
+        std::vector<std::filesystem::path> SPICE_files_not_required;
+        std::vector<std::filesystem::path> SPICE_files_required;
         std::vector<int> SPICE_bodies_required;
         std::string filestring;
         if (options.ephemeris_source >= 1)
         {
             //load all BSP files
-            EMTG::file_utilities::get_all_files_with_extension(::boost::filesystem::path(options.universe_folder + "/ephemeris_files/"), ".bsp", SPICE_files_initial);
+            EMTG::file_utilities::get_all_files_with_extension(std::filesystem::path(options.universe_folder + "/ephemeris_files/"), ".bsp", SPICE_files_initial);
 
             for (size_t k = 0; k < SPICE_files_initial.size(); ++k)
             {
@@ -219,7 +571,7 @@ int main(int argc, char* argv[])
             {
                 // get the gravity file
                 std::string grav_file = options.Journeys[j].central_body_gravity_file;
-                const boost::filesystem::path grav_path = grav_file;
+                const std::filesystem::path grav_path = grav_file;
                 std::string field_name = grav_path.filename().string();
                 size_t degree = options.Journeys[j].central_body_gravity_degree;
                 size_t order = options.Journeys[j].central_body_gravity_order;
@@ -615,6 +967,12 @@ int main(int argc, char* argv[])
             std::cout << "Failure while configuring SplineEphem." << std::endl;
             std::cout << myError.what() << std::endl;
             std::cout << "Submit this error message to the EMTG development team, along with your .emtgopt, .emtg_universe file(s), your hardware model files, any relevant ephemeris files, and which branch you are using. This information will allow us to properly help you." << std::endl;
+            if (std::string(myError.what()).find("SPICE kernel pool") != std::string::npos)
+            {
+                print_kernel_download_help(std::cerr,
+                    std::filesystem::path(options.universe_folder) / "ephemeris_files");
+                return EXIT_MISSING_DATA;
+            }
 #ifndef BACKGROUND_MODE //macro overrides if statement
             std::cout << "Press enter to close window." << std::endl;
             std::cin.ignore();
@@ -731,6 +1089,11 @@ int main(int argc, char* argv[])
 
             //evaluate the mission
             bool optimized_successfully = TrialMission.optimize();
+            if (!optimized_successfully)
+            {
+                std::cerr << "EMTG solver did not produce a successful mission.\n";
+                return EXIT_SOLVER;
+            }
 
             //output the mission
             if (optimized_successfully)
@@ -751,7 +1114,8 @@ int main(int argc, char* argv[])
         }
         catch (std::exception &e)
         {
-            std::cout << "Error " << e.what() << ": Failure to run inner-loop solver" << std::endl;
+            std::cerr << "Error " << e.what() << ": Failure to run inner-loop solver" << std::endl;
+            return EXIT_SOLVER;
         }
 
         //unload SPICE
@@ -770,23 +1134,23 @@ int main(int argc, char* argv[])
 
         std::cout << "EMTG run complete." << std::endl;
 
-    #ifndef BACKGROUND_MODE //macro overrides if statement
-        if (!options.background_mode)
+        if (commandLine.pause)
         {
             std::cout << "Press enter to close window." << std::endl;
             std::cin.ignore();
         }
-    #endif
     }
     catch (std::exception &exception)
     {
         std::cout << "\nEMTG failed with error:" << std::endl;
         std::cout << exception.what() << std::endl;
         std::cout << "Submit this error message to the EMTG development team, along with your .emtgopt, .emtg_universe file(s), your hardware model files, any relevant ephemeris files, and which branch you are using. This information will allow us to properly help you." << std::endl;
-#ifndef BACKGROUND_MODE //macro overrides if statement
-        std::cout << "Press enter to close window." << std::endl;
-        std::cin.ignore();
-#endif
+        if (commandLine.pause)
+        {
+            std::cout << "Press enter to close window." << std::endl;
+            std::cin.ignore();
+        }
+        return EXIT_UNEXPECTED;
     }
 
     return 0;

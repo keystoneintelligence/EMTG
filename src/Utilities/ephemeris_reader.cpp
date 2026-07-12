@@ -27,31 +27,12 @@
 
 namespace EMTG
 {
-    ephemeris_reader::ephemeris_reader() :
-        fitSplines(false)
-    {
-    }
+    ephemeris_reader::ephemeris_reader() = default;
 
     ephemeris_reader::ephemeris_reader(const std::string& inputfilename, const std::string& leap_seconds_path)
         : ephemeris_reader()
     {
         this->initialize(inputfilename, leap_seconds_path);
-    }
-
-    ephemeris_reader::~ephemeris_reader()
-    {
-        if (this->fitSplines)
-        {
-            this->fitSplines = false;
-            gsl_spline_free(this->Spline_x);
-            gsl_spline_free(this->Spline_y);
-            gsl_spline_free(this->Spline_z);
-            gsl_spline_free(this->Spline_vx);
-            gsl_spline_free(this->Spline_vy);
-            gsl_spline_free(this->Spline_vz);
-            gsl_spline_free(this->Spline_mass);
-            gsl_interp_accel_free(this->SplineAccelerator);
-        }
     }
 
     void ephemeris_reader::initialize(const std::string& inputfilename, const std::string& leap_seconds_path)
@@ -139,26 +120,14 @@ namespace EMTG
 
     void ephemeris_reader::fit_splines()
     {
-        this->fitSplines = true;
-
-        //allocate splines
-        this->SplineAccelerator = gsl_interp_accel_alloc();
-        this->Spline_x = gsl_spline_alloc(gsl_interp_cspline, this->dataRows);
-        this->Spline_y = gsl_spline_alloc(gsl_interp_cspline, this->dataRows);
-        this->Spline_z = gsl_spline_alloc(gsl_interp_cspline, this->dataRows);
-        this->Spline_vx = gsl_spline_alloc(gsl_interp_cspline, this->dataRows);
-        this->Spline_vy = gsl_spline_alloc(gsl_interp_cspline, this->dataRows);
-        this->Spline_vz = gsl_spline_alloc(gsl_interp_cspline, this->dataRows);
-        this->Spline_mass = gsl_spline_alloc(gsl_interp_cspline, this->dataRows);
-
-        //initialize GSL splines
-        gsl_spline_init(this->Spline_x, this->data["epoch"].data(), this->data["x(km)"].data(), this->dataRows);
-        gsl_spline_init(this->Spline_y, this->data["epoch"].data(), this->data["y(km)"].data(), this->dataRows);
-        gsl_spline_init(this->Spline_z, this->data["epoch"].data(), this->data["z(km)"].data(), this->dataRows);
-        gsl_spline_init(this->Spline_vx, this->data["epoch"].data(), this->data["vx(km/s)"].data(), this->dataRows);
-        gsl_spline_init(this->Spline_vy, this->data["epoch"].data(), this->data["vy(km/s)"].data(), this->dataRows);
-        gsl_spline_init(this->Spline_vz, this->data["epoch"].data(), this->data["vz(km/s)"].data(), this->dataRows);
-        gsl_spline_init(this->Spline_mass, this->data["epoch"].data(), this->data["mass(kg)"].data(), this->dataRows);
+        const std::vector<double>& epoch = this->data["epoch"];
+        this->Spline_x.initialize(epoch, this->data["x(km)"]);
+        this->Spline_y.initialize(epoch, this->data["y(km)"]);
+        this->Spline_z.initialize(epoch, this->data["z(km)"]);
+        this->Spline_vx.initialize(epoch, this->data["vx(km/s)"]);
+        this->Spline_vy.initialize(epoch, this->data["vy(km/s)"]);
+        this->Spline_vz.initialize(epoch, this->data["vz(km/s)"]);
+        this->Spline_mass.initialize(epoch, this->data["mass(kg)"]);
     }//end fit_splines()
 
 }//end namespace EMTG

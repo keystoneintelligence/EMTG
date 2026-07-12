@@ -1,9 +1,29 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.25)
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 NEW)
+endif()
+
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" EMTG_PROJECT_VERSION LIMIT_COUNT 1)
+string(STRIP "${EMTG_PROJECT_VERSION}" EMTG_PROJECT_VERSION)
+if(NOT EMTG_PROJECT_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION must contain a semantic version such as 9.2.0")
+endif()
+
+function(emtg_configure_executable target_name)
+    if(MINGW AND (EMTG_DEPENDENCY_PROVIDER STREQUAL "managed" OR EMTG_PORTABLE_TESTBED_ONLY))
+        target_link_options(${target_name} PRIVATE -static -static-libgcc -static-libstdc++
+            $<$<CONFIG:Release>:-s>)
+    elseif(UNIX AND NOT APPLE AND EMTG_DEPENDENCY_PROVIDER STREQUAL "managed")
+        target_link_options(${target_name} PRIVATE -static-libgcc -static-libstdc++)
+    endif()
+endfunction()
 
 option(EMTG_PORTABLE_TESTBED_ONLY "Configure only portable testbed targets that do not require CSPICE, SNOPT, IPOPT, or the full EMTG executable." OFF)
 
 if(EMTG_PORTABLE_TESTBED_ONLY)
-    project(EMTG LANGUAGES CXX)
+    project(EMTG VERSION ${EMTG_PROJECT_VERSION} LANGUAGES CXX)
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
     include(CTest)
 
     set(BUILD_EMTG_TESTBED ON CACHE BOOL "Build the EMTG testing framework" FORCE)
@@ -16,46 +36,21 @@ if(EMTG_PORTABLE_TESTBED_ONLY)
     set(USE_AD_INSTRUMENTATION OFF CACHE BOOL "Do you want to perform derivative accuracy checks with AD?" FORCE)
     set(SPLINE_EPHEM OFF CACHE BOOL "Enable SplineEphem" FORCE)
 
-    if(EXISTS "${CMAKE_SOURCE_DIR}/depend/boost/stage/lib")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/depend/boost/boost")
         set(BOOST_ROOT "${CMAKE_SOURCE_DIR}/depend/boost" CACHE PATH "Boost root directory")
         set(BOOST_INCLUDE_DIR "${BOOST_ROOT}" CACHE PATH "Boost include directory")
-        set(BOOST_LIBRARY_DIRS "${BOOST_ROOT}/stage/lib" CACHE PATH "Boost library directory")
     endif()
 
-    if(BOOST_INCLUDE_DIR AND BOOST_LIBRARY_DIRS)
-        set(EMTG_LOCAL_BOOST_LIBRARIES)
-        foreach(BOOST_COMPONENT filesystem system)
-            if(MSVC)
-                file(GLOB EMTG_BOOST_COMPONENT_LIBRARY "${BOOST_LIBRARY_DIRS}/*boost_${BOOST_COMPONENT}*.lib")
-            else()
-                file(GLOB EMTG_BOOST_COMPONENT_LIBRARY "${BOOST_LIBRARY_DIRS}/*boost_${BOOST_COMPONENT}*.a" "${BOOST_LIBRARY_DIRS}/*boost_${BOOST_COMPONENT}*.so")
-            endif()
-            list(LENGTH EMTG_BOOST_COMPONENT_LIBRARY EMTG_BOOST_COMPONENT_LIBRARY_COUNT)
-            if(EMTG_BOOST_COMPONENT_LIBRARY_COUNT GREATER 0)
-                list(GET EMTG_BOOST_COMPONENT_LIBRARY 0 EMTG_BOOST_COMPONENT_LIBRARY_FIRST)
-                list(APPEND EMTG_LOCAL_BOOST_LIBRARIES "${EMTG_BOOST_COMPONENT_LIBRARY_FIRST}")
-            else()
-                set(EMTG_LOCAL_BOOST_LIBRARIES)
-                break()
-            endif()
-        endforeach()
-
-        if(EMTG_LOCAL_BOOST_LIBRARIES)
-            set(Boost_FOUND TRUE)
-            set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-            set(Boost_LIBRARY_DIRS "${BOOST_LIBRARY_DIRS}")
-            set(Boost_LIBRARIES ${EMTG_LOCAL_BOOST_LIBRARIES})
-            message(STATUS "Using vendored Boost libraries from ${BOOST_LIBRARY_DIRS}")
-        endif()
-    endif()
-
-    if(NOT Boost_FOUND)
-        find_package(Boost 1.60 COMPONENTS filesystem system REQUIRED)
+    if(BOOST_INCLUDE_DIR)
+        set(Boost_FOUND TRUE)
+        set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+        message(STATUS "Using vendored Boost headers from ${BOOST_INCLUDE_DIR}")
+    else()
+        find_package(Boost 1.60 REQUIRED)
     endif()
 
     include_directories(${Boost_INCLUDE_DIRS})
     include_directories(src/Core src/Math src/Utilities)
-    link_directories(${Boost_LIBRARY_DIRS})
 
     add_subdirectory(src/Testing)
     return()
@@ -64,21 +59,37 @@ endif()
 # Pull in optional machine-local hints. All dependencies can also be supplied
 # through ordinary CMake cache variables, package discovery, or a toolchain.
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}")
-include(EMTG-Config.cmake OPTIONAL)
-
-#identify the project
-project(EMTG)
-
-include(CTest)
-
-set(CSPICE_DIR "${CSPICE_DIR}" CACHE PATH "CSPICE source/build root")
-if(NOT CSPICE_DIR)
-    set(CSPICE_DIR "${PROJECT_SOURCE_DIR}/depend/cspice" CACHE PATH "CSPICE source/build root" FORCE)
+if(NOT EMTG_DEPENDENCY_PROVIDER STREQUAL "managed")
+    include(EMTG-Config.cmake OPTIONAL)
+else()
+    # A release build must never inherit paths from a prior developer cache or
+    # an ignored machine-local EMTG-Config.cmake.
+    foreach(machine_hint
+            BOOST_INCLUDE_DIR BOOST_LIBRARY_DIRS BOOST_ROOT
+            CSPICE_DIR CSPICE_ROOT_DIR CSPICE_INCLUDE_DIR CSPICE_LIBRARY_FILE
+            IPOPT_ROOT_DIR IPOPTDIR_OVRD IPOPT_INCLUDE_DIR IPOPT_LIBRARY IPOPT_LIBRARY_DIR
+            IPOPT_RUNTIME_LIBRARY IPOPT_BIN_DIR IPOPT_MINGW_BIN_DIR
+            IPOPT_C_INCLUDE_DIR IPOPT_DISCOVERED_LIBRARY IPOPT_DISCOVERED_RUNTIME_LIBRARY)
+        unset(${machine_hint} CACHE)
+        unset(${machine_hint})
+    endforeach()
 endif()
 
-link_directories(${PROJECT_SOURCE_DIR}/Release)
-link_directories(${PROJECT_SOURCE_DIR}/Debug)
+#identify the project
+project(EMTG VERSION ${EMTG_PROJECT_VERSION} LANGUAGES C CXX)
 
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(CTest)
+include(GNUInstallDirs)
+
+set(CSPICE_DIR "${CSPICE_DIR}" CACHE PATH "CSPICE source/build root")
+if(NOT CSPICE_DIR AND NOT EMTG_DEPENDENCY_PROVIDER STREQUAL "managed")
+    set(CSPICE_DIR "${PROJECT_SOURCE_DIR}/depend/cspice" CACHE PATH "CSPICE source/build root" FORCE)
+endif()
 
 # enable multicore build on Windows
 if (MSVC)
@@ -99,21 +110,29 @@ add_definitions(-DBOOST_CONFIG_SUPPRESS_OUTDATED_MESSAGE)
 # Boost doesn't like std::iterator either
 add_definitions(-D_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
 
-# specify where the executable will be installed
-if(MSVC)
-	STRING(REGEX REPLACE "/" "\\\\" OUTPUTDESTINATION "${PROJECT_SOURCE_DIR}\\bin")
-else(MSVC)
-	set(OUTPUTDESTINATION ${PROJECT_SOURCE_DIR}/bin)
-endif(MSVC)
-if(NOT IS_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
-	file(MAKE_DIRECTORY ${OUTPUTDESTINATION})
-endif(NOT IS_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+# Build artifacts stay in the build tree. Installation and packaging use the
+# standard GNUInstallDirs layout on every platform.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
 
 #compiler-time Define-level options  for EMTG
 
-option(ENABLE_SNOPT "Build EMTG with SNOPT support" OFF)
-option(ENABLE_IPOPT "Build EMTG with IPOPT support" ON)
+option(EMTG_ENABLE_SNOPT "Build EMTG with SNOPT support" OFF)
+option(EMTG_ENABLE_IPOPT "Build EMTG with IPOPT support" ON)
+
+# Transition aliases retained for existing scripts and cache files.
+if(DEFINED ENABLE_SNOPT AND NOT ENABLE_SNOPT STREQUAL EMTG_ENABLE_SNOPT)
+    message(DEPRECATION "ENABLE_SNOPT is deprecated; use EMTG_ENABLE_SNOPT")
+    set(EMTG_ENABLE_SNOPT "${ENABLE_SNOPT}" CACHE BOOL "Build EMTG with SNOPT support" FORCE)
+endif()
+if(DEFINED ENABLE_IPOPT AND NOT ENABLE_IPOPT STREQUAL EMTG_ENABLE_IPOPT)
+    message(DEPRECATION "ENABLE_IPOPT is deprecated; use EMTG_ENABLE_IPOPT")
+    set(EMTG_ENABLE_IPOPT "${ENABLE_IPOPT}" CACHE BOOL "Build EMTG with IPOPT support" FORCE)
+endif()
+set(ENABLE_SNOPT "${EMTG_ENABLE_SNOPT}")
+set(ENABLE_IPOPT "${EMTG_ENABLE_IPOPT}")
 
 # Optional user override of the snopt directory specified in the EMTG-Config.cmake file
 set(SNOPTDIR_OVRD "${SNOPT_ROOT_DIR}" CACHE PATH "SNOPT Root Directory") # Do not use the FORCE command here so the value the user enters in GUI is preserved
@@ -125,10 +144,29 @@ option(SNOPT_MINGW_DLL "Use SNOPT built with MINGW in Windows" ON)
 option(IPOPT_MINGW_DLL "Use IPOPT built with MINGW in Windows" ON)
 option(DEBUG_CHECK_VARIABLES_AND_CONSTRAINTS_IN_USER_FUNCTION "Check decision and objective/constraint vectors for NaN and inf" OFF)
 option(FAST_EMTG_MATRIX "Enable fast EMTG matrix class (removes bounds checking)" ON)
-option(SPLINE_EPHEM "Enable SplineEphem" ON)
-option(BUILD_EMTG_TESTBED "Build the EMTG testing framework" OFF)
-option(BUILD_PROPULATOR "Build the Propulator" OFF)
-option(BUILD_PYHARDWARE "Build PyHardware" OFF)
+option(EMTG_ENABLE_SPLINE_EPHEM "Enable SplineEphem" ON)
+option(EMTG_BUILD_TESTS "Build the EMTG testing framework" OFF)
+option(EMTG_BUILD_PROPULATOR "Build the Propulator" OFF)
+option(EMTG_BUILD_PYHARDWARE "Build PyHardware" OFF)
+set(EMTG_DEPENDENCY_PROVIDER "system" CACHE STRING "Dependency provider: system or managed")
+set_property(CACHE EMTG_DEPENDENCY_PROVIDER PROPERTY STRINGS system managed)
+
+foreach(legacy_pair
+        "SPLINE_EPHEM;EMTG_ENABLE_SPLINE_EPHEM"
+        "BUILD_EMTG_TESTBED;EMTG_BUILD_TESTS"
+        "BUILD_PROPULATOR;EMTG_BUILD_PROPULATOR"
+        "BUILD_PYHARDWARE;EMTG_BUILD_PYHARDWARE")
+    list(GET legacy_pair 0 legacy_name)
+    list(GET legacy_pair 1 modern_name)
+    if(DEFINED ${legacy_name} AND NOT "${${legacy_name}}" STREQUAL "${${modern_name}}")
+        message(DEPRECATION "${legacy_name} is deprecated; use ${modern_name}")
+        set(${modern_name} "${${legacy_name}}" CACHE BOOL "EMTG compatibility option" FORCE)
+    endif()
+endforeach()
+set(SPLINE_EPHEM "${EMTG_ENABLE_SPLINE_EPHEM}")
+set(BUILD_EMTG_TESTBED "${EMTG_BUILD_TESTS}")
+set(BUILD_PROPULATOR "${EMTG_BUILD_PROPULATOR}")
+set(BUILD_PYHARDWARE "${EMTG_BUILD_PYHARDWARE}")
 
 # We want Background mode to default to ON for NavLab runs
 if (MSVC)
@@ -184,7 +222,7 @@ if(CMAKE_BUILD_TYPE MATCHES Release)
     if (${CMAKE_CXX_COMPILER_ID} MATCHES "MSVC")
         string(APPEND CMAKE_CXX_FLAGS_RELEASE " /Ot /Ox /GL")
     elseif (${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
-        set(CMAKE_CXX_FLAGS_RELEASE " -g -O2")
+        set(CMAKE_CXX_FLAGS_RELEASE " -O2 -DNDEBUG")
     endif()
 	message(STATUS "The following compiler optimization flags have been set: " ${CMAKE_CXX_FLAGS_RELEASE} "\n")
 elseif(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -223,74 +261,40 @@ endif(HAS_BUILT_IN_THRUSTERS)
 
 if(SPLINE_EPHEM)
     add_definitions(-DSPLINE_EPHEM)
-
-    # Prefer explicit paths for the vendored Windows build, then fall back to
-    # CMake's standard GSL package discovery on Linux/macOS.
-    find_path(EMTG_GSL_INCLUDE_DIR
-        NAMES gsl/gsl_spline.h
-        HINTS "${GSL_PATH}" "${GSL_ROOT_DIR}"
-        PATH_SUFFIXES include)
-    find_library(EMTG_GSL_LIBRARY
-        NAMES gsl libgsl
-        HINTS "${GSL_PATH}" "${GSL_ROOT_DIR}"
-        PATH_SUFFIXES "${CMAKE_BUILD_TYPE}" Release Debug lib lib64)
-    find_library(EMTG_GSLCBLAS_LIBRARY
-        NAMES gslcblas libgslcblas
-        HINTS "${GSL_PATH}" "${GSL_ROOT_DIR}"
-        PATH_SUFFIXES "${CMAKE_BUILD_TYPE}" Release Debug lib lib64)
-
-    if(EMTG_GSL_INCLUDE_DIR AND EMTG_GSL_LIBRARY AND EMTG_GSLCBLAS_LIBRARY)
-        add_library(EMTG::gsl UNKNOWN IMPORTED)
-        add_library(EMTG::gslcblas UNKNOWN IMPORTED)
-        set_property(TARGET EMTG::gsl PROPERTY IMPORTED_LOCATION "${EMTG_GSL_LIBRARY}")
-        set_property(TARGET EMTG::gsl PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${EMTG_GSL_INCLUDE_DIR}")
-        set_property(TARGET EMTG::gslcblas PROPERTY IMPORTED_LOCATION "${EMTG_GSLCBLAS_LIBRARY}")
-        set(GSL_INCLUDE_DIRS "${EMTG_GSL_INCLUDE_DIR}")
-        set(GSL_LIBRARIES EMTG::gsl EMTG::gslcblas)
-    else()
-        find_package(GSL REQUIRED)
-        set(GSL_LIBRARIES GSL::gsl GSL::gslcblas)
-    endif()
-
-    include_directories(${GSL_INCLUDE_DIRS})
-    set(EMTG_LIBRARIES ${EMTG_LIBRARIES} ${GSL_LIBRARIES})
-endif(SPLINE_EPHEM)
+endif()
 
 #----------------CSpice Items------------------------------------------------------
 message(STATUS \n "Now checking for CSpice...")
-if (MSVC) # aka 'windows'
-	set(CSPICE_FILE_TO_BE_CORRECTED "${CSPICE_DIR}/src/cspice/mkprodct.bat")
-	set(CSPICE_MAKEFILE "makeall.bat")
-else (MSVC) #aka Linux or Mac, as both of those use the mkprodct.csh system
-	set(CSPICE_FILE_TO_BE_CORRECTED "${CSPICE_DIR}/src/cspice/mkprodct.csh")
-	set(CSPICE_MAKEFILE "makeall.csh")
-endif(MSVC)
-
-
-if (EXISTS "${CSPICE_DIR}/${CSPICE_MAKEFILE}")
-	message(STATUS "Cspice located and unzipped correctly.")
-else()
-	message(FATAL_ERROR "CSPICE is not unzipped into the emtg/cspice folder correctly.")
+find_path(CSPICE_INCLUDE_DIR
+    NAMES SpiceUsr.h
+    HINTS "${CSPICE_DIR}" "${CSPICE_ROOT_DIR}" "$ENV{CSPICE_ROOT}"
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
+    PATH_SUFFIXES include include/cspice)
+find_library(CSPICE_LIBRARY_FILE
+    NAMES cspice libcspice
+    HINTS "${CSPICE_DIR}" "${CSPICE_ROOT_DIR}" "$ENV{CSPICE_ROOT}"
+          "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
+    PATH_SUFFIXES lib lib64)
+if(NOT CSPICE_LIBRARY_FILE)
+    find_file(CSPICE_LIBRARY_FILE
+        NAMES cspice.a libcspice.a cspice.lib
+        HINTS "${CSPICE_DIR}" "${CSPICE_ROOT_DIR}" "$ENV{CSPICE_ROOT}"
+              "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
+        PATH_SUFFIXES lib lib64)
 endif()
 
-if (NOT MSVC) #cspice doesn't label the file correctly when it is done; easier to just rename it
-	if (NOT EXISTS "${CSPICE_DIR}/lib/libcspice.a")
-		message(STATUS "Renaming cspice.a to libcspice.a")
-		file(RENAME "${CSPICE_DIR}/lib/cspice.a" "${CSPICE_DIR}/lib/libcspice.a")
-		if (NOT EXISTS "${CSPICE_DIR}/lib/libcspice.a")
-			message(FATAL_ERROR "CSpice not built properly for a Unix System.")
-		endif()
-	endif()
-else()
-	if(NOT EXISTS "${CSPICE_DIR}/lib/cspice.lib")	
-		message(FATAL_ERROR "CSpice not built properly for a Windows System.  Please run the cspice/makeall.bat from within the Visual Studio Command Line tools and then reconfigure cmake.")
-	endif()	
+if(NOT CSPICE_INCLUDE_DIR OR NOT CSPICE_LIBRARY_FILE)
+    message(FATAL_ERROR
+        "Could not find CSPICE headers and library. Set CSPICE_DIR/CSPICE_ROOT, "
+        "or use the managed dependency preset.")
 endif()
 
-set(CSPICE_LIBRARY cspice)
+add_library(EMTG_cspice STATIC IMPORTED)
+set_property(TARGET EMTG_cspice PROPERTY IMPORTED_LOCATION "${CSPICE_LIBRARY_FILE}")
+set_property(TARGET EMTG_cspice PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${CSPICE_INCLUDE_DIR}")
+set(CSPICE_LIBRARY EMTG_cspice)
 set(EMTG_LIBRARIES ${EMTG_LIBRARIES} ${CSPICE_LIBRARY})
-include_directories("${CSPICE_DIR}/include")
-link_directories("${CSPICE_DIR}/lib")
+message(STATUS "CSPICE library: ${CSPICE_LIBRARY_FILE}")
 
 #----------------------------SNOPT Items-------------------------------------
 if(ENABLE_SNOPT)
@@ -440,6 +444,42 @@ if(ENABLE_IPOPT)
 message(STATUS \n "Now checking on IPOPT...")
 
 find_package(Ipopt 3.14 REQUIRED)
+find_path(EMTG_IPOPT_C_INCLUDE_DIR
+    NAMES IpStdCInterface.h
+    HINTS "${IPOPT_INCLUDE_DIR}" "${IPOPT_ROOT_DIR}" "$ENV{IPOPT_ROOT_DIR}"
+    PATH_SUFFIXES coin-or coin include/coin-or include/coin)
+if(NOT EMTG_IPOPT_C_INCLUDE_DIR)
+    message(FATAL_ERROR "Ipopt was found, but IpStdCInterface.h is not reachable from its include path")
+endif()
+set_property(TARGET Ipopt::Ipopt APPEND PROPERTY
+    INTERFACE_INCLUDE_DIRECTORIES "${EMTG_IPOPT_C_INCLUDE_DIR}")
+set(IPOPT_INCLUDE_DIR "${EMTG_IPOPT_C_INCLUDE_DIR}")
+if(EMTG_DEPENDENCY_PROVIDER STREQUAL "managed" AND MSVC)
+    # The stock MSVC vcpkg Ipopt package does not propagate its BLAS/LAPACK
+    # link interface. MinGW and Linux receive these flags from ipopt.pc.
+    find_library(EMTG_LAPACK_LIBRARY NAMES lapack
+        HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+        REQUIRED NO_DEFAULT_PATH)
+    find_library(EMTG_BLAS_LIBRARY NAMES blas
+        HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+        REQUIRED NO_DEFAULT_PATH)
+    set_property(TARGET Ipopt::Ipopt APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "${EMTG_LAPACK_LIBRARY};${EMTG_BLAS_LIBRARY}")
+elseif(EMTG_DEPENDENCY_PROVIDER STREQUAL "managed" AND MINGW)
+    # CMake's FindPkgConfig is not guaranteed to be available before vcpkg's
+    # MSYS tools are on PATH, so preserve the static closure from ipopt.pc here.
+    find_library(EMTG_LAPACK_LIBRARY NAMES lapack
+        HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+        REQUIRED NO_DEFAULT_PATH)
+    find_library(EMTG_OPENBLAS_LIBRARY NAMES openblas
+        HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+        REQUIRED NO_DEFAULT_PATH)
+    find_library(EMTG_MUMPS_LIBRARY NAMES coinmumps
+        HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib"
+        REQUIRED NO_DEFAULT_PATH)
+    set_property(TARGET Ipopt::Ipopt APPEND PROPERTY INTERFACE_LINK_LIBRARIES
+        "${EMTG_MUMPS_LIBRARY};${EMTG_LAPACK_LIBRARY};${EMTG_OPENBLAS_LIBRARY};gfortran;quadmath;pthread")
+endif()
 set(IPOPT_LIBRARIES Ipopt::Ipopt)
 set(EMTG_IPOPT_RUNTIME_DLLS ${IPOPT_RUNTIME_DLLS})
 set(EMTG_LIBRARIES ${EMTG_LIBRARIES} Ipopt::Ipopt)
@@ -453,51 +493,19 @@ endif()
 
 #-------------------------Boost Items------------------------------
 message(STATUS \n "Now looking for BOOST..")
-set(Boost_FOUND FALSE)
-
-if(BOOST_INCLUDE_DIR AND BOOST_LIBRARY_DIRS)
-    set(EMTG_LOCAL_BOOST_LIBRARIES)
-    foreach(BOOST_COMPONENT filesystem system serialization)
-        file(GLOB EMTG_BOOST_COMPONENT_LIBRARY "${BOOST_LIBRARY_DIRS}/*boost_${BOOST_COMPONENT}*.lib")
-        list(LENGTH EMTG_BOOST_COMPONENT_LIBRARY EMTG_BOOST_COMPONENT_LIBRARY_COUNT)
-        if(EMTG_BOOST_COMPONENT_LIBRARY_COUNT GREATER 0)
-            list(GET EMTG_BOOST_COMPONENT_LIBRARY 0 EMTG_BOOST_COMPONENT_LIBRARY_FIRST)
-            list(APPEND EMTG_LOCAL_BOOST_LIBRARIES "${EMTG_BOOST_COMPONENT_LIBRARY_FIRST}")
-        else()
-            set(EMTG_LOCAL_BOOST_LIBRARIES)
-            break()
-        endif()
-    endforeach()
-
-    if(EMTG_LOCAL_BOOST_LIBRARIES)
-        set(Boost_FOUND TRUE)
-        set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
-        set(Boost_LIBRARY_DIRS "${BOOST_LIBRARY_DIRS}")
-        set(Boost_LIBRARIES ${EMTG_LOCAL_BOOST_LIBRARIES})
-        message(STATUS "Using vendored Boost libraries from ${BOOST_LIBRARY_DIRS}")
-    endif()
-endif()
-
-if(NOT Boost_FOUND)
-    include(FindBoost)
-    if(BOOST_LIBRARY_DIRS)
-        set(BOOST_LIBRARYDIR "${BOOST_LIBRARY_DIRS}")
-    endif()
-    if(MSVC)
-	    Set(Boost_NAMESPACE libboost)
-        set(Boost_USE_STATIC_LIBS ON)
-        set(Boost_USE_STATIC_RUNTIME OFF)
-    endif(MSVC)
-
-    find_package(Boost 1.60 COMPONENTS filesystem system serialization REQUIRED)
+if(BOOST_INCLUDE_DIR AND EXISTS "${BOOST_INCLUDE_DIR}/boost")
+    set(Boost_FOUND TRUE)
+    set(Boost_INCLUDE_DIRS "${BOOST_INCLUDE_DIR}")
+    message(STATUS "Using Boost headers from ${BOOST_INCLUDE_DIR}")
+else()
+    find_package(Boost 1.60 REQUIRED)
 endif()
 
 include_directories(${Boost_INCLUDE_DIRS})
-link_directories(${Boost_LIBRARY_DIRS})
-
-set(EMTG_LIBRARIES ${EMTG_LIBRARIES} ${Boost_LIBRARIES})
 
 #pull in EMTG itself
 add_subdirectory(src)
+
+include(cmake/Packaging.cmake)
 
 

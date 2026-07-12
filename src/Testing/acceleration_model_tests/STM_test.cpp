@@ -265,15 +265,15 @@ int main(int argc, char* argv[])
     //load DE430, leap seconds kernel, frame kernel
 
     //load all ephemeris data if using SPICE
-    std::vector<::boost::filesystem::path> SPICE_files_initial;
-    std::vector<::boost::filesystem::path> SPICE_files_not_required;
-    std::vector<::boost::filesystem::path> SPICE_files_required;
+    std::vector<std::filesystem::path> SPICE_files_initial;
+    std::vector<std::filesystem::path> SPICE_files_not_required;
+    std::vector<std::filesystem::path> SPICE_files_required;
     std::vector<int> SPICE_bodies_required;
     std::string filestring;
     if (options.ephemeris_source >= 1)
     {
         //load all BSP files
-        EMTG::file_utilities::get_all_files_with_extension(::boost::filesystem::path(options.universe_folder + "/ephemeris_files/"), ".bsp", SPICE_files_initial);
+        EMTG::file_utilities::get_all_files_with_extension(std::filesystem::path(options.universe_folder + "/ephemeris_files/"), ".bsp", SPICE_files_initial);
 
         for (size_t k = 0; k < SPICE_files_initial.size(); ++k)
         {
@@ -601,7 +601,7 @@ int main(int argc, char* argv[])
     if (myMission.options.Journeys[0].perturb_central_body_gravity_harmonics)
     {
         std::string grav_file = myMission.options.Journeys[0].central_body_gravity_file;
-        const boost::filesystem::path grav_path = grav_file;
+        const std::filesystem::path grav_path = grav_file;
         size_t degree = options.Journeys[0].central_body_gravity_degree;
         size_t order = options.Journeys[0].central_body_gravity_order;
         TheUniverse[0].central_body.harmonic_gravity_field = std::make_shared<EMTG::Astrodynamics::HarmonicGravityField>(degree, order);
