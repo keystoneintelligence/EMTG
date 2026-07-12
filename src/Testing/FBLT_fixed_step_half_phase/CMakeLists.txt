@@ -23,6 +23,7 @@ link_directories(${PROJECT_BINARY_DIR}/src/Testing/${CMAKE_CFG_INTDIR})
 
 # create the executable
 add_executable(FBLT_fixed_step_half_phase_test  ${FBLT_fixed_step_half_phase_executable_files})
+emtg_configure_executable(FBLT_fixed_step_half_phase_test)
 target_compile_definitions(FBLT_fixed_step_half_phase_test PRIVATE BOOST_ALL_NO_LIB)
 target_link_libraries(FBLT_fixed_step_half_phase_test emtg_acceleration_model_library)
 

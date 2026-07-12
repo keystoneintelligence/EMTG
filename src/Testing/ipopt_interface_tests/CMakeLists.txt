@@ -1,4 +1,5 @@
 add_executable(ipopt_interface_tests ipopt_interface_tests.cpp)
+emtg_configure_executable(ipopt_interface_tests)
 set_property(TARGET ipopt_interface_tests PROPERTY CXX_STANDARD 17)
 target_compile_definitions(ipopt_interface_tests PRIVATE BOOST_ALL_NO_LIB)
 target_link_libraries(ipopt_interface_tests emtg ${EMTG_LIBRARIES})

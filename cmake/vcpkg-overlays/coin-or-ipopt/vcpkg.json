@@ -1,0 +1,13 @@
+{
+  "name": "coin-or-ipopt",
+  "version-semver": "3.14.11",
+  "description": "EMTG static IPOPT recipe",
+  "homepage": "https://github.com/coin-or/Ipopt",
+  "license": "EPL-2.0",
+  "dependencies": [
+    "blas",
+    "coin-or-mumps",
+    "coinutils",
+    "lapack"
+  ]
+}

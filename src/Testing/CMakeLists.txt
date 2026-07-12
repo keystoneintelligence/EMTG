@@ -1,10 +1,10 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.25)
 
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 #name the project, trigger the compiler search
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(EMTG_TESTBED)
@@ -16,6 +16,8 @@ option(RUN_ADOUBLE_TESTBED "Do you want to run the local adouble compatibility t
 option(RUN_INTEGRATION_TESTBED "Do you want to run the local integration tests?" ON)
 option(RUN_EPHEMERIS_DERIVATIVE_TESTBED "Do you want to run the ephemeris derivative quality tests?" ON)
 option(RUN_IPOPT_INTERFACE_TESTBED "Do you want to run the analytic IPOPT interface tests?" OFF)
+option(RUN_SPLINE_TESTBED "Do you want to run the dependency-free spline tests?" ON)
+option(RUN_EPHEMERIS_READER_TESTBED "Do you want to test ephemeris reader spline integration and state layout?" ON)
 option(USE_AD_INSTRUMENTATION "Do you want to perform derivative accuracy checks with AD?" ON)
 
 set(EMTG_TESTBED_DEFAULT_OPTIONS "${CMAKE_SOURCE_DIR}/PyEMTG/default.emtgopt" CACHE FILEPATH "Default options file passed to CTest-registered EMTG testbed executables")
@@ -57,7 +59,6 @@ if (TESTBED_LIBRARY)
     if(SPLINE_EPHEM)
         add_subdirectory(../SplineEphem ${CMAKE_BINARY_DIR}/TESTBED/SplineEphem)
         include_directories(../SplineEphem)
-        include_directories(${GSL_INCLUDE_DIRS})
     endif(SPLINE_EPHEM)
     include_directories(Astrodynamics 
                         Core 
@@ -137,7 +138,6 @@ if (TESTBED_LIBRARY)
 
     set(TESTBED_DEPENDENCIES ${TESTBED_DEPENDENCIES} 
                              ${Boost_LIBRARIES}
-                             ${GSL_LIBRARIES}
                              ${CSPICE_LIBRARY}) #${Boost_LIBRARIES} is set by findBoost
 
     # create the EMTG library
@@ -178,4 +178,35 @@ if (RUN_IPOPT_INTERFACE_TESTBED)
         message(FATAL_ERROR "RUN_IPOPT_INTERFACE_TESTBED requires a full build with ENABLE_IPOPT=ON")
     endif()
     add_subdirectory(ipopt_interface_tests)
+endif()
+
+if (RUN_SPLINE_TESTBED)
+    add_executable(natural_cubic_spline_tests spline_tests/natural_cubic_spline_tests.cpp)
+    emtg_configure_executable(natural_cubic_spline_tests)
+    target_include_directories(natural_cubic_spline_tests PRIVATE "${CMAKE_SOURCE_DIR}/src/Math")
+    target_compile_features(natural_cubic_spline_tests PRIVATE cxx_std_17)
+    if(BUILD_TESTING)
+        add_test(NAME natural_cubic_spline COMMAND natural_cubic_spline_tests)
+        set_tests_properties(natural_cubic_spline PROPERTIES
+            LABELS "portable;spline"
+            TIMEOUT 15)
+    endif()
+endif()
+
+if (RUN_EPHEMERIS_READER_TESTBED AND TARGET emtg)
+    add_executable(ephemeris_reader_state_tests
+        ephemeris_reader_tests/ephemeris_reader_state_tests.cpp)
+    emtg_configure_executable(ephemeris_reader_state_tests)
+    target_include_directories(ephemeris_reader_state_tests PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/Math"
+        "${CMAKE_SOURCE_DIR}/src/Utilities")
+    target_compile_features(ephemeris_reader_state_tests PRIVATE cxx_std_17)
+    target_link_libraries(ephemeris_reader_state_tests PRIVATE emtg)
+    if(BUILD_TESTING)
+        add_test(NAME EMTG.ephemeris_reader_state_layout
+                 COMMAND ephemeris_reader_state_tests)
+        set_tests_properties(EMTG.ephemeris_reader_state_layout PROPERTIES
+            LABELS "ephemeris_reader;regression;spline"
+            TIMEOUT 15)
+    endif()
 endif()

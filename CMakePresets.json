@@ -1,14 +1,31 @@
 {
-  "version": 3,
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
   "configurePresets": [
     {
-      "name": "ci-fast",
-      "displayName": "CI fast portable testbeds",
-      "description": "Builds portable C++ testbeds that do not require CSPICE, SNOPT, IPOPT, or the full EMTG executable.",
+      "name": "base",
+      "hidden": true,
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/_local/builds/ci-fast",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
+        "EMTG_ENABLE_SNOPT": "OFF",
+        "EMTG_ENABLE_IPOPT": "ON",
+        "EMTG_ENABLE_SPLINE_EPHEM": "ON",
+        "EMTG_BUILD_PROPULATOR": "OFF",
+        "EMTG_BUILD_PYHARDWARE": "OFF",
+        "USE_AD_INSTRUMENTATION": "OFF"
+      }
+    },
+    {
+      "name": "ci-fast",
+      "inherits": "base",
+      "displayName": "CI fast portable testbeds",
+      "binaryDir": "${sourceDir}/_local/builds/ci-fast",
+      "cacheVariables": {
         "EMTG_PORTABLE_TESTBED_ONLY": "ON",
         "RUN_ADOUBLE_TESTBED": "ON",
         "RUN_MISSIONOPTIONS_TESTBED": "ON",
@@ -16,20 +33,17 @@
         "RUN_MISSION_TESTBED": "OFF",
         "RUN_ACCELERATION_MODEL_TESTBED": "OFF",
         "RUN_EPHEMERIS_DERIVATIVE_TESTBED": "ON",
-        "USE_AD_INSTRUMENTATION": "OFF"
+        "RUN_SPLINE_TESTBED": "ON"
       }
     },
     {
       "name": "ipopt-only",
-      "displayName": "IPOPT-only EMTG development build",
-      "description": "Builds EMTG and the analytic solver tests with IPOPT as the only NLP backend. Set IPOPT_ROOT_DIR or use a discoverable system package.",
-      "generator": "Ninja",
+      "inherits": "base",
+      "displayName": "IPOPT-only system dependency build",
       "binaryDir": "${sourceDir}/_local/builds/ipopt-only",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "ENABLE_SNOPT": "OFF",
-        "ENABLE_IPOPT": "ON",
-        "BUILD_EMTG_TESTBED": "ON",
+        "EMTG_DEPENDENCY_PROVIDER": "system",
+        "EMTG_BUILD_TESTS": "ON",
         "RUN_IPOPT_INTERFACE_TESTBED": "ON",
         "RUN_MISSION_TESTBED": "OFF",
         "RUN_ACCELERATION_MODEL_TESTBED": "OFF",
@@ -37,35 +51,91 @@
         "RUN_ADOUBLE_TESTBED": "ON",
         "RUN_INTEGRATION_TESTBED": "ON",
         "RUN_EPHEMERIS_DERIVATIVE_TESTBED": "ON",
-        "USE_AD_INSTRUMENTATION": "OFF",
-        "SPLINE_EPHEM": "ON"
+        "RUN_SPLINE_TESTBED": "ON"
+      }
+    },
+    {
+      "name": "windows-release",
+      "inherits": "base",
+      "displayName": "Windows x64 static release",
+      "binaryDir": "${sourceDir}/_local/builds/windows-release",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "EMTG_DEPENDENCY_PROVIDER": "managed",
+        "EMTG_BUILD_TESTS": "ON",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-static",
+        "VCPKG_MANIFEST_INSTALL": "OFF",
+        "VCPKG_APPLOCAL_DEPS": "OFF",
+        "CMAKE_C_COMPILER": "$env{EMTG_MINGW_ROOT}/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "$env{EMTG_MINGW_ROOT}/bin/g++.exe",
+        "CMAKE_RC_COMPILER": "$env{EMTG_MINGW_ROOT}/bin/windres.exe",
+        "RUN_IPOPT_INTERFACE_TESTBED": "ON",
+        "RUN_MISSION_TESTBED": "OFF",
+        "RUN_ACCELERATION_MODEL_TESTBED": "OFF"
+      }
+    },
+    {
+      "name": "linux-release",
+      "inherits": "base",
+      "displayName": "Linux x64 release",
+      "binaryDir": "${sourceDir}/_local/builds/linux-release",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "EMTG_DEPENDENCY_PROVIDER": "managed",
+        "EMTG_BUILD_TESTS": "ON",
+        "VCPKG_TARGET_TRIPLET": "emtg-x64-linux-static",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg-triplets",
+        "VCPKG_MANIFEST_INSTALL": "OFF",
+        "RUN_IPOPT_INTERFACE_TESTBED": "ON",
+        "RUN_MISSION_TESTBED": "OFF",
+        "RUN_ACCELERATION_MODEL_TESTBED": "OFF"
       }
     }
   ],
   "buildPresets": [
-    {
-      "name": "ci-fast",
-      "configurePreset": "ci-fast"
-    },
-    {
-      "name": "ipopt-only",
-      "configurePreset": "ipopt-only"
-    }
+    { "name": "ci-fast", "configurePreset": "ci-fast" },
+    { "name": "ipopt-only", "configurePreset": "ipopt-only" },
+    { "name": "windows-release", "configurePreset": "windows-release", "jobs": 0 },
+    { "name": "linux-release", "configurePreset": "linux-release", "jobs": 0 }
   ],
   "testPresets": [
+    { "name": "ci-fast", "configurePreset": "ci-fast", "output": { "outputOnFailure": true } },
+    { "name": "ipopt-only", "configurePreset": "ipopt-only", "output": { "outputOnFailure": true } },
+    { "name": "windows-release", "configurePreset": "windows-release", "output": { "outputOnFailure": true } },
+    { "name": "linux-release", "configurePreset": "linux-release", "output": { "outputOnFailure": true } }
+  ],
+  "packagePresets": [
+    { "name": "windows-release", "configurePreset": "windows-release" },
+    { "name": "linux-release", "configurePreset": "linux-release" }
+  ],
+  "workflowPresets": [
     {
-      "name": "ci-fast",
-      "configurePreset": "ci-fast",
-      "output": {
-        "outputOnFailure": true
-      }
+      "name": "windows-release",
+      "steps": [
+        { "type": "configure", "name": "windows-release" },
+        { "type": "build", "name": "windows-release" },
+        { "type": "test", "name": "windows-release" },
+        { "type": "package", "name": "windows-release" }
+      ]
     },
     {
-      "name": "ipopt-only",
-      "configurePreset": "ipopt-only",
-      "output": {
-        "outputOnFailure": true
-      }
+      "name": "linux-release",
+      "steps": [
+        { "type": "configure", "name": "linux-release" },
+        { "type": "build", "name": "linux-release" },
+        { "type": "test", "name": "linux-release" },
+        { "type": "package", "name": "linux-release" }
+      ]
     }
   ]
 }

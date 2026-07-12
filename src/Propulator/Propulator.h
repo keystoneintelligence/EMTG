@@ -33,8 +33,8 @@
 
 #include <vector>
 #include <string>
+#include <filesystem>
 
-#include "boost/filesystem.hpp"
 #include "boost/ptr_container/ptr_vector.hpp"
 
 #ifdef PROPULATOR_PYTHON_INTERFACE
@@ -96,7 +96,7 @@ namespace EMTG
             missionoptions myOptions;
             std::vector<Astrodynamics::universe > TheUniverse;
             HardwareModels::Spacecraft mySpacecraft;
-            std::vector<::boost::filesystem::path> SPICE_files_required;
+            std::vector<std::filesystem::path> SPICE_files_required;
 
 #ifdef SPLINE_EPHEM
             SplineEphem::universe* mySplineUniverse;
