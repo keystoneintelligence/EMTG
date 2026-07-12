@@ -60,6 +60,10 @@ htmlcov/
 PyEMTG/PyEMTG\.lnk
 PyEMTG/.spyproject/*
 PyEMTG.zip
+/PyEMTG/Studio/frontend/node_modules/
+/PyEMTG/Studio/frontend/*.tsbuildinfo
+/PyEMTG/Studio/frontend/vite.config.js
+/PyEMTG/Studio/frontend/vite.config.d.ts
 
 PyEMTG/docs/_build/*
 PyEMTG/docs/PyEMTG/_build/*
@@ -78,6 +82,7 @@ Universe/ephemeris_files/*.bsp
 Universe/ephemeris_files/*.tls
 Universe/ephemeris_files/*.tpc
 Universe/ephemeris_files/*.bpc
+/testatron/universe/ephemeris_files/*.bsp
 
 #######################
 # Latex build artifacts

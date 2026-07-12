@@ -15,6 +15,11 @@ the standalone EXE and supply its data location explicitly:
 .\EMTGv9-windows-x64.exe --data-dir C:\path\to\emtg-data mission.emtgopt
 ```
 
+When the release includes the Studio bundle, launch
+`EMTGStudio\EMTGStudio.exe`. It opens the token-protected local workbench in
+the default browser and discovers `EMTGv9.exe` and data from the extracted
+bundle. No separate Python or Node.js installation is required.
+
 ## Linux (experimental)
 
 The Linux tarball has not yet been validated on a clean Linux host and is not

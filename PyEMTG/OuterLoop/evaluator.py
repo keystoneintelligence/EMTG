@@ -90,6 +90,45 @@ class SyntheticEvaluator:
                     float(value.get("score", 0.0)) for value in phenotype.point_group.values()
                 ),
             }
+            # A lightweight deterministic event track lets orchestration and
+            # visualization clients exercise the same time/trajectory path as
+            # EMTG-backed campaigns without claiming physical fidelity.
+            launch_epoch = float(phenotype.mission.get("launch_epoch", 60000.0))
+            flight_time = float(metrics["flight_time"])
+            event_count = 21
+            synthetic_events = []
+            for index in range(event_count):
+                fraction = index / (event_count - 1)
+                angle = fraction * math.pi * (1.0 + 0.2 * sequence_cost)
+                radius = 149_597_870.7 * (1.0 + 0.52 * fraction)
+                synthetic_events.append({
+                    "index": index,
+                    "julian_date_mjd": launch_epoch + flight_time * fraction,
+                    "event_type": "departure" if index == 0 else ("arrival" if index == event_count - 1 else "SFthrust"),
+                    "location": phenotype.sequence_text,
+                    "position_km": [radius * math.cos(angle), radius * math.sin(angle), radius * 0.08 * math.sin(angle * 0.5)],
+                    "velocity_km_s": [0.0, 20.0 + sequence_cost, 0.0],
+                    "control": [math.cos(angle), math.sin(angle), 0.0],
+                    "thrust_n": [0.15 * math.cos(angle), 0.15 * math.sin(angle), 0.0],
+                    "thrust_magnitude_n": 0.15,
+                    "available_thrust_n": 0.2,
+                    "isp_s": 3000.0,
+                    "mass_flow_rate_kg_s": 5.0e-6,
+                    "mass": base_mass - sequence_cost * fraction,
+                    "active_engines": 1,
+                    "active_power_kw": 4.0,
+                    "available_power_kw": 6.0,
+                })
+            metrics.update({
+                "launch_epoch": launch_epoch,
+                "mission_events": synthetic_events,
+                "total_propellant_used": max(0.0, sequence_cost * 4.0),
+                "thrust_min": 0.15,
+                "thrust_max": 0.15,
+                "thrust_mean": 0.15,
+                "number_of_thrusters": 1,
+                "bus_power": 2.0,
+            })
         failure_threshold = self.settings.get("infeasible_above_cost")
         if failure_threshold is not None and float(metrics["emtg_objective"]) > float(failure_threshold):
             violation = float(metrics["emtg_objective"]) - float(failure_threshold)
@@ -307,6 +346,9 @@ class EMTGResultParser:
         "beginning_of_life_power": re.compile(r"^Beginning of life power.*?:\s*(\S+)", re.I),
         "thruster_duty_cycle": re.compile(r"^Thruster duty cycle:\s*(\S+)", re.I),
         "bus_power": re.compile(r"^(?:Spacecraft:\s*)?Bus power.*?:\s*(\S+)", re.I),
+        "electric_propellant_used": re.compile(r"^Spacecraft: Electric propellant used \(kg\):\s*(\S+)", re.I),
+        "chemical_fuel_used": re.compile(r"^Spacecraft: Chemical fuel used \(kg\):\s*(\S+)", re.I),
+        "chemical_oxidizer_used": re.compile(r"^Spacecraft: Chemical oxidizer used \(kg\):\s*(\S+)", re.I),
     }
 
     def parse(self, path: str | Path, *, failure_file: bool = False) -> ParsedEMTGResult:
@@ -382,6 +424,17 @@ class EMTGResultParser:
         available_propellant = [float(value) for value in propellant_parts if value is not None]
         if available_propellant:
             metrics["total_propellant"] = sum(available_propellant)
+        consumed_parts = [
+            metrics.get(name)
+            for name in (
+                "electric_propellant_used",
+                "chemical_fuel_used",
+                "chemical_oxidizer_used",
+            )
+        ]
+        consumed = [float(value) for value in consumed_parts if value is not None]
+        if consumed:
+            metrics["total_propellant_used"] = sum(consumed)
         if metrics.get("delivered_mass") is not None and metrics.get("dry_mass") is not None:
             metrics["dry_mass_margin"] = float(metrics["delivered_mass"]) - float(metrics["dry_mass"])
         controls: dict[str, list[float]] = {}
@@ -414,6 +467,27 @@ class EMTGResultParser:
             ]
             if power_margins and "bus_power" not in metrics:
                 metrics["bus_power"] = min(power_margins)
+            actual_thrust = [
+                float(event["thrust_magnitude_n"])
+                for event in events
+                if event.get("thrust_magnitude_n") is not None
+            ]
+            available_thrust = [
+                float(event["available_thrust_n"])
+                for event in events
+                if event.get("available_thrust_n") is not None
+            ]
+            if actual_thrust:
+                metrics.update({
+                    "thrust_min": min(actual_thrust),
+                    "thrust_max": max(actual_thrust),
+                    "thrust_mean": sum(actual_thrust) / len(actual_thrust),
+                })
+            if available_thrust:
+                metrics.update({
+                    "available_thrust_min": min(available_thrust),
+                    "available_thrust_max": max(available_thrust),
+                })
             metrics["mission_events"] = events
         feasible = not failure_file and (best_feasible_attempt > 0 or first_feasible > 0)
         decision_complete = xdescriptions == () or len(xdescriptions) == len(decision_vector)
@@ -449,8 +523,16 @@ class EMTGResultParser:
         if len(fields) < 32:
             return None
         julian_date = _float_csv(fields, 1)
+        x, y, z = (_float_csv(fields, index) for index in (12, 13, 14))
         xdot, ydot, zdot = (_float_csv(fields, index) for index in (15, 16, 17))
+        control_x, control_y, control_z = (_float_csv(fields, index) for index in (18, 19, 20))
+        thrust_x, thrust_y, thrust_z = (_float_csv(fields, index) for index in (21, 22, 23))
         speed = math.sqrt(xdot**2 + ydot**2 + zdot**2) if None not in (xdot, ydot, zdot) else None
+        thrust_magnitude = (
+            math.sqrt(thrust_x**2 + thrust_y**2 + thrust_z**2)
+            if None not in (thrust_x, thrust_y, thrust_z)
+            else None
+        )
         return {
             "index": int(float(fields[0])),
             "julian_date_mjd": julian_date - 2400000.5 if julian_date is not None else None,
@@ -459,7 +541,23 @@ class EMTGResultParser:
             "declination": _float_csv(fields, 10),
             "c3": _float_csv(fields, 11),
             "velocity_magnitude": speed,
+            "position_km": [x, y, z] if None not in (x, y, z) else None,
+            "velocity_km_s": [xdot, ydot, zdot] if None not in (xdot, ydot, zdot) else None,
+            "control": (
+                [control_x, control_y, control_z]
+                if None not in (control_x, control_y, control_z)
+                else None
+            ),
+            "thrust_n": (
+                [thrust_x, thrust_y, thrust_z]
+                if None not in (thrust_x, thrust_y, thrust_z)
+                else None
+            ),
+            "thrust_magnitude_n": thrust_magnitude,
+            "available_thrust_n": _float_csv(fields, 25),
+            "isp_s": _float_csv(fields, 26),
             "mass": _float_csv(fields, 29),
+            "mass_flow_rate_kg_s": _float_csv(fields, 28),
             "active_engines": _float_csv(fields, 30),
             "active_power_kw": _float_csv(fields, 31),
             "available_power_kw": _float_csv(fields, 27),

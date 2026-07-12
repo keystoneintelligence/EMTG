@@ -44,6 +44,10 @@ See `BUILDING.md` for developer builds and `INSTALLING.md` for the portable
 Windows and experimental Linux bundles. The older PDF build guides are retained
 only as historical documentation.
 
+The modern local interface is EMTG Studio. From source, build its frontend and
+run `python -m PyEMTG.Studio`; release builds provide `EMTGStudio.exe`. See
+`docs/0_Users/emtg_studio.md`.
+
 =============================================================================================================================
 *****************************************************************************************************************************
 The EMTG development team is pleased to share the fruits of our labors with you. We ask, but do not require, that if you do 
@@ -57,9 +61,10 @@ Frequently Asked Questions (FAQ)
 Q: Is there a user guide?
 A: Yes. There are a couple of User Guides is in the /docs/0_Users/ directory. 
 
-Q: Is there a reason the GUI is limited in functionality?
-A: Due to limited staffing, core functionality was prioritized. This is an excellent opportunity for contribution from the 
-open source community.
+Q: How do I use the GUI?
+A: Launch EMTG Studio. It provides mission-option editing, a durable outer-loop
+queue, a filterable solution catalog, and a time-aware 3D trajectory workbench
+in a local browser.
 
 Q: Can you give me technical support for installing and operating EMTG?
 A: Feel free to reach out to the team contact information provided at the header of this file but be aware that the 
@@ -86,10 +91,10 @@ A: Yes. Public releases provide an IPOPT-only standalone Windows executable, a
 portable ZIP, and an experimental Linux tarball. SNOPT remains excluded because
 it requires a separate commercial license.
 
-Q: Why doesn't my PyEMTG work?
-A: The various Python packages and libraries change fast and the development team has limited resources. The build system 
-instructions are focused on specific Python package versions but may also work with other versions. Please make 
-adjustments to PyEMTG as-needed to make it work on your system.
+Q: Why doesn't the historical wxPython PyEMTG window work?
+A: The wxPython window is retained only during EMTG Studio's parity transition.
+Use EMTG Studio for new workflows; its dependencies are recorded in
+`requirements-studio.txt` and the frontend lockfile.
 
 Q: I have a different SNOPT version than what is listed in the build system instructions. Will it work with EMTG?
 A: It is possible other versions will work. Feel free to try it and if you succeed consider providing us with updates we 
