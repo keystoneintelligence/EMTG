@@ -1,4 +1,8 @@
+import importlib
 import json
+from pathlib import Path
+import subprocess
+import sys
 from unittest.mock import Mock, patch
 
 from SolverAvailability import available_solver_choices, discover_solver_types, read_solver_capabilities
@@ -38,3 +42,23 @@ def test_executable_capabilities_are_authoritative_over_compatibility_sidecar(tm
         capabilities = read_solver_capabilities(manifest, executable, environ={})
         assert capabilities == {"snopt": False, "ipopt": True}
         assert discover_solver_types(manifest, executable, environ={}) == [2]
+
+
+def test_outerloop_campaign_supports_both_package_layouts():
+    top_level = importlib.import_module("OuterLoop.campaign")
+    assert callable(top_level.read_solver_capabilities)
+
+    repository_root = Path(__file__).resolve().parents[1]
+    command = (
+        "import sys; "
+        f"sys.path.insert(0, {str(repository_root)!r}); "
+        "from PyEMTG.OuterLoop.campaign import read_solver_capabilities; "
+        "assert callable(read_solver_capabilities)"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-I", "-c", command],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr

@@ -48,7 +48,13 @@ from .objectives import (
     ObjectiveRegistry,
     default_objective_registry,
 )
-from ..SolverAvailability import read_solver_capabilities
+if __package__ == "OuterLoop":
+    # PyEMTG is traditionally placed directly on PYTHONPATH, making
+    # OuterLoop a top-level package.
+    from SolverAvailability import read_solver_capabilities
+else:
+    # Also support importing through the repository package namespace.
+    from ..SolverAvailability import read_solver_capabilities
 from .operators import OperatorDefinition, OperatorRegistry, default_operator_registry, point_group_mutation
 from .physics import C3EnvelopeScreen, HohmannTimeScreen
 from .randomness import derive_seed, deterministic_id, random_stream
