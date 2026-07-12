@@ -23,6 +23,26 @@ from PyEMTG.Studio.trajectory import (
 from PyEMTG.Studio.worker import run_job
 
 
+REPOSITORY = Path(__file__).resolve().parents[1]
+
+
+def real_studio_runtime() -> dict:
+    """Return local release assets or skip on source-only CI checkouts."""
+    defaults = default_search_configuration(REPOSITORY, REPOSITORY)
+    kernel_root = (
+        Path(str(defaults["config"].get("assets", {}).get("universe_folder", "")))
+        / "ephemeris_files"
+    )
+    required_kernels = (kernel_root / "de430.bsp", kernel_root / "asteroids_100_2026_04_07.bsp")
+    if not defaults["ready"] or not all(path.is_file() for path in required_kernels):
+        missing = [
+            *defaults.get("missing", ()),
+            *(str(path) for path in required_kernels if not path.is_file()),
+        ]
+        pytest.skip("real EMTG/SPICE release assets are unavailable: " + "; ".join(missing))
+    return defaults
+
+
 def configuration() -> dict:
     return {
         "schema_version": "outerloop/v2",
@@ -131,8 +151,7 @@ def test_delete_job_cascades_catalog_and_managed_artifacts(tmp_path: Path):
 
 
 def test_real_search_defaults_discover_asteroid_runtime():
-    repository = Path(__file__).resolve().parents[1]
-    defaults = default_search_configuration(repository, repository)
+    defaults = real_studio_runtime()
     assert defaults["ready"] is True
     assert defaults["config"]["evaluator"]["type"] == "emtg"
     assert defaults["config"]["search"]["fixed_final"] == "A20136163"
@@ -156,14 +175,13 @@ def test_real_search_defaults_discover_asteroid_runtime():
     statuses = {value["name"]: value["coverage_status"] for value in uncovered["series"]}
     assert statuses == {"Earth": "covered", "A20136163": "uncovered"}
     assert next(value for value in uncovered["series"] if value["name"] == "A20136163")["samples"] == []
-    leap_seconds = repository / "testatron" / "universe" / "ephemeris_files" / "naif0012.tls"
+    leap_seconds = REPOSITORY / "testatron" / "universe" / "ephemeris_files" / "naif0012.tls"
     offset = SpiceEphemerisProvider([leap_seconds]).tdb_minus_utc_seconds([61300.0])[0]
     assert offset == pytest.approx(69.1824273893128, abs=1.0e-9)
 
 
 def test_feasible_asteroid_endpoints_coincide_with_spice_destination():
-    repository = Path(__file__).resolve().parents[1]
-    config = default_search_configuration(repository, repository)["config"]
+    config = real_studio_runtime()["config"]
     bci = OutputFrameMetadata(
         "J2000_BCI", "Sun", -1.5707963267948966, 1.1617035245118223, "TDB",
     )
@@ -215,15 +233,22 @@ def test_api_auth_schema_and_draft_job(tmp_path: Path):
         assert response.json()["status"] == "draft"
         # Point schema discovery at the real repository metadata while keeping
         # mutable state in tmp_path.
-    repository = Path(__file__).resolve().parents[1]
-    app = create_app(repository, tmp_path / "schema-state", token=token)
+    app = create_app(REPOSITORY, tmp_path / "schema-state", token=token)
     with TestClient(app) as client:
         response = client.get("/api/v1/options/schema", headers={"X-EMTG-Token": token})
         assert response.status_code == 200
         fields = response.json()["items"]
         assert any(value["name"] == "mission_name" for value in fields)
         assert any(value["scope"] == "journey" for value in fields)
-        bodies = client.get("/api/v1/bodies", headers={"X-EMTG-Token": token}).json()
+
+
+def test_api_body_discovery_and_ephemeris_with_real_runtime(tmp_path: Path):
+    real_studio_runtime()
+    token = "test-token"
+    app = create_app(REPOSITORY, tmp_path / "body-state", token=token)
+    with TestClient(app) as client:
+        headers = {"X-EMTG-Token": token}
+        bodies = client.get("/api/v1/bodies", headers=headers).json()
         assert bodies["ready"] is True
         assert any(value["name"] == "Earth" for value in bodies["items"])
         response = client.get(

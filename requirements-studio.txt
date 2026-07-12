@@ -2,3 +2,4 @@ fastapi>=0.116,<1
 uvicorn>=0.35,<1
 pydantic>=2.11,<3
 pyinstaller>=6.0,<7
+spiceypy>=6.0,<9
