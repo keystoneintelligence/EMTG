@@ -12,6 +12,7 @@ from .archive import ArchiveEntry, ParetoArchive
 from .analytics import summarize_run
 from .canonical import content_hash, source_manifest
 from .config import CampaignConfig, ObjectiveConfig
+from .control import CampaignObserver, NullCampaignObserver, RunControl
 from .evaluator import (
     JOURNEY_GENE_ADAPTERS,
     MISSION_GENE_ADAPTERS,
@@ -118,6 +119,8 @@ class Campaign:
         backend: WorkerBackend | None = None,
         objective_registry: ObjectiveRegistry | None = None,
         operator_registry: OperatorRegistry | None = None,
+        run_control: RunControl | None = None,
+        observer: CampaignObserver | None = None,
     ):
         self.config = config
         self._source_manifest = source_manifest(Path(__file__).resolve().parents[2])
@@ -141,6 +144,9 @@ class Campaign:
         self.engine = NSGA2Engine(config.algorithm)
         self.archives: dict[tuple[str, int, str], ParetoArchive] = {}
         self.cancel_event = threading.Event()
+        self.run_control = run_control
+        self.observer = observer or NullCampaignObserver()
+        self.pause_requested = False
         self._results_since_checkpoint = 0
         self.point_groups = tuple(
             PointGroup.from_dict({key: value for key, value in group.items() if key != "as_constraint"})
@@ -1322,6 +1328,18 @@ class Campaign:
         max_new_evaluations: int | None,
         already_used: int,
     ) -> tuple[bool, int]:
+        if self.run_control is not None:
+            directive = self.run_control.snapshot()
+            if directive.cancel:
+                self.cancel_event.set()
+            if directive.pause:
+                self.pause_requested = True
+            if directive.core_limit is not None and hasattr(self.backend, "max_workers"):
+                if directive.core_limit < 1:
+                    raise ValueError("run-control core limit must be positive")
+                self.backend.max_workers = int(directive.core_limit)  # type: ignore[attr-defined]
+            if self.cancel_event.is_set() or self.pause_requested:
+                return False, already_used
         rows = self.store.load_candidates(trial, generation, role)
         requests: dict[str, EvaluationRequest] = {}
         positions: dict[str, list[int]] = {}
@@ -1343,6 +1361,13 @@ class Campaign:
                 result = self._enrich_result(request.candidate, raw_result)
                 self._harvest_seed(request.candidate, result)
                 self.store.save_result(trial, generation, role, positions[key], result)
+                self.observer.on_evaluation(
+                    request.candidate,
+                    result,
+                    trial=trial,
+                    generation=generation,
+                    role=role,
+                )
                 if result.status not in {EvaluationStatus.PENDING, EvaluationStatus.RUNNING, EvaluationStatus.CANCELLED}:
                     self.cache.put(raw_result, request.context)
                 self._checkpoint_evaluation(trial, generation, role)
@@ -1371,6 +1396,13 @@ class Campaign:
                 self._harvest_seed(request.candidate, result)
                 self.store.save_result(
                     trial, generation, role, positions[request.evaluation_key], result
+                )
+                self.observer.on_evaluation(
+                    request.candidate,
+                    result,
+                    trial=trial,
+                    generation=generation,
+                    role=role,
                 )
                 self._checkpoint_evaluation(trial, generation, role)
         complete = len(batch) == len(pending) and not self.cancel_event.is_set()
@@ -1506,6 +1538,12 @@ class Campaign:
                 trial,
                 self.fidelity,
                 [(entry.result, entry.objectives, entry.generation) for entry in archive.entries()],
+            )
+            self.observer.on_archive(
+                [entry.result for entry in archive.entries()],
+                trial=trial,
+                generation=generation,
+                fidelity=self.fidelity,
             )
 
     def _archive_total(self) -> int:

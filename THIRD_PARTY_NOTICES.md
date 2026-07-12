@@ -21,3 +21,11 @@ for a release records the exact versions and source checksums.
 
 SNOPT is not included in public EMTG packages. Licensed users may supply it to
 an opt-in local build.
+
+EMTG Studio additionally uses MIT-licensed React, React DOM, Three.js,
+React Three Fiber, Drei, TanStack Table, Vite, and their bundled JavaScript
+runtime dependencies. Its Python service uses FastAPI and Uvicorn under the
+MIT license, Pydantic under the MIT license, and PyInstaller under GPLv2 with
+the PyInstaller bootloader exception. Exact JavaScript versions are recorded
+in `PyEMTG/Studio/frontend/package-lock.json`; Python version ranges are
+recorded in `requirements-studio.txt`.
