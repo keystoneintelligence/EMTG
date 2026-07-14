@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Mapping
 
+from .gene_names import canonicalize_mission_genes
+
 from .model import (
     CandidateRecord,
     EvaluationResult,
@@ -49,7 +51,7 @@ def genotype_from_dict(data: Mapping[str, Any]) -> Genotype:
     def slot(value: Mapping[str, Any]) -> HiddenGeneSlot:
         return HiddenGeneSlot(bool(value["active"]), dict(value.get("values", {})))
     return Genotype(
-        dict(data.get("mission", {})),
+        canonicalize_mission_genes(data.get("mission", {})),
         tuple(
             JourneyGenome(
                 bool(journey["active"]),
@@ -90,7 +92,7 @@ def phenotype_from_dict(data: Mapping[str, Any]) -> MissionPhenotype:
     if data.get("schema_version", 3) != 3:
         raise ValueError("phenotype schema is incompatible; use fresh schema-3 state")
     return MissionPhenotype(
-        mission=dict(data.get("mission", {})),
+        mission=canonicalize_mission_genes(data.get("mission", {})),
         journeys=tuple(
             JourneyPhenotype(
                 departure=str(journey["departure"]),

@@ -23,7 +23,7 @@ from .bodies import discover_bodies
 from .body_ephemeris import BodyEphemerisService
 from .models import (
     FileRequest, FileWriteRequest, GlobalResourceUpdate, JobCreate, OptionDocument,
-    ResourceUpdate,
+    ResourceUpdate, SearchEffortPresetCollection,
 )
 from .options_schema import load_option_schema
 from .scheduler import StudioScheduler
@@ -118,6 +118,39 @@ def create_app(
     def search_defaults(_: None = auth):
         return default_search_configuration(repository, bundled_root)
 
+    @app.get("/api/v1/search-effort-presets")
+    def search_effort_presets(_: None = auth):
+        return store.search_effort_presets()
+
+    @app.put("/api/v1/search-effort-presets")
+    def update_search_effort_presets(
+        request: SearchEffortPresetCollection, _: None = auth,
+    ):
+        document = request.model_dump()
+        identifiers: set[str] = set()
+        for preset in document["items"]:
+            identifier = preset["id"]
+            if not identifier.replace("-", "").replace("_", "").isalnum():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"search-effort preset id {identifier!r} may contain only letters, numbers, '-' and '_'",
+                )
+            if identifier in identifiers:
+                raise HTTPException(status_code=422, detail=f"duplicate search-effort preset id {identifier!r}")
+            identifiers.add(identifier)
+            preset["name"] = preset["name"].strip()
+            preset["description"] = preset["description"].strip()
+            if not preset["name"]:
+                raise HTTPException(status_code=422, detail="search-effort preset names cannot be blank")
+            if preset["watchdog_seconds"] < preset["solve_time_seconds"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"preset {preset['name']!r} watchdog must not be shorter than its solve time",
+                )
+        if document["default_id"] not in identifiers:
+            raise HTTPException(status_code=422, detail="default search-effort preset does not exist")
+        return store.set_search_effort_presets(document)
+
     @app.get("/api/v1/bodies")
     def bodies(_: None = auth):
         defaults = default_search_configuration(repository, bundled_root)
@@ -136,6 +169,22 @@ def create_app(
         try:
             return BodyEphemerisService(defaults["config"]).series(
                 names, start_mjd, end_mjd, points, frame,
+            )
+        except (FileNotFoundError, ValueError, RuntimeError) as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.get("/api/v1/ephemeris/bodies/now")
+    def current_body_ephemerides(
+        names: list[str] = Query(default=[]),
+        points: int = Query(default=97, ge=2, le=2000),
+        window_days: float = Query(default=2.0, gt=0.0, le=30.0),
+        frame: str = "J2000",
+        _: None = auth,
+    ):
+        defaults = default_search_configuration(repository, bundled_root)
+        try:
+            return BodyEphemerisService(defaults["config"]).current_series(
+                names, points, window_days, frame,
             )
         except (FileNotFoundError, ValueError, RuntimeError) as error:
             raise HTTPException(status_code=409, detail=str(error)) from error

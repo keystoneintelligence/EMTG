@@ -8,7 +8,7 @@ import random
 
 import pytest
 
-from OuterLoop.canonical import CanonicalizationError, canonical_json
+from OuterLoop.canonical import CanonicalizationError, canonical_json, content_hash
 from OuterLoop.config import (
     CampaignConfig,
     ConfigError,
@@ -34,6 +34,7 @@ from OuterLoop.operators import (
     replacement_mutation,
 )
 from OuterLoop.randomness import derive_seed, random_stream
+from OuterLoop.serde import genotype_from_dict, genotype_to_dict, phenotype_from_dict
 
 
 def schema() -> GenomeSchema:
@@ -47,7 +48,7 @@ def schema() -> GenomeSchema:
             fixed_final="Mars",
             chain_journeys=True,
             mission_genes={
-                "launch_epoch": GeneSpec("integer", lower=Decimal(60000), upper=Decimal(60002)),
+                "launch_window_open_date": GeneSpec("integer", lower=Decimal(60000), upper=Decimal(60002)),
             },
             journey_genes={
                 "departure_destination": GeneSpec("choice", choices=("Earth", "Venus")),
@@ -70,7 +71,7 @@ def explicit_genotype() -> Genotype:
         HiddenGeneSlot(True, {"dsm_count": 0}),
     )
     return Genotype(
-        {"launch_epoch": 60000},
+        {"launch_window_open_date": 60000},
         (
             JourneyGenome(
                 True,
@@ -124,6 +125,65 @@ def test_campaign_config_is_strict_and_resolves_paths(tmp_path):
     data["mystery"] = True
     with pytest.raises(ConfigError, match="unknown campaign"):
         CampaignConfig.from_dict(data, source)
+
+
+def test_legacy_launch_epoch_gene_normalizes_to_window_open_date(tmp_path):
+    data = {
+        "schema_version": "outerloop/v2",
+        "run_directory": "run",
+        "search": {
+            "max_journeys": 1,
+            "mission_genes": {
+                "launch_epoch": {"kind": "integer", "lower": 60000, "upper": 60002},
+            },
+        },
+        "objectives": ["flight_time"],
+    }
+
+    config = CampaignConfig.from_dict(data, tmp_path / "campaign.json")
+
+    assert "launch_epoch" not in config.search.mission_genes
+    assert "launch_window_open_date" in config.search.mission_genes
+    assert "launch_window_open_date" in config.resolved_dict()["search"]["mission_genes"]
+
+
+def test_conflicting_launch_window_gene_aliases_are_rejected(tmp_path):
+    data = {
+        "schema_version": "outerloop/v2",
+        "run_directory": "run",
+        "search": {
+            "max_journeys": 1,
+            "mission_genes": {
+                "launch_epoch": {"kind": "fixed", "value": 60000},
+                "launch_window_open_date": {"kind": "fixed", "value": 60001},
+            },
+        },
+        "objectives": ["flight_time"],
+    }
+
+    with pytest.raises(ConfigError, match="conflicting mission gene"):
+        CampaignConfig.from_dict(data, tmp_path / "campaign.json")
+
+
+def test_persisted_launch_epoch_alias_normalizes_without_changing_candidate_identity():
+    genotype = genotype_from_dict({
+        "schema_version": 3,
+        "mission": {"launch_epoch": 60000},
+        "journey_slots": [],
+    })
+    phenotype = phenotype_from_dict({
+        "schema_version": 3,
+        "mission": {"launch_epoch": 60000},
+        "journeys": [],
+    })
+
+    assert genotype.mission == {"launch_window_open_date": 60000}
+    assert genotype_to_dict(genotype)["mission"] == {"launch_window_open_date": 60000}
+    assert phenotype.mission == {"launch_window_open_date": 60000}
+    assert phenotype.identity == content_hash(
+        {"mission": {"launch_epoch": 60000}, "journeys": (), "resonance": {}},
+        prefix="emtg-outerloop-phenotype-v3",
+    )
 
 
 def test_inactive_hidden_genes_are_neutral_and_deduplicate():

@@ -19,7 +19,7 @@
     "fixed_final": "Mars",
     "repairs": [],
     "mission_genes": {
-      "launch_epoch": {
+      "launch_window_open_date": {
         "kind": "integer",
         "lower": 53701,
         "upper": 53711

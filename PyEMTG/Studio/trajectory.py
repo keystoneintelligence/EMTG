@@ -194,6 +194,37 @@ def parse_dense_ephemeris(path: str | Path) -> list[dict[str, Any]]:
             for index, name in enumerate(names[7:], start=6):
                 if index < len(numeric):
                     row[name] = numeric[index]
+            dense_values = {
+                "".join(character for character in name.lower() if character.isalnum()): value
+                for name, value in row.items()
+                if isinstance(value, (int, float))
+            }
+
+            def dense_value(*aliases: str) -> float | None:
+                return next((float(dense_values[alias]) for alias in aliases if alias in dense_values), None)
+
+            mass = dense_value("masskg", "mass")
+            if mass is not None:
+                row["mass_kg"] = mass
+            control = [dense_value("ux"), dense_value("uy"), dense_value("uz")]
+            if all(value is not None for value in control):
+                row["control"] = [float(value) for value in control]
+            thrust = [dense_value("thrustxn"), dense_value("thrustyn"), dense_value("thrustzn")]
+            if all(value is not None for value in thrust):
+                row["thrust_n"] = [float(value) for value in thrust]
+            canonical_scalars = {
+                "thrust_magnitude_n": ("thrustmagnituden", "thrustmagnitude"),
+                "mass_flow_rate_kg_s": ("massflowratekgs", "mdotkgs"),
+                "isp_s": ("isps", "isp"),
+                "active_engines": ("numberofactivethrusters", "activeengines"),
+                "active_power_kw": ("activepowerkw",),
+                "available_thrust_n": ("availablethrustn",),
+                "available_power_kw": ("availablepowerkw",),
+            }
+            for canonical, aliases in canonical_scalars.items():
+                value = dense_value(*aliases)
+                if value is not None:
+                    row[canonical] = value
             rows.append(row)
     return rows
 

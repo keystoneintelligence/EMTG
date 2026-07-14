@@ -13,7 +13,7 @@
     "activation_mode": "tags",
     "repairs": [],
     "mission_genes": {
-      "launch_epoch": {
+      "launch_window_open_date": {
         "kind": "integer",
         "lower": 60000,
         "upper": 60004

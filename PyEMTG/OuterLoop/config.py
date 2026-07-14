@@ -10,6 +10,8 @@ from pathlib import Path
 from collections.abc import Iterator
 from typing import Any, Mapping
 
+from .gene_names import canonicalize_mission_genes
+
 
 class ConfigError(ValueError):
     pass
@@ -292,6 +294,11 @@ class SearchConfig:
             raw = data.get(name, {})
             if not isinstance(raw, Mapping):
                 raise ConfigError(f"search.{name} must be an object")
+            if name == "mission_genes":
+                try:
+                    raw = canonicalize_mission_genes(raw)
+                except ValueError as error:
+                    raise ConfigError(f"search.{name}: {error}") from error
             return {
                 str(key): GeneSpec.from_dict(value, f"search.{name}.{key}")
                 for key, value in raw.items()

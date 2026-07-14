@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Any, Mapping, Sequence
 
 from .canonical import content_hash
+from .gene_names import schema3_identity_mission_genes
 
 
 class EvaluationStatus(str, Enum):
@@ -100,7 +101,7 @@ class MissionPhenotype:
         }
         return content_hash(
             {
-                "mission": self.mission,
+                "mission": schema3_identity_mission_genes(self.mission),
                 "journeys": self.journeys,
                 "resonance": resonance_choices,
             },

@@ -17,7 +17,7 @@ NLP_solver_type 2
 #Quiet NLP solver?
 quiet_NLP 1
 #NLP feasibility tolerance
-snopt_feasibility_tolerance 1.0e-5
+snopt_feasibility_tolerance 1.0e-8
 #NLP optimality tolerance
 snopt_optimality_tolerance 1.0e-5
 #NLP major iterations
@@ -49,6 +49,17 @@ num_timesteps 40
 allow_initial_mass_to_vary 1
 #maximum possible mass of the spacecraft (kg)
 maximum_mass 2500.0
+#Reference mass model for the Studio 15 kW AEPS asteroid search.
+#The dry-mass floor is inclusive of bus, power, propulsion hardware, payload,
+#and non-electric consumables; subsystem library masses remain zero to avoid
+#double-counting this system-level estimate.
+final_mass_constraint_bounds 1200.0 2500.0
+constrain_dry_mass 1
+#Treat 1000 kg as installed xenon capacity and hold 10% of deterministic use
+#for operations, missed thrust, and residuals.
+enable_electric_propellant_tank_constraint 1
+maximum_electric_propellant 1000.0
+electric_propellant_margin 0.10
 #number of thruster systems
 number_of_electric_propulsion_systems 1
 #percentage of time that engine can operate
@@ -100,7 +111,7 @@ background_mode 1
 #3: run NLP using trialX as initial guess
 run_inner_loop 3
 #Field for taking notes
-user_data ("fixture","Earth to asteroid 20136163 using SPICE asteroid ephemeris, IPOPT, and an AEPS-class 15 kW solar electric spacecraft.")
+user_data ("fixture","Earth to asteroid 20136163 using SPICE asteroid ephemeris, IPOPT, and an AEPS-class 15 kW solar electric spacecraft with a 1200 kg inclusive dry-mass floor and 10% xenon reserve.")
 
 BEGIN_JOURNEY
 

@@ -163,7 +163,7 @@ class PEATSAbox(object):
                 # # If the emtg case converged, then it will not have "FAILURE" in the name
                 # # and it will be safe to load the file into an EMTG mission object
                 # # (Jacob) every once in a while Jacob writes MBH code wrong and "FAILURE" does not appear, so let's also check feasibility ourselves!
-                # if "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.snopt_feasibility_tolerance:
+                # if "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.NLP_feasibility_tolerance:
                 #     # Get the final mass
                 #     self.final_mass = M.spacecraft_dry_mass
         
@@ -214,7 +214,7 @@ class PEATSAbox(object):
         # self.iteration = PEATSAorder.iteration
         
         # # Evaluate the objective.
-        # if self.PEATSAcrust_path != None and self.PEATSAcrust_path != "" and "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.snopt_feasibility_tolerance:
+        # if self.PEATSAcrust_path != None and self.PEATSAcrust_path != "" and "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.NLP_feasibility_tolerance:
         #     try:
         #         M = Mission.Mission(self.PEATSApath + self.PEATSAcrust_path)
         #         # self.PEATSAcrust = M
@@ -256,7 +256,7 @@ class PEATSAbox(object):
             # If the emtg case converged, then it will not have "FAILURE" in the name
             # and it will be safe to load the file into an EMTG mission object
             # (Jacob) every once in a while Jacob writes MBH code wrong and "FAILURE" does not appear, so let's also check feasibility ourselves!
-            if "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.snopt_feasibility_tolerance:
+            if "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.NLP_feasibility_tolerance:
                 # Get the final mass
                 self.final_mass = M.spacecraft_dry_mass
     
@@ -288,7 +288,7 @@ class PEATSAbox(object):
         self.iteration = PEATSAorder.iteration
         
         # Evaluate the objective.
-        if self.PEATSAcrust_path != None and self.PEATSAcrust_path != "" and "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.snopt_feasibility_tolerance:
+        if self.PEATSAcrust_path != None and self.PEATSAcrust_path != "" and "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.NLP_feasibility_tolerance:
             try:
                 #M = Mission.Mission(self.PEATSApath + self.PEATSAcrust_path)
                 # self.PEATSAcrust = M
@@ -402,7 +402,7 @@ class PEATSAbox(object):
                 # If the emtg case converged, then it will not have "FAILURE" in the name
                 # and it will be safe to load the file into an EMTG mission object
                 # (Jacob) every once in a while Jacob writes MBH code wrong and "FAILURE" does not appear, so let's also check feasibility ourselves!
-                if "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.snopt_feasibility_tolerance:
+                if "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.NLP_feasibility_tolerance:
                     # Get the final mass
                     self.final_mass = M.spacecraft_dry_mass
         
@@ -454,7 +454,7 @@ class PEATSAbox(object):
         self.iteration = PEATSAorder.iteration
         
         # Evaluate the objective.
-        if self.PEATSAcrust_path != None and self.PEATSAcrust_path != "" and "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.snopt_feasibility_tolerance:
+        if self.PEATSAcrust_path != None and self.PEATSAcrust_path != "" and "FAILURE" not in self.PEATSAcrust_path and self.feasibility < MO.NLP_feasibility_tolerance:
             try:
                 M = Mission.Mission(self.PEATSApath + self.PEATSAcrust_path)
                 # self.PEATSAcrust = M

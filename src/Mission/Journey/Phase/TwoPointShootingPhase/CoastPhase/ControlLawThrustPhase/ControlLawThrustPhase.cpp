@@ -810,7 +810,7 @@ namespace EMTG
                     this->write_ephemeris_line(outputfile,
                         output_state, 
                         ThrustVector,
-                        this->mySpacecraft->getEPthrust() * 1.0e-3,
+                        this->mySpacecraft->getEPthrust(),
                         this->mySpacecraft->getEPMassFlowRate(),
                         this->mySpacecraft->getEPIsp(),
                         this->mySpacecraft->getEPNumberOfActiveThrusters(),

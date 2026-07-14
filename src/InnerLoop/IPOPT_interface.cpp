@@ -222,12 +222,12 @@ namespace EMTG
                         throw std::runtime_error(std::string("IPOPT rejected option '") + optionName + "'.");
                 };
 
-                if (this->myOptions.get_major_iterations_limit() > static_cast<size_t>(std::numeric_limits<ipindex>::max()))
+                if (this->myOptions.get_iteration_limit() > static_cast<size_t>(std::numeric_limits<ipindex>::max()))
                     throw std::overflow_error("The requested IPOPT iteration limit exceeds Ipopt's configured index width.");
 
                 requireOption(AddIpoptStrOption(this->myIPOPT, mutable_string("hessian_approximation"), mutable_string("limited-memory")), "hessian_approximation");
                 requireOption(AddIpoptStrOption(this->myIPOPT, mutable_string("nlp_scaling_method"), mutable_string("none")), "nlp_scaling_method");
-                requireOption(AddIpoptIntOption(this->myIPOPT, mutable_string("max_iter"), static_cast<ipindex>(this->myOptions.get_major_iterations_limit())), "max_iter");
+                requireOption(AddIpoptIntOption(this->myIPOPT, mutable_string("max_iter"), static_cast<ipindex>(this->myOptions.get_iteration_limit())), "max_iter");
                 requireOption(AddIpoptNumOption(this->myIPOPT, mutable_string("tol"), this->myOptions.get_optimality_tolerance()), "tol");
                 requireOption(AddIpoptNumOption(this->myIPOPT, mutable_string("constr_viol_tol"), this->myOptions.get_feasibility_tolerance()), "constr_viol_tol");
                 requireOption(AddIpoptNumOption(this->myIPOPT, mutable_string("acceptable_tol"), this->myOptions.get_optimality_tolerance()), "acceptable_tol");

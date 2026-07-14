@@ -40,3 +40,18 @@ def test_option_generator_is_repository_relative():
 
     assert 'DEFAULT_REPOSITORY_ROOT' in generator
     assert "EMTG_path = 'C:/emtg/'" not in generator
+
+
+def test_solver_option_aliases_are_generated_at_the_input_boundary_only():
+    cpp = (REPO_ROOT / 'src' / 'Core' / 'missionoptions.cpp').read_text(encoding='utf-8')
+    header = (REPO_ROOT / 'src' / 'Core' / 'missionoptions.h').read_text(encoding='utf-8')
+    python = (REPO_ROOT / 'PyEMTG' / 'MissionOptions.py').read_text(encoding='utf-8')
+
+    assert 'double NLP_feasibility_tolerance;' in header
+    assert 'size_t NLP_iteration_limit;' in header
+    assert 'snopt_feasibility_tolerance;' not in header
+    assert 'linecell[0] == "NLP_feasibility_tolerance" || linecell[0] == "snopt_feasibility_tolerance"' in cpp
+    assert 'optionsFileStream << "NLP_feasibility_tolerance "' in cpp
+    assert 'optionsFileStream << "snopt_feasibility_tolerance "' not in cpp
+    assert "'snopt_feasibility_tolerance': 'NLP_feasibility_tolerance'" in python
+    assert 'optionsFile.write("NLP_feasibility_tolerance "' in python

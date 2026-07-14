@@ -31,13 +31,13 @@ def apply_test_options_overrides(
         test_options.forced_working_directory = output_directory
 
     if emtg_feasibility_tolerance is not None:
-        test_options.snopt_feasibility_tolerance = emtg_feasibility_tolerance
+        test_options.NLP_feasibility_tolerance = emtg_feasibility_tolerance
     if emtg_optimality_tolerance is not None:
-        test_options.snopt_optimality_tolerance = emtg_optimality_tolerance
+        test_options.NLP_optimality_tolerance = emtg_optimality_tolerance
     if emtg_major_iterations is not None:
-        test_options.snopt_major_iterations = emtg_major_iterations
+        test_options.NLP_iteration_limit = emtg_major_iterations
     if emtg_max_run_time is not None:
-        test_options.snopt_max_run_time = emtg_max_run_time
+        test_options.NLP_max_run_time = emtg_max_run_time
     if emtg_quiet_nlp is not None:
         test_options.quiet_NLP = emtg_quiet_nlp
 

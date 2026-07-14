@@ -59,7 +59,7 @@ namespace
             this->options.enable_Scalatron = false;
             this->options.NLP_solver_type = 2;
             this->options.quiet_NLP = true;
-            this->options.snopt_feasibility_tolerance = 1.0e-8;
+            this->options.NLP_feasibility_tolerance = 1.0e-8;
             this->options.working_directory = ".";
             this->options.mission_name = "ipopt_analytic_test";
 
@@ -217,7 +217,7 @@ namespace
     {
         EMTG::Solvers::NLPoptions options;
         options.set_quiet_NLP(true);
-        options.set_major_iterations_limit(100);
+        options.set_iteration_limit(100);
         options.set_max_run_time_seconds(30);
         options.set_feasibility_tolerance(1.0e-8);
         options.set_optimality_tolerance(1.0e-9);
@@ -300,7 +300,7 @@ namespace
     {
         AnalyticProblem problem;
         EMTG::Solvers::NLPoptions options = default_options();
-        options.set_major_iterations_limit(0);
+        options.set_iteration_limit(0);
         EMTG::Solvers::IPOPT_interface solver(&problem, options);
         solver.setX0_unscaled({ 11.0, 3.0 });
         solver.run_NLP(false);

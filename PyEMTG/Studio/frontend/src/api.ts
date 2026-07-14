@@ -1,4 +1,4 @@
-import type { BodyOption, BodyTrajectory, Job, OptionField, SearchDefaults, Solution, Trajectory } from './types'
+import type { BodyEphemerisResponse, BodyOption, CurrentBodyEphemerisResponse, Job, OptionField, SearchDefaults, SearchEffortPresetCollection, Solution, Trajectory } from './types'
 
 const query = new URLSearchParams(window.location.search)
 const suppliedToken = query.get('access_token')
@@ -24,11 +24,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   jobs: () => request<{ items: Job[]; global_core_limit: number }>('/api/v1/jobs'),
   searchDefaults: () => request<SearchDefaults>('/api/v1/search/defaults'),
+  searchEffortPresets: () => request<SearchEffortPresetCollection>('/api/v1/search-effort-presets'),
+  saveSearchEffortPresets: (body: SearchEffortPresetCollection) => request<SearchEffortPresetCollection>('/api/v1/search-effort-presets', {
+    method: 'PUT', body: JSON.stringify(body),
+  }),
   bodies: () => request<{ items: BodyOption[]; count: number; ready: boolean; central_body: string; universe_file: string; kernel_files: string[]; error?: string }>('/api/v1/bodies'),
   bodyEphemerides: (names: string[], startMjd: number, endMjd: number, points = 360) => {
     const filters = new URLSearchParams({ start_mjd: String(startMjd), end_mjd: String(endMjd), points: String(points), frame: 'J2000' })
     names.forEach(name => filters.append('names', name))
-    return request<{ frame: string; central_body: string; observer_spice_id: number; sample_count: number; series: BodyTrajectory[] }>(`/api/v1/ephemeris/bodies?${filters}`)
+    return request<BodyEphemerisResponse>(`/api/v1/ephemeris/bodies?${filters}`)
+  },
+  currentBodyEphemerides: (names: string[], points = 97, windowDays = 2) => {
+    const filters = new URLSearchParams({ points: String(points), window_days: String(windowDays), frame: 'J2000' })
+    names.forEach(name => filters.append('names', name))
+    return request<CurrentBodyEphemerisResponse>(`/api/v1/ephemeris/bodies/now?${filters}`)
   },
   createJob: (body: unknown) => request<Job>('/api/v1/jobs', { method: 'POST', body: JSON.stringify(body) }),
   jobAction: (id: string, action: string) => request<Job>(`/api/v1/jobs/${id}/${action}`, { method: 'POST' }),

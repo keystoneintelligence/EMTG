@@ -93,7 +93,8 @@ class SyntheticEvaluator:
             # A lightweight deterministic event track lets orchestration and
             # visualization clients exercise the same time/trajectory path as
             # EMTG-backed campaigns without claiming physical fidelity.
-            launch_epoch = float(phenotype.mission.get("launch_epoch", 60000.0))
+            launch_window_open_date = float(phenotype.mission.get("launch_window_open_date", 60000.0))
+            launch_epoch = launch_window_open_date
             flight_time = float(metrics["flight_time"])
             event_count = 21
             synthetic_events = []
@@ -121,6 +122,7 @@ class SyntheticEvaluator:
                 })
             metrics.update({
                 "launch_epoch": launch_epoch,
+                "launch_window_open_date": launch_window_open_date,
                 "mission_events": synthetic_events,
                 "total_propellant_used": max(0.0, sequence_cost * 4.0),
                 "thrust_min": 0.15,
@@ -576,7 +578,7 @@ def _parse_numeric_csv(values: Sequence[str]) -> tuple[float, ...]:
 
 
 MISSION_GENE_ADAPTERS = {
-    "launch_epoch": "launch_window_open_date",
+    "launch_window_open_date": "launch_window_open_date",
     "total_flight_time_bounds": "total_flight_time_bounds",
     "flight_time_bounds": "total_flight_time_bounds",
     "launch_vehicle": "LaunchVehicleKey",
@@ -716,10 +718,10 @@ class EMTGCaseBuilder:
             "mbh_max_run_time": "MBH_max_run_time",
             "mbh_max_trials": "MBH_max_trials",
             "mbh_max_not_improve": "MBH_max_not_improve",
-            "nlp_max_run_time": "snopt_max_run_time",
-            "nlp_major_iterations": "snopt_major_iterations",
-            "feasibility_tolerance": "snopt_feasibility_tolerance",
-            "optimality_tolerance": "snopt_optimality_tolerance",
+            "nlp_max_run_time": "NLP_max_run_time",
+            "nlp_major_iterations": "NLP_iteration_limit",
+            "feasibility_tolerance": "NLP_feasibility_tolerance",
+            "optimality_tolerance": "NLP_optimality_tolerance",
             "nlp_solver_type": "NLP_solver_type",
         }.items():
             if key in budget:

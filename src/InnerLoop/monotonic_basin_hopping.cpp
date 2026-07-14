@@ -467,7 +467,7 @@ namespace EMTG { namespace Solvers {
                 //Step 1 (alternate): perturb the existing point
                 this->hop();
 
-                if (myProblem->options.MBH_time_hop_probability > 0.0  && best_feasibility >= this->myProblem->options.snopt_feasibility_tolerance)
+                if (myProblem->options.MBH_time_hop_probability > 0.0  && best_feasibility >= this->myProblem->options.NLP_feasibility_tolerance)
                     this->time_hop();
             }
 			//evaluate the case once
@@ -517,7 +517,7 @@ namespace EMTG { namespace Solvers {
                     ++this->number_of_failures_since_last_improvement; // it's a failure
                     seeded_step = false; //if seeding MBH, only the first step runs from the seed. After that hopping occurs.
                     
-                    if (this->feasible_point_finder_active && best_feasibility >= this->myProblem->options.snopt_feasibility_tolerance)
+                    if (this->feasible_point_finder_active && best_feasibility >= this->myProblem->options.NLP_feasibility_tolerance)
                     {
                         //if we have not yet found our first feasible point and the ACE feasible point finder is enabled
                         //then we should see if this point is "more feasible" than best one we have so far
@@ -636,12 +636,12 @@ namespace EMTG { namespace Solvers {
             bool isFeasible = false;
             if (this->myProblem->options.enable_NLP_chaperone)
             {
-                if (normalized_feasibility < myProblem->options.snopt_feasibility_tolerance && decision_variable_infeasibility < myProblem->options.snopt_feasibility_tolerance)
+                if (normalized_feasibility < myProblem->options.NLP_feasibility_tolerance && decision_variable_infeasibility < myProblem->options.NLP_feasibility_tolerance)
                     isFeasible = true;
             }
             else
             {
-                if ((normalized_feasibility < myProblem->options.snopt_feasibility_tolerance && decision_variable_infeasibility < myProblem->options.snopt_feasibility_tolerance)
+                if ((normalized_feasibility < myProblem->options.NLP_feasibility_tolerance && decision_variable_infeasibility < myProblem->options.NLP_feasibility_tolerance)
                     || this->myNLP->getLastSolveWasAcceptable())
                     isFeasible = true;
             }
@@ -770,7 +770,7 @@ namespace EMTG { namespace Solvers {
                 }
 
             }
-            else if (this->feasible_point_finder_active && best_feasibility >= this->myProblem->options.snopt_feasibility_tolerance)
+            else if (this->feasible_point_finder_active && best_feasibility >= this->myProblem->options.NLP_feasibility_tolerance)
             {
                 //if we have not yet found our first feasible point and the ACE feasible point finder is enabled
                 //then we should see if this point is "more feasible" than best one we have so far

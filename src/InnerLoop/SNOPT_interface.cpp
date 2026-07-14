@@ -114,10 +114,10 @@ namespace EMTG
 #ifndef SNOPT76
             this->mySNOPT.setUserFun(SNOPT_user_function);
 #endif
-            this->mySNOPT.setIntParameter((char*)"Iterations limit", 10000 * this->myOptions.get_major_iterations_limit());
-            this->mySNOPT.setIntParameter((char*)"Major iterations limit", this->myOptions.get_major_iterations_limit());
-            this->mySNOPT.setIntParameter((char*)"Minor iterations limit", this->myOptions.get_minor_iterations_limit());
-            this->mySNOPT.setRealParameter((char*)"Major step limit", this->myOptions.get_max_step());
+            this->mySNOPT.setIntParameter((char*)"Iterations limit", 10000 * this->myOptions.get_iteration_limit());
+            this->mySNOPT.setIntParameter((char*)"Major iterations limit", this->myOptions.get_iteration_limit());
+            this->mySNOPT.setIntParameter((char*)"Minor iterations limit", this->myOptions.get_snopt_minor_iterations_limit());
+            this->mySNOPT.setRealParameter((char*)"Major step limit", this->myOptions.get_snopt_major_step_limit());
             //this->mySNOPT.setRealParameter((char*)"Function precision", 1.0e-8);
 
             this->mySNOPT.setIntParameter((char*)"Derivative option", 1);

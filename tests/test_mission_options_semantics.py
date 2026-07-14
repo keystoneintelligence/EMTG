@@ -14,6 +14,25 @@ def load_options():
     )
 
 
+def test_studio_asteroid_fixture_enforces_reference_spacecraft_mass_model():
+    options = MissionOptions.MissionOptions(
+        str(
+            REPO_ROOT
+            / 'testatron'
+            / 'tests'
+            / 'integration_asteroid_missions'
+            / 'A20136163_AEPS_IPOPT_FBLT.emtgopt'
+        )
+    )
+
+    assert options.maximum_mass == 2500.0
+    assert options.constrain_dry_mass == 1
+    assert options.final_mass_constraint_bounds == [1200.0, 2500.0]
+    assert options.enable_electric_propellant_tank_constraint == 1
+    assert options.maximum_electric_propellant == 1000.0
+    assert options.electric_propellant_margin == 0.10
+
+
 def test_testatron_option_overrides_rewrite_paths_and_solver_controls(tmp_path):
     options = load_options()
     original_gravity_name = Path(options.Journeys[0].central_body_gravity_file.replace('\\', '/')).name
@@ -38,10 +57,10 @@ def test_testatron_option_overrides_rewrite_paths_and_solver_controls(tmp_path):
     assert options.forced_working_directory == str(tmp_path)
     assert options.universe_folder.endswith('/testatron/universe/')
     assert options.HardwarePath.endswith('/testatron/HardwareModels/')
-    assert options.snopt_feasibility_tolerance == 1.0e-7
-    assert options.snopt_optimality_tolerance == 2.0e-7
-    assert options.snopt_major_iterations == 12
-    assert options.snopt_max_run_time == 34
+    assert options.NLP_feasibility_tolerance == 1.0e-7
+    assert options.NLP_optimality_tolerance == 2.0e-7
+    assert options.NLP_iteration_limit == 12
+    assert options.NLP_max_run_time == 34
     assert options.quiet_NLP == 1
     assert options.Journeys[0].universe_folder == options.universe_folder
     assert options.Journeys[0].central_body_gravity_file.endswith('/testatron/universe/gravity_files/' + original_gravity_name)

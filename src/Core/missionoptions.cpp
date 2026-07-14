@@ -68,12 +68,12 @@ namespace EMTG
         this->MBH_Pareto_alpha = 1.4;
         this->MBH_write_every_improvement = (bool) 0;
         this->MBH_time_hop_probability = 0.05;
-        this->snopt_feasibility_tolerance = 1.00E-05;
-        this->snopt_optimality_tolerance = 1.00E-05;
-        this->NLP_max_step = 1;
-        this->snopt_major_iterations = 8000;
+        this->NLP_feasibility_tolerance = 1.00E-08;
+        this->NLP_optimality_tolerance = 1.00E-05;
+        this->snopt_major_step_limit = 1;
+        this->NLP_iteration_limit = 8000;
         this->snopt_minor_iterations = 500;
-        this->snopt_max_run_time = 15;
+        this->NLP_max_run_time = 15;
         this->enable_Scalatron = (bool) 1;
         this->enable_NLP_chaperone = (bool) 1;
         this->seed_MBH = (bool) 0;
@@ -260,18 +260,18 @@ namespace EMTG
         this->MBH_Pareto_alpha_upperBound = math::LARGE;
         this->MBH_time_hop_probability_lowerBound = 0;
         this->MBH_time_hop_probability_upperBound = 1;
-        this->snopt_feasibility_tolerance_lowerBound = 1.00E-10;
-        this->snopt_feasibility_tolerance_upperBound = 1;
-        this->snopt_optimality_tolerance_lowerBound = 1.00E-10;
-        this->snopt_optimality_tolerance_upperBound = 1;
-        this->NLP_max_step_lowerBound = 1.00E-10;
-        this->NLP_max_step_upperBound = 1;
-        this->snopt_major_iterations_lowerBound = 0;
-        this->snopt_major_iterations_upperBound = SIZE_MAX;
+        this->NLP_feasibility_tolerance_lowerBound = 1.00E-10;
+        this->NLP_feasibility_tolerance_upperBound = 1;
+        this->NLP_optimality_tolerance_lowerBound = 1.00E-10;
+        this->NLP_optimality_tolerance_upperBound = 1;
+        this->snopt_major_step_limit_lowerBound = 1.00E-10;
+        this->snopt_major_step_limit_upperBound = 1;
+        this->NLP_iteration_limit_lowerBound = 0;
+        this->NLP_iteration_limit_upperBound = SIZE_MAX;
         this->snopt_minor_iterations_lowerBound = 0;
         this->snopt_minor_iterations_upperBound = SIZE_MAX;
-        this->snopt_max_run_time_lowerBound = 0;
-        this->snopt_max_run_time_upperBound = INT_MAX;
+        this->NLP_max_run_time_lowerBound = 0;
+        this->NLP_max_run_time_upperBound = INT_MAX;
         this->NLP_objective_goal_lowerBound = -math::LARGE;
         this->NLP_objective_goal_upperBound = math::LARGE;
         this->NLP_write_output_check_time_lowerBound = 1;
@@ -767,47 +767,47 @@ namespace EMTG
             }
             return;
         }
-        if (linecell[0] == "snopt_feasibility_tolerance")
+        if (linecell[0] == "NLP_feasibility_tolerance" || linecell[0] == "snopt_feasibility_tolerance")
         {
-            this->snopt_feasibility_tolerance = std::stod(linecell[1]);
+            this->NLP_feasibility_tolerance = std::stod(linecell[1]);
             
             //bounds check
-            if (this->snopt_feasibility_tolerance < this->snopt_feasibility_tolerance_lowerBound || this->snopt_feasibility_tolerance > this->snopt_feasibility_tolerance_upperBound)
+            if (this->NLP_feasibility_tolerance < this->NLP_feasibility_tolerance_lowerBound || this->NLP_feasibility_tolerance > this->NLP_feasibility_tolerance_upperBound)
             {
-                throw std::out_of_range("Input option snopt_feasibility_tolerance is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->snopt_feasibility_tolerance) + ", bounds are [" + std::to_string(this->snopt_feasibility_tolerance_lowerBound) + ", " + std::to_string(this->snopt_feasibility_tolerance_upperBound) + "].");
+                throw std::out_of_range("Input option NLP_feasibility_tolerance is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->NLP_feasibility_tolerance) + ", bounds are [" + std::to_string(this->NLP_feasibility_tolerance_lowerBound) + ", " + std::to_string(this->NLP_feasibility_tolerance_upperBound) + "].");
             }
             return;
         }
-        if (linecell[0] == "snopt_optimality_tolerance")
+        if (linecell[0] == "NLP_optimality_tolerance" || linecell[0] == "snopt_optimality_tolerance")
         {
-            this->snopt_optimality_tolerance = std::stod(linecell[1]);
+            this->NLP_optimality_tolerance = std::stod(linecell[1]);
             
             //bounds check
-            if (this->snopt_optimality_tolerance < this->snopt_optimality_tolerance_lowerBound || this->snopt_optimality_tolerance > this->snopt_optimality_tolerance_upperBound)
+            if (this->NLP_optimality_tolerance < this->NLP_optimality_tolerance_lowerBound || this->NLP_optimality_tolerance > this->NLP_optimality_tolerance_upperBound)
             {
-                throw std::out_of_range("Input option snopt_optimality_tolerance is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->snopt_optimality_tolerance) + ", bounds are [" + std::to_string(this->snopt_optimality_tolerance_lowerBound) + ", " + std::to_string(this->snopt_optimality_tolerance_upperBound) + "].");
+                throw std::out_of_range("Input option NLP_optimality_tolerance is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->NLP_optimality_tolerance) + ", bounds are [" + std::to_string(this->NLP_optimality_tolerance_lowerBound) + ", " + std::to_string(this->NLP_optimality_tolerance_upperBound) + "].");
             }
             return;
         }
-        if (linecell[0] == "NLP_max_step")
+        if (linecell[0] == "snopt_major_step_limit" || linecell[0] == "NLP_max_step")
         {
-            this->NLP_max_step = std::stod(linecell[1]);
+            this->snopt_major_step_limit = std::stod(linecell[1]);
             
             //bounds check
-            if (this->NLP_max_step < this->NLP_max_step_lowerBound || this->NLP_max_step > this->NLP_max_step_upperBound)
+            if (this->snopt_major_step_limit < this->snopt_major_step_limit_lowerBound || this->snopt_major_step_limit > this->snopt_major_step_limit_upperBound)
             {
-                throw std::out_of_range("Input option NLP_max_step is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->NLP_max_step) + ", bounds are [" + std::to_string(this->NLP_max_step_lowerBound) + ", " + std::to_string(this->NLP_max_step_upperBound) + "].");
+                throw std::out_of_range("Input option snopt_major_step_limit is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->snopt_major_step_limit) + ", bounds are [" + std::to_string(this->snopt_major_step_limit_lowerBound) + ", " + std::to_string(this->snopt_major_step_limit_upperBound) + "].");
             }
             return;
         }
-        if (linecell[0] == "snopt_major_iterations")
+        if (linecell[0] == "NLP_iteration_limit" || linecell[0] == "snopt_major_iterations")
         {
-            this->snopt_major_iterations = std::stoi(linecell[1]);
+            this->NLP_iteration_limit = std::stoi(linecell[1]);
             
             //bounds check
-            if (this->snopt_major_iterations < this->snopt_major_iterations_lowerBound || this->snopt_major_iterations > this->snopt_major_iterations_upperBound)
+            if (this->NLP_iteration_limit < this->NLP_iteration_limit_lowerBound || this->NLP_iteration_limit > this->NLP_iteration_limit_upperBound)
             {
-                throw std::out_of_range("Input option snopt_major_iterations is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->snopt_major_iterations) + ", bounds are [" + std::to_string(this->snopt_major_iterations_lowerBound) + ", " + std::to_string(this->snopt_major_iterations_upperBound) + "].");
+                throw std::out_of_range("Input option NLP_iteration_limit is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->NLP_iteration_limit) + ", bounds are [" + std::to_string(this->NLP_iteration_limit_lowerBound) + ", " + std::to_string(this->NLP_iteration_limit_upperBound) + "].");
             }
             return;
         }
@@ -822,14 +822,14 @@ namespace EMTG
             }
             return;
         }
-        if (linecell[0] == "snopt_max_run_time")
+        if (linecell[0] == "NLP_max_run_time" || linecell[0] == "snopt_max_run_time")
         {
-            this->snopt_max_run_time = std::stoi(linecell[1]);
+            this->NLP_max_run_time = std::stoi(linecell[1]);
             
             //bounds check
-            if (this->snopt_max_run_time < this->snopt_max_run_time_lowerBound || this->snopt_max_run_time > this->snopt_max_run_time_upperBound)
+            if (this->NLP_max_run_time < this->NLP_max_run_time_lowerBound || this->NLP_max_run_time > this->NLP_max_run_time_upperBound)
             {
-                throw std::out_of_range("Input option snopt_max_run_time is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->snopt_max_run_time) + ", bounds are [" + std::to_string(this->snopt_max_run_time_lowerBound) + ", " + std::to_string(this->snopt_max_run_time_upperBound) + "].");
+                throw std::out_of_range("Input option NLP_max_run_time is out of bounds on line " + std::to_string(lineNumber) + ". Value is " + std::to_string(this->NLP_max_run_time) + ", bounds are [" + std::to_string(this->NLP_max_run_time_lowerBound) + ", " + std::to_string(this->NLP_max_run_time_upperBound) + "].");
             }
             return;
         }
@@ -2380,40 +2380,40 @@ namespace EMTG
             optionsFileStream << "MBH_time_hop_probability " << this->MBH_time_hop_probability << std::endl;
         }
     
-        if (this->snopt_feasibility_tolerance != 1.00E-05 || writeAll)
+        if (this->NLP_feasibility_tolerance != 1.00E-08 || writeAll)
         {
-            optionsFileStream << "#feasibility tolerance" << std::endl;
-            optionsFileStream << "snopt_feasibility_tolerance " << this->snopt_feasibility_tolerance << std::endl;
+            optionsFileStream << "#NLP feasibility tolerance" << std::endl;
+            optionsFileStream << "NLP_feasibility_tolerance " << this->NLP_feasibility_tolerance << std::endl;
         }
     
-        if (this->snopt_optimality_tolerance != 1.00E-05 || writeAll)
+        if (this->NLP_optimality_tolerance != 1.00E-05 || writeAll)
         {
-            optionsFileStream << "#optimality tolerance" << std::endl;
-            optionsFileStream << "snopt_optimality_tolerance " << this->snopt_optimality_tolerance << std::endl;
+            optionsFileStream << "#NLP optimality tolerance" << std::endl;
+            optionsFileStream << "NLP_optimality_tolerance " << this->NLP_optimality_tolerance << std::endl;
         }
     
-        if (this->NLP_max_step != 1 || writeAll)
+        if (this->snopt_major_step_limit != 1 || writeAll)
         {
-            optionsFileStream << "#NLP max step" << std::endl;
-            optionsFileStream << "NLP_max_step " << this->NLP_max_step << std::endl;
+            optionsFileStream << "#SNOPT major step limit" << std::endl;
+            optionsFileStream << "snopt_major_step_limit " << this->snopt_major_step_limit << std::endl;
         }
     
-        if (this->snopt_major_iterations != 8000 || writeAll)
+        if (this->NLP_iteration_limit != 8000 || writeAll)
         {
-            optionsFileStream << "#NLP major iterations" << std::endl;
-            optionsFileStream << "snopt_major_iterations " << this->snopt_major_iterations << std::endl;
+            optionsFileStream << "#NLP iteration limit" << std::endl;
+            optionsFileStream << "NLP_iteration_limit " << this->NLP_iteration_limit << std::endl;
         }
     
         if (this->snopt_minor_iterations != 500 || writeAll)
         {
-            optionsFileStream << "#NLP minor iterations" << std::endl;
+            optionsFileStream << "#SNOPT minor iterations" << std::endl;
             optionsFileStream << "snopt_minor_iterations " << this->snopt_minor_iterations << std::endl;
         }
     
-        if (this->snopt_max_run_time != 15 || writeAll)
+        if (this->NLP_max_run_time != 15 || writeAll)
         {
             optionsFileStream << "#NLP max run time (seconds)" << std::endl;
-            optionsFileStream << "snopt_max_run_time " << this->snopt_max_run_time << std::endl;
+            optionsFileStream << "NLP_max_run_time " << this->NLP_max_run_time << std::endl;
         }
     
         if (this->enable_Scalatron != 1 || writeAll)

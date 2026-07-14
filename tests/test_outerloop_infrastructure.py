@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def phenotype(*flybys: str, phase_type: int = 6) -> MissionPhenotype:
     phases = tuple(PhasePhenotype(target, {"phase_type": phase_type, "dsm_count": 1}) for target in (*flybys, "Mars"))
     return MissionPhenotype(
-        {"launch_epoch": 60000},
+        {"launch_window_open_date": 60000},
         (JourneyPhenotype("Earth", "Mars", tuple(flybys), {"phase_type": phase_type}, phases),),
     )
 
@@ -176,6 +176,8 @@ def test_case_builder_maps_logical_body_names_and_phase_data(tmp_path):
     assert options.Journeys[0].sequence == [2]
     assert options.Journeys[0].phase_type == 6
     assert options.Journeys[0].impulses_per_phase == 1
+    assert options.launch_window_open_date == 60000
+    assert options.Journeys[0].wait_time_bounds == builder._base.Journeys[0].wait_time_bounds
     assert options.forced_working_directory.replace("/", "\\") == str(tmp_path).replace("/", "\\")
 
 

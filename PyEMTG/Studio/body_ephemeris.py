@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -109,3 +110,35 @@ class BodyEphemerisService:
             "kernel_files": [str(value) for value in kernels],
             "series": body_series,
         }
+
+    def current_series(
+        self,
+        names: Sequence[str],
+        points: int = 97,
+        window_days: float = 2.0,
+        frame: str = "J2000",
+        *,
+        moment: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Return body tracks centered on the actual current UTC instant."""
+        span = float(window_days)
+        if span <= 0.0:
+            raise ValueError("current body ephemeris window must be positive")
+        current_utc = moment or datetime.now(timezone.utc)
+        if current_utc.tzinfo is None:
+            raise ValueError("current body ephemeris time must be timezone-aware")
+        current_utc = current_utc.astimezone(timezone.utc)
+        leap_seconds = sorted((self.universe_folder / "ephemeris_files").glob("*.tls"))
+        if not leap_seconds:
+            raise FileNotFoundError("no SPICE leap-second kernel is available")
+        current_epoch = SpiceEphemerisProvider(leap_seconds).tdb_mjd_from_utc(current_utc)
+        result = self.series(
+            names,
+            current_epoch - span / 2.0,
+            current_epoch + span / 2.0,
+            points,
+            frame,
+        )
+        result["current_epoch_mjd"] = current_epoch
+        result["current_utc"] = current_utc.isoformat().replace("+00:00", "Z")
+        return result

@@ -10,6 +10,7 @@ from .models import OptionField
 
 
 ENUM_PATTERN = re.compile(r"^#(\d+):?\s*(.+)$", re.MULTILINE)
+SOLVER_TYPES = {"SNOPT": 0, "IPOPT": 2}
 
 
 def _literal(value: str) -> Any:
@@ -61,6 +62,12 @@ def load_option_schema(repository_root: str | Path) -> list[OptionField]:
                     {"value": int(value), "label": label.strip().rstrip(".")}
                     for value, label in ENUM_PATTERN.findall(description)
                 ]
+                aliases = [value.strip() for value in (row.get("aliases") or "").split("|") if value.strip()]
+                applicable_solvers = [
+                    SOLVER_TYPES[value.strip().upper()]
+                    for value in (row.get("applicableSolvers") or "").split("|")
+                    if value.strip()
+                ]
                 output.append(OptionField(
                     scope=scope,
                     group=_group(name, scope),
@@ -71,5 +78,7 @@ def load_option_schema(repository_root: str | Path) -> list[OptionField]:
                     upper=_literal(row.get("upperBound") or ""),
                     description=description,
                     choices=choices,
+                    aliases=aliases,
+                    applicable_solvers=applicable_solvers,
                 ))
     return output
