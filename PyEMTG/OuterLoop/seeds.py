@@ -20,7 +20,7 @@ class SeedFingerprint:
     flybys: tuple[str, ...]
     journey_count: int
     phase_types: tuple[Any, ...]
-    launch_epoch: float | None
+    launch_window_open_date: float | None
     flight_time: float | None
     hardware: tuple[tuple[str, Any], ...]
     phase_counts: tuple[int, ...] = ()
@@ -48,7 +48,7 @@ class SeedFingerprint:
             flybys=tuple(body for journey in phenotype.journeys for body in journey.flybys),
             journey_count=len(phenotype.journeys),
             phase_types=phase_types,
-            launch_epoch=_optional_float(phenotype.mission.get("launch_epoch")),
+            launch_window_open_date=_optional_float(phenotype.mission.get("launch_window_open_date")),
             flight_time=_optional_float(phenotype.mission.get("flight_time")),
             hardware=hardware,
             phase_counts=tuple(len(journey.phases) for journey in phenotype.journeys),
@@ -101,10 +101,14 @@ class SeedArtifact:
         **kwargs: Any,
     ) -> "SeedArtifact":
         fingerprint = SeedFingerprint.from_phenotype(phenotype)
+        fingerprint_identity = dict(fingerprint.__dict__)
+        fingerprint_identity["launch_epoch"] = fingerprint_identity.pop("launch_window_open_date")
         seed_id = content_hash(
             {
                 "source": source,
-                "fingerprint": fingerprint,
+                # Preserve schema-3 seed IDs across the compatibility-only
+                # launch-epoch gene rename.
+                "fingerprint": fingerprint_identity,
                 "xdescriptions": tuple(xdescriptions),
                 "decision_vector": tuple(float(value) for value in decision_vector),
             },
@@ -360,21 +364,34 @@ def fingerprint_distance(
     right: SeedFingerprint,
     weights: Mapping[str, float] | None = None,
 ) -> float:
+    configured_weights = dict(weights or {})
+    if "launch_epoch" in configured_weights:
+        legacy_weight = configured_weights.pop("launch_epoch")
+        if (
+            "launch_window_open_date" in configured_weights
+            and configured_weights["launch_window_open_date"] != legacy_weight
+        ):
+            raise ValueError("conflicting seed distance weights for launch_window_open_date")
+        configured_weights["launch_window_open_date"] = legacy_weight
     weight = {
         "endpoints": 5.0,
         "flybys": 3.0,
         "journeys": 4.0,
         "phase_types": 2.0,
-        "launch_epoch": 0.01,
+        "launch_window_open_date": 0.01,
         "flight_time": 0.01,
         "hardware": 2.0,
-        **dict(weights or {}),
+        **configured_weights,
     }
     endpoint_mismatches = sum(a != b for a, b in zip(left.endpoints, right.endpoints)) + abs(len(left.endpoints) - len(right.endpoints))
     lcs = _lcs_length(left.flybys, right.flybys)
     flyby_distance = len(left.flybys) + len(right.flybys) - 2 * lcs
     phase_mismatches = sum(a != b for a, b in zip(left.phase_types, right.phase_types)) + abs(len(left.phase_types) - len(right.phase_types))
-    epoch_distance = abs(left.launch_epoch - right.launch_epoch) if left.launch_epoch is not None and right.launch_epoch is not None else 0.0
+    epoch_distance = (
+        abs(left.launch_window_open_date - right.launch_window_open_date)
+        if left.launch_window_open_date is not None and right.launch_window_open_date is not None
+        else 0.0
+    )
     time_distance = abs(left.flight_time - right.flight_time) if left.flight_time is not None and right.flight_time is not None else 0.0
     hardware_distance = len(set(left.hardware).symmetric_difference(right.hardware))
     return (
@@ -382,7 +399,7 @@ def fingerprint_distance(
         + weight["flybys"] * flyby_distance
         + weight["journeys"] * abs(left.journey_count - right.journey_count)
         + weight["phase_types"] * phase_mismatches
-        + weight["launch_epoch"] * epoch_distance
+        + weight["launch_window_open_date"] * epoch_distance
         + weight["flight_time"] * time_distance
         + weight["hardware"] * hardware_distance
     )
@@ -457,7 +474,9 @@ class SeedInventory:
                 flybys=tuple(fingerprint_data.get("flybys", ())),
                 journey_count=int(fingerprint_data["journey_count"]),
                 phase_types=tuple(fingerprint_data.get("phase_types", ())),
-                launch_epoch=_optional_float(fingerprint_data.get("launch_epoch")),
+                launch_window_open_date=_optional_float(
+                    fingerprint_data.get("launch_window_open_date", fingerprint_data.get("launch_epoch"))
+                ),
                 flight_time=_optional_float(fingerprint_data.get("flight_time")),
                 hardware=tuple(tuple(pair) for pair in fingerprint_data.get("hardware", ())),
                 phase_counts=tuple(fingerprint_data.get("phase_counts", ())),

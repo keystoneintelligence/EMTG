@@ -32,11 +32,11 @@ namespace EMTG
             quiet_NLP(false),
             print_NLP_movie_frames(false),
             stop_on_goal_attain(false),
-            major_iterations_limit(1000),
-            minor_iterations_limit(500),
+            iteration_limit(1000),
+            snopt_minor_iterations_limit(500),
             max_run_time_seconds(3600),
-            max_step(1.0),
-            feasibility_tolerance(1.0e-5),
+            snopt_major_step_limit(1.0),
+            feasibility_tolerance(1.0e-8),
             optimality_tolerance(1.0e-6),
             objective_goal(1.0e+100),
             specs_file_path(""),
@@ -56,12 +56,12 @@ namespace EMTG
             this->quiet_NLP = options.quiet_NLP;
             this->print_NLP_movie_frames = options.print_NLP_movie_frames;
             this->stop_on_goal_attain = options.NLP_stop_on_goal_attain;
-            this->major_iterations_limit = options.snopt_major_iterations;
-            this->minor_iterations_limit = options.snopt_minor_iterations;
-            this->max_run_time_seconds = options.snopt_max_run_time;
-            this->max_step = options.NLP_max_step;
-            this->feasibility_tolerance = options.snopt_feasibility_tolerance;
-            this->optimality_tolerance = options.snopt_optimality_tolerance;
+            this->iteration_limit = options.NLP_iteration_limit;
+            this->snopt_minor_iterations_limit = options.snopt_minor_iterations;
+            this->max_run_time_seconds = options.NLP_max_run_time;
+            this->snopt_major_step_limit = options.snopt_major_step_limit;
+            this->feasibility_tolerance = options.NLP_feasibility_tolerance;
+            this->optimality_tolerance = options.NLP_optimality_tolerance;
             this->objective_goal = options.NLP_objective_goal;
         }
 #endif

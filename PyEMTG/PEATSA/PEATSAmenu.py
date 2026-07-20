@@ -797,7 +797,7 @@ class PEATSAmenu(object):
         # If missed_thrust_recovery_forced_terminal_coast_reduction > 0 : PEATSA will reduce the coast by an amount that is that percentage of the given phase's timestep. Enter a float, but integers are probably smarter.\n\
         # If missed_thrust_recovery_forced_terminal_coast_reduction < 0 : PEATSA will use the reduction directly directly as a number of days.")
         
-        self.override_options = [("1","MO.snopt_max_run_time = 300"),("1","MO.MBH_max_run_time = 600")]
+        self.override_options = [("1","MO.NLP_max_run_time = 300"),("1","MO.MBH_max_run_time = 600")]
         self.init_var(
             "override_options",
             "self.PEATSA_type != 4",

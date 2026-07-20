@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Trajectory } from './types'
-import { interpolateTrajectorySamples } from './trajectoryInterpolation'
+import { interpolateTrajectorySamples, propulsionMode, trajectoryDisplaySegments } from './trajectoryInterpolation'
 
 function trajectory(detail: 'events' | 'dense' = 'events'): Trajectory {
   return {
@@ -34,5 +34,24 @@ describe('interpolateTrajectorySamples', () => {
     value.samples.forEach(sample => { delete sample.velocity_km_s })
     const samples = interpolateTrajectorySamples(value, 4)
     expect(samples[2].position_km).toEqual([0.5, 0.5, 0])
+  })
+
+  it('classifies actual thrust before falling back to control state', () => {
+    expect(propulsionMode({ epoch_mjd: 1, position_km: [0, 0, 0], thrust_magnitude_n: 0.2, control: [0, 0, 0] })).toBe('burn')
+    expect(propulsionMode({ epoch_mjd: 1, position_km: [0, 0, 0], thrust_magnitude_n: 0, control: [1, 0, 0] })).toBe('coast')
+    expect(propulsionMode({ epoch_mjd: 1, position_km: [0, 0, 0], control: [1, 0, 0] })).toBe('burn')
+    expect(propulsionMode({ epoch_mjd: 1, position_km: [0, 0, 0] })).toBe('unknown')
+  })
+
+  it('keeps the full path while grouping contiguous burn and coast intervals', () => {
+    const segments = trajectoryDisplaySegments([
+      { epoch_mjd: 1, position_km: [0, 0, 0], propulsion_mode: 'coast' },
+      { epoch_mjd: 2, position_km: [1, 0, 0], propulsion_mode: 'burn' },
+      { epoch_mjd: 3, position_km: [2, 0, 0], propulsion_mode: 'burn' },
+      { epoch_mjd: 4, position_km: [3, 0, 0], propulsion_mode: 'coast' },
+    ])
+    expect(segments.map(segment => segment.mode)).toEqual(['burn', 'coast'])
+    expect(segments[0].points).toEqual([[0, 0, 0], [1, 0, 0], [2, 0, 0]])
+    expect(segments[1].points).toEqual([[2, 0, 0], [3, 0, 0]])
   })
 })

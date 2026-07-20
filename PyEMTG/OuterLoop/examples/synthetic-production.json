@@ -13,7 +13,7 @@
     "activation_mode": "tags",
     "repairs": ["reconnect_endpoints"],
     "mission_genes": {
-      "launch_epoch": {"kind": "integer", "lower": 60000, "upper": 60004},
+      "launch_window_open_date": {"kind": "integer", "lower": 60000, "upper": 60004},
       "spacecraft_configuration": {"kind": "choice", "choices": ["light", "heavy"]}
     },
     "journey_genes": {

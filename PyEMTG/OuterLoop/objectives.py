@@ -119,6 +119,7 @@ def default_objective_registry() -> ObjectiveRegistry:
     definitions = {
         "flight_time": ("minimize", "days"),
         "launch_epoch": ("minimize", "MJD"),
+        "launch_window_open_date": ("minimize", "MJD"),
         "delivered_mass": ("maximize", "kg"),
         "final_journey_mass_increment": ("maximize", "kg"),
         "departure_c3": ("minimize", "km^2/s^2"),

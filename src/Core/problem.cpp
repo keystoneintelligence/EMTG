@@ -130,7 +130,7 @@ namespace EMTG
 
                     std::cout << "J = " << this->F[0] << std::endl;
 					this->firstOptimizationCost = this->F[0] _GETVALUE;
-                    if (normalized_feasibility > options.snopt_feasibility_tolerance || decision_variable_infeasibility > options.snopt_feasibility_tolerance)
+                    if (normalized_feasibility > options.NLP_feasibility_tolerance || decision_variable_infeasibility > options.NLP_feasibility_tolerance)
                     {
                         this->what_the_heck_am_I_called(SolutionOutputType::FAILURE);
                         std::cout << "Acquired infeasible point ";
@@ -149,7 +149,7 @@ namespace EMTG
                     std::cout << "Worst constraint is F[" << worst_constraint << "]: " << this->Fdescriptions[worst_constraint] << std::endl;
                     std::cout << "with violation " << feasibility << std::endl;
 
-                    if (decision_variable_infeasibility < options.snopt_feasibility_tolerance)
+                    if (decision_variable_infeasibility < options.NLP_feasibility_tolerance)
                     {
                         std::cout << "Decision vector is feasible." << std::endl;
                     }
@@ -334,7 +334,7 @@ namespace EMTG
 
                     std::cout << "J = " << this->F[0] << std::endl;
 					this->firstOptimizationCost = this->F[0] _GETVALUE; // first optimization is the only optimization
-                    if (normalized_feasibility > options.snopt_feasibility_tolerance || decision_variable_infeasibility > options.snopt_feasibility_tolerance)
+                    if (normalized_feasibility > options.NLP_feasibility_tolerance || decision_variable_infeasibility > options.NLP_feasibility_tolerance)
                     {
                         this->what_the_heck_am_I_called(SolutionOutputType::FAILURE);
                         std::cout << "Acquired infeasible point ";
@@ -353,7 +353,7 @@ namespace EMTG
                     std::cout << "Worst constraint is F[" << worst_constraint << "]: " << this->Fdescriptions[worst_constraint] << std::endl;
                     std::cout << "with violation " << feasibility << std::endl;
 
-                    if (decision_variable_infeasibility < options.snopt_feasibility_tolerance)
+                    if (decision_variable_infeasibility < options.NLP_feasibility_tolerance)
                     {
                         std::cout << "Decision vector is feasible." << std::endl;
                     }
@@ -778,7 +778,7 @@ namespace EMTG
     {
         this->F_equality_or_inequality.clear();
         for (size_t Findex = 1; Findex < this->Fdescriptions.size(); ++Findex)
-            this->F_equality_or_inequality.push_back(this->Fupperbounds[Findex] - this->Flowerbounds[Findex] <= this->options.snopt_feasibility_tolerance ? true : false);
+            this->F_equality_or_inequality.push_back(this->Fupperbounds[Findex] - this->Flowerbounds[Findex] <= this->options.NLP_feasibility_tolerance ? true : false);
     }//end locate_equality_constraints()
 
     //function to scale to [0, 1] hypercube

@@ -55,6 +55,17 @@ class MissionOptions(object):
     MissionOptions class is used to read/write .emtgopt files and hold mission option variables.
 
     """
+    _OPTION_ALIASES = {'snopt_feasibility_tolerance': 'NLP_feasibility_tolerance', 'snopt_optimality_tolerance': 'NLP_optimality_tolerance', 'NLP_max_step': 'snopt_major_step_limit', 'snopt_major_iterations': 'NLP_iteration_limit', 'snopt_max_run_time': 'NLP_max_run_time'}
+
+    def __setattr__(self, name, value):
+        object.__setattr__(self, self._OPTION_ALIASES.get(name, name), value)
+
+    def __getattr__(self, name):
+        canonical_name = self._OPTION_ALIASES.get(name)
+        if canonical_name is not None:
+            return object.__getattribute__(self, canonical_name)
+        raise AttributeError(name)
+
     #************************************************************************************constructor
     def __init__(self, optionsFileName = None):
         self.mission_name = "default"
@@ -105,17 +116,17 @@ class MissionOptions(object):
         """Write every MBH improvement for later animation?"""
         self.MBH_time_hop_probability = 0.05
         """probability of MBH time hop operation"""
-        self.snopt_feasibility_tolerance = 1.00E-05
-        """feasibility tolerance"""
-        self.snopt_optimality_tolerance = 1.00E-05
-        """optimality tolerance"""
-        self.NLP_max_step = 1
-        """NLP max step"""
-        self.snopt_major_iterations = 8000
-        """NLP major iterations"""
+        self.NLP_feasibility_tolerance = 1.00E-08
+        """NLP feasibility tolerance"""
+        self.NLP_optimality_tolerance = 1.00E-05
+        """NLP optimality tolerance"""
+        self.snopt_major_step_limit = 1
+        """SNOPT major step limit"""
+        self.NLP_iteration_limit = 8000
+        """NLP iteration limit"""
         self.snopt_minor_iterations = 500
-        """NLP minor iterations"""
-        self.snopt_max_run_time = 15
+        """SNOPT minor iterations"""
+        self.NLP_max_run_time = 15
         """NLP max run time (seconds)"""
         self.enable_Scalatron = 1
         """Enable Scalatron?"""
@@ -549,23 +560,23 @@ class MissionOptions(object):
                     elif linecell[0] == "MBH_time_hop_probability":
                         self.MBH_time_hop_probability = float(linecell[1])
                   
-                    elif linecell[0] == "snopt_feasibility_tolerance":
-                        self.snopt_feasibility_tolerance = float(linecell[1])
+                    elif linecell[0] in ('NLP_feasibility_tolerance', 'snopt_feasibility_tolerance'):
+                        self.NLP_feasibility_tolerance = float(linecell[1])
                   
-                    elif linecell[0] == "snopt_optimality_tolerance":
-                        self.snopt_optimality_tolerance = float(linecell[1])
+                    elif linecell[0] in ('NLP_optimality_tolerance', 'snopt_optimality_tolerance'):
+                        self.NLP_optimality_tolerance = float(linecell[1])
                   
-                    elif linecell[0] == "NLP_max_step":
-                        self.NLP_max_step = float(linecell[1])
+                    elif linecell[0] in ('snopt_major_step_limit', 'NLP_max_step'):
+                        self.snopt_major_step_limit = float(linecell[1])
                   
-                    elif linecell[0] == "snopt_major_iterations":
-                        self.snopt_major_iterations = int(linecell[1])
+                    elif linecell[0] in ('NLP_iteration_limit', 'snopt_major_iterations'):
+                        self.NLP_iteration_limit = int(linecell[1])
                   
                     elif linecell[0] == "snopt_minor_iterations":
                         self.snopt_minor_iterations = int(linecell[1])
                   
-                    elif linecell[0] == "snopt_max_run_time":
-                        self.snopt_max_run_time = int(linecell[1])
+                    elif linecell[0] in ('NLP_max_run_time', 'snopt_max_run_time'):
+                        self.NLP_max_run_time = int(linecell[1])
                   
                     elif linecell[0] == "enable_Scalatron":
                         self.enable_Scalatron = int(linecell[1])
@@ -1158,29 +1169,29 @@ class MissionOptions(object):
                 optionsFile.write("#probability of MBH time hop operation\n")
                 optionsFile.write("MBH_time_hop_probability " + str(self.MBH_time_hop_probability) + "\n")
     
-            if (self.snopt_feasibility_tolerance != 1.00E-05 or writeAll):
-                optionsFile.write("#feasibility tolerance\n")
-                optionsFile.write("snopt_feasibility_tolerance " + str(self.snopt_feasibility_tolerance) + "\n")
+            if (self.NLP_feasibility_tolerance != 1.00E-08 or writeAll):
+                optionsFile.write("#NLP feasibility tolerance\n")
+                optionsFile.write("NLP_feasibility_tolerance " + str(self.NLP_feasibility_tolerance) + "\n")
     
-            if (self.snopt_optimality_tolerance != 1.00E-05 or writeAll):
-                optionsFile.write("#optimality tolerance\n")
-                optionsFile.write("snopt_optimality_tolerance " + str(self.snopt_optimality_tolerance) + "\n")
+            if (self.NLP_optimality_tolerance != 1.00E-05 or writeAll):
+                optionsFile.write("#NLP optimality tolerance\n")
+                optionsFile.write("NLP_optimality_tolerance " + str(self.NLP_optimality_tolerance) + "\n")
     
-            if (self.NLP_max_step != 1 or writeAll):
-                optionsFile.write("#NLP max step\n")
-                optionsFile.write("NLP_max_step " + str(self.NLP_max_step) + "\n")
+            if (self.snopt_major_step_limit != 1 or writeAll):
+                optionsFile.write("#SNOPT major step limit\n")
+                optionsFile.write("snopt_major_step_limit " + str(self.snopt_major_step_limit) + "\n")
     
-            if (self.snopt_major_iterations != 8000 or writeAll):
-                optionsFile.write("#NLP major iterations\n")
-                optionsFile.write("snopt_major_iterations " + str(self.snopt_major_iterations) + "\n")
+            if (self.NLP_iteration_limit != 8000 or writeAll):
+                optionsFile.write("#NLP iteration limit\n")
+                optionsFile.write("NLP_iteration_limit " + str(self.NLP_iteration_limit) + "\n")
     
             if (self.snopt_minor_iterations != 500 or writeAll):
-                optionsFile.write("#NLP minor iterations\n")
+                optionsFile.write("#SNOPT minor iterations\n")
                 optionsFile.write("snopt_minor_iterations " + str(self.snopt_minor_iterations) + "\n")
     
-            if (self.snopt_max_run_time != 15 or writeAll):
+            if (self.NLP_max_run_time != 15 or writeAll):
                 optionsFile.write("#NLP max run time (seconds)\n")
-                optionsFile.write("snopt_max_run_time " + str(self.snopt_max_run_time) + "\n")
+                optionsFile.write("NLP_max_run_time " + str(self.NLP_max_run_time) + "\n")
     
             if (self.enable_Scalatron != 1 or writeAll):
                 optionsFile.write("#Enable Scalatron?\n")

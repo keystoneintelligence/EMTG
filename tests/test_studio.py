@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 from math import dist
 from pathlib import Path
@@ -16,8 +17,9 @@ from PyEMTG.Studio.body_ephemeris import BodyEphemerisService
 from PyEMTG.Studio.ephemeris import SpiceEphemerisProvider, _mjd_tdb_to_et
 from PyEMTG.Studio.storage import StudioStore
 from PyEMTG.Studio.search_defaults import default_search_configuration
+from PyEMTG.Studio.search_effort import PRODUCTION_SEARCH_EFFORT, apply_search_effort
 from PyEMTG.Studio.trajectory import (
-    OutputFrameMetadata, normalize_samples_to_icrf, parse_output_frame_metadata,
+    OutputFrameMetadata, normalize_samples_to_icrf, parse_dense_ephemeris, parse_output_frame_metadata,
     trajectory_endpoints_align,
 )
 from PyEMTG.Studio.worker import run_job
@@ -116,6 +118,25 @@ def test_dense_ephemeris_frame_is_not_rotated_twice_and_boundaries_are_guarded()
     assert not trajectory_endpoints_align(double_rotated, normalized_event)
 
 
+def test_dense_ephemeris_normalizes_propulsion_columns(tmp_path: Path):
+    ephemeris = tmp_path / "powered.ephemeris"
+    ephemeris.write_text(
+        "\n".join((
+            "#epoch, x(km), y(km), z(km), vx(km/s), vy(km/s), vz(km/s), mass(kg), ux, uy, uz, ThrustMagnitude(N), MassFlowRate(kg/s), Isp(s), NumberOfActiveThrusters, ActivePower(kW)",
+            "2026 Jul 12  12:00:00.000000, 1, 2, 3, 4, 5, 6, 1200, 0.1, 0.2, 0.3, 0.334, 0.00001, 2500, 1, 11.5",
+        )),
+        encoding="utf-8",
+    )
+    sample = parse_dense_ephemeris(ephemeris)[0]
+    assert sample["mass_kg"] == 1200.0
+    assert sample["control"] == [0.1, 0.2, 0.3]
+    assert sample["thrust_magnitude_n"] == 0.334
+    assert sample["mass_flow_rate_kg_s"] == 0.00001
+    assert sample["isp_s"] == 2500.0
+    assert sample["active_engines"] == 1.0
+    assert sample["active_power_kw"] == 11.5
+
+
 def test_store_queue_resources_and_recovery(tmp_path: Path):
     database = tmp_path / "studio" / "studio.sqlite"
     store = StudioStore(database, tmp_path)
@@ -129,6 +150,44 @@ def test_store_queue_resources_and_recovery(tmp_path: Path):
     store.set_status(first["id"], "running")
     recovered = StudioStore(database, tmp_path)
     assert recovered.job(first["id"])["status"] == "queued"
+
+
+def test_search_effort_presets_are_persistent_and_default_to_production(tmp_path: Path):
+    database = tmp_path / "studio" / "studio.sqlite"
+    store = StudioStore(database, tmp_path)
+    presets = store.search_effort_presets()
+    assert presets["default_id"] == "production"
+    assert {value["id"] for value in presets["items"]} == {"smoke", "production"}
+    production = next(value for value in presets["items"] if value["id"] == "production")
+    assert production["parallel_candidates"] == 10
+    assert production["solve_time_seconds"] == 600
+    production["name"] = "Local production"
+    store.set_search_effort_presets(presets)
+    reopened = StudioStore(database, tmp_path, recover=False)
+    assert next(
+        value for value in reopened.search_effort_presets()["items"]
+        if value["id"] == "production"
+    )["name"] == "Local production"
+
+
+def test_apply_search_effort_preserves_non_effort_configuration():
+    config = configuration()
+    config["evaluator"] = {
+        "type": "emtg", "timeout_seconds": 10,
+        "budget": {"nlp_solver_type": 2, "quiet_nlp": 1},
+    }
+    apply_search_effort(config, PRODUCTION_SEARCH_EFFORT)
+    assert config["algorithm"] == {
+        "population_size": 20, "generations": 4, "tournament_size": 2,
+        "stall_generations": 4, "trials": 1,
+    }
+    assert config["evaluator"]["timeout_seconds"] == 720
+    assert config["evaluator"]["budget"] == {
+        "nlp_solver_type": 2, "quiet_nlp": 1, "inner_loop": "mbh",
+        "mbh_max_run_time": 600, "mbh_max_trials": 200000,
+        "nlp_max_run_time": 600, "nlp_major_iterations": 5000,
+    }
+    assert config["workers"] == {"count": 10}
 
 
 def test_delete_job_cascades_catalog_and_managed_artifacts(tmp_path: Path):
@@ -155,6 +214,13 @@ def test_real_search_defaults_discover_asteroid_runtime():
     assert defaults["ready"] is True
     assert defaults["config"]["evaluator"]["type"] == "emtg"
     assert defaults["config"]["search"]["fixed_final"] == "A20136163"
+    assert "launch_window_open_date" in defaults["config"]["search"]["mission_genes"]
+    assert "launch_epoch" not in defaults["config"]["search"]["mission_genes"]
+    assert defaults["config"]["algorithm"]["population_size"] == 20
+    assert defaults["config"]["algorithm"]["generations"] == 4
+    assert defaults["config"]["evaluator"]["budget"]["mbh_max_run_time"] == 600
+    assert defaults["config"]["evaluator"]["budget"]["nlp_major_iterations"] == 5000
+    assert defaults["config"]["workers"]["count"] == 10
     assert Path(defaults["config"]["assets"]["executable"]).is_file()
     bodies = discover_bodies(defaults["config"])
     assert bodies["ready"] is True
@@ -178,6 +244,20 @@ def test_real_search_defaults_discover_asteroid_runtime():
     leap_seconds = REPOSITORY / "testatron" / "universe" / "ephemeris_files" / "naif0012.tls"
     offset = SpiceEphemerisProvider([leap_seconds]).tdb_minus_utc_seconds([61300.0])[0]
     assert offset == pytest.approx(69.1824273893128, abs=1.0e-9)
+
+
+def test_current_body_ephemeris_is_centered_on_spice_converted_utc():
+    defaults = real_studio_runtime()
+    moment = datetime(2026, 7, 12, 12, 0, tzinfo=timezone.utc)
+    current = BodyEphemerisService(defaults["config"]).current_series(
+        ["Earth"], points=3, window_days=2.0, moment=moment,
+    )
+    assert current["current_utc"] == "2026-07-12T12:00:00Z"
+    assert current["start_mjd"] == pytest.approx(current["current_epoch_mjd"] - 1.0)
+    assert current["end_mjd"] == pytest.approx(current["current_epoch_mjd"] + 1.0)
+    assert current["series"][0]["samples"][1]["epoch_mjd"] == pytest.approx(
+        current["current_epoch_mjd"]
+    )
 
 
 def test_feasible_asteroid_endpoints_coincide_with_spice_destination():
@@ -240,6 +320,77 @@ def test_api_auth_schema_and_draft_job(tmp_path: Path):
         fields = response.json()["items"]
         assert any(value["name"] == "mission_name" for value in fields)
         assert any(value["scope"] == "journey" for value in fields)
+        feasibility = next(value for value in fields if value["name"] == "NLP_feasibility_tolerance")
+        assert feasibility["default"] == 1.0e-8
+        assert feasibility["aliases"] == ["snopt_feasibility_tolerance"]
+        assert feasibility["applicable_solvers"] == []
+        minor_iterations = next(value for value in fields if value["name"] == "snopt_minor_iterations")
+        assert minor_iterations["applicable_solvers"] == [0]
+
+
+def test_api_manages_search_effort_presets(tmp_path: Path):
+    token = "test-token"
+    state = tmp_path / "state"
+    app = create_app(tmp_path, state, token=token)
+    headers = {"X-EMTG-Token": token}
+    with TestClient(app) as client:
+        response = client.get("/api/v1/search-effort-presets", headers=headers)
+        assert response.status_code == 200
+        document = response.json()
+        assert document["default_id"] == "production"
+        production = next(value for value in document["items"] if value["id"] == "production")
+        production["parallel_candidates"] = 8
+        document["items"].append({
+            **production, "id": "deep-search", "name": "Deep search",
+            "solve_time_seconds": 1200, "watchdog_seconds": 1320,
+        })
+        document["default_id"] = "deep-search"
+        saved = client.put("/api/v1/search-effort-presets", headers=headers, json=document)
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["default_id"] == "deep-search"
+        assert len(saved.json()["items"]) == 3
+
+        invalid = saved.json()
+        invalid["items"][-1]["watchdog_seconds"] = 60
+        rejected = client.put("/api/v1/search-effort-presets", headers=headers, json=invalid)
+        assert rejected.status_code == 422
+        assert "watchdog" in rejected.json()["detail"]
+
+    reopened = StudioStore(state / "studio.sqlite", tmp_path, recover=False)
+    assert reopened.search_effort_presets()["default_id"] == "deep-search"
+
+
+def test_studio_save_accepts_legacy_solver_names_and_emits_canonical_names(tmp_path: Path):
+    token = "test-token"
+    app = create_app(tmp_path, tmp_path / "state", token=token)
+    output = tmp_path / "normalized.emtgopt"
+    headers = {"X-EMTG-Token": token}
+    mission = {
+        "snopt_feasibility_tolerance": 1.0e-7,
+        "snopt_optimality_tolerance": 2.0e-7,
+        "snopt_major_iterations": 123,
+        "snopt_max_run_time": 45,
+        "NLP_max_step": 0.5,
+    }
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/options/save",
+            headers=headers,
+            json={"path": str(output), "mission": mission, "journeys": []},
+        )
+
+    assert response.status_code == 200, response.text
+    option_names = {
+        line.split(" ", 1)[0]
+        for line in output.read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#")
+    }
+    assert {
+        "NLP_feasibility_tolerance", "NLP_optimality_tolerance",
+        "NLP_iteration_limit", "NLP_max_run_time", "snopt_major_step_limit",
+    }.issubset(option_names)
+    assert not set(mission).intersection(option_names)
 
 
 def test_api_body_discovery_and_ephemeris_with_real_runtime(tmp_path: Path):
@@ -258,6 +409,14 @@ def test_api_body_discovery_and_ephemeris_with_real_runtime(tmp_path: Path):
         )
         assert response.status_code == 200, response.text
         assert response.json()["sample_count"] == 6
+        current = client.get(
+            "/api/v1/ephemeris/bodies/now",
+            headers=headers,
+            params=[("names", "Earth"), ("points", "3"), ("window_days", "2")],
+        )
+        assert current.status_code == 200, current.text
+        assert current.json()["sample_count"] == 3
+        assert current.json()["start_mjd"] < current.json()["current_epoch_mjd"] < current.json()["end_mjd"]
 
 
 def test_api_exposes_job_json_and_deletes_completed_run(tmp_path: Path):

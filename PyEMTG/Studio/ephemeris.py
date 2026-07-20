@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 import threading
 from typing import Mapping, Protocol, Sequence
@@ -76,3 +77,13 @@ class SpiceEphemerisProvider:
                 float(spiceypy.deltet(_mjd_tdb_to_et(epoch), "ET"))
                 for epoch in epochs_mjd
             ]
+
+    def tdb_mjd_from_utc(self, moment: datetime) -> float:
+        """Convert an aware UTC instant to EMTG's ET/TDB MJD convention."""
+        if moment.tzinfo is None:
+            raise ValueError("UTC-to-TDB conversion requires a timezone-aware datetime")
+        import spiceypy
+        self._furnish()
+        utc = moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")
+        with self._lock:
+            return 51544.5 + float(spiceypy.utc2et(utc)) / 86400.0

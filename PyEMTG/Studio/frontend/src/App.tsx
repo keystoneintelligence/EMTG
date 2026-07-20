@@ -21,6 +21,9 @@ export function App() {
   const [bodyOptions, setBodyOptions] = useState<BodyOption[]>([])
   const [sceneBodies, setSceneBodies] = useState(new Set<string>())
   const [bodyTrajectories, setBodyTrajectories] = useState<BodyTrajectory[]>([])
+  const [currentEpoch, setCurrentEpoch] = useState(0)
+  const [currentUtc, setCurrentUtc] = useState('')
+  const [currentRefresh, setCurrentRefresh] = useState(0)
   const [startBody, setStartBody] = useState('')
   const [endBody, setEndBody] = useState('')
   const [sequence, setSequence] = useState('')
@@ -86,23 +89,46 @@ export function App() {
     setSceneBodies(previous => new Set([...previous, ...endpoints]))
   }, [selectedEndpointSignature, bodyOptions.length])
   const allSamples = [...selectedTrajectories.values()].flatMap(value => value.samples)
+  const hasTrajectoryTime = allSamples.length > 0
   const timeAnchors = allSamples.filter(sample => sample.tdb_minus_utc_seconds != null)
   const minEpoch = allSamples.length ? Math.min(...allSamples.map(value => value.epoch_mjd)) : 0
   const maxEpoch = allSamples.length ? Math.max(...allSamples.map(value => value.epoch_mjd)) : 1
+  const viewerEpoch = hasTrajectoryTime ? epoch : currentEpoch
+  const timelineMinEpoch = hasTrajectoryTime ? minEpoch : currentEpoch
+  const timelineMaxEpoch = hasTrajectoryTime ? maxEpoch : currentEpoch
   const sceneBodyKey = [...sceneBodies].sort().join('|')
   useEffect(() => {
+    if (hasTrajectoryTime) return
+    const timer = window.setInterval(() => setCurrentRefresh(value => value + 1), 60_000)
+    return () => window.clearInterval(timer)
+  }, [hasTrajectoryTime])
+  useEffect(() => {
     const names = [...sceneBodies].filter(name => bodyOptions.some(body => body.name === name))
-    if (!allSamples.length || !names.length || maxEpoch <= minEpoch) {
+    if (!names.length) {
       setBodyTrajectories([])
       return
     }
     let active = true
-    api.bodyEphemerides(names, minEpoch, maxEpoch, 420)
-      .then(value => { if (active) setBodyTrajectories(value.series) })
+    const request = hasTrajectoryTime && maxEpoch > minEpoch
+      ? api.bodyEphemerides(names, minEpoch, maxEpoch, 420)
+      : api.currentBodyEphemerides(names)
+    request
+      .then(value => {
+        if (!active) return
+        setBodyTrajectories(value.series)
+        if (
+          'current_epoch_mjd' in value && typeof value.current_epoch_mjd === 'number'
+          && 'current_utc' in value && typeof value.current_utc === 'string'
+        ) {
+          setCurrentEpoch(value.current_epoch_mjd)
+          setCurrentUtc(value.current_utc)
+        }
+      })
       .catch(value => { if (active) setError(String(value)) })
     return () => { active = false }
-  }, [sceneBodyKey, minEpoch, maxEpoch, allSamples.length, bodyOptions.length])
+  }, [sceneBodyKey, minEpoch, maxEpoch, hasTrajectoryTime, bodyOptions.length, currentRefresh])
   useEffect(() => { if (allSamples.length && (epoch < minEpoch || epoch > maxEpoch)) setEpoch(minEpoch) }, [minEpoch, maxEpoch, allSamples.length, epoch])
+  useEffect(() => { if (!hasTrajectoryTime) setPlaying(false) }, [hasTrajectoryTime])
   useEffect(() => {
     if (!playing || maxEpoch <= minEpoch) return
     const timer = window.setInterval(() => setEpoch(value => value >= maxEpoch ? minEpoch : Math.min(maxEpoch, value + (maxEpoch - minEpoch) / 500 * speed)), 30)
@@ -130,6 +156,11 @@ export function App() {
 
   const inspected = selected[selected.length - 1]
   const formatEpoch = (value: number) => {
+    if (!hasTrajectoryTime) {
+      if (timeMode === 'mjd') return currentEpoch ? `TDB MJD ${currentEpoch.toFixed(5)}` : 'Loading current ephemeris'
+      if (timeMode === 'elapsed') return 'Current epoch (no trajectory)'
+      return currentUtc ? currentUtc.replace(/\.\d+Z$/, 'Z') : 'Loading current ephemeris'
+    }
     if (timeMode === 'mjd') return `TDB MJD ${value.toFixed(5)}`
     if (timeMode === 'elapsed') return `T + ${(value - minEpoch).toFixed(3)} days`
     const utc = utcDateFromTdbMjd(value, timeAnchors)
@@ -154,7 +185,7 @@ export function App() {
             {selected.map((solution, index) => <button className="layer-row" key={solution.id} onClick={() => toggle(solution)}><span style={{ color: ['#53d8fb','#ffb454','#a78bfa','#63e6be'][index % 4] }}>━</span>{solution.sequence_text}</button>)}
             {!selected.length && <small>Select solutions from the table below.</small>}
           </div>
-          <div className="tree-node expanded body-track-tree">▾ SPICE body tracks <small>{bodyTrajectories.filter(body => body.samples.length).length} plotted · cumulative mission span</small>
+          <div className="tree-node expanded body-track-tree">▾ SPICE body tracks <small>{bodyTrajectories.filter(body => body.samples.length).length} plotted · {hasTrajectoryTime ? 'cumulative mission span' : 'current epoch'}</small>
             {bodyOptions.map(body => {
               const series = bodyTrajectories.find(value => value.name === body.name)
               const status = series && series.coverage_status !== 'covered' ? series.coverage_status : body.category
@@ -163,13 +194,13 @@ export function App() {
           </div>
           <div className="filter-block"><div className="panel-title">Catalog filters</div><label>Start body<input value={startBody} placeholder="Earth" onChange={event => setStartBody(event.target.value)} /></label><label>End body<input value={endBody} placeholder="Mars" onChange={event => setEndBody(event.target.value)} /></label><label>Route contains<input value={sequence} placeholder="Venus" onChange={event => setSequence(event.target.value)} /></label><label>Max propellant (kg)<input type="number" value={propellantMax} onChange={event => setPropellantMax(event.target.value)} /></label><label className="check"><input type="checkbox" checked={feasibleOnly} onChange={event => setFeasibleOnly(event.target.checked)} /> Feasible only</label><button onClick={refreshSolutions}>Apply filters</button></div>
         </aside>
-        <main className="viewport"><TrajectoryScene trajectories={selectedTrajectories} selected={selected} bodyTrajectories={bodyTrajectories} epoch={epoch} /><div className="viewport-badge">J2000 / ICRF · velocity-smoothed trajectories · Earth-plane grid</div></main>
+        <main className="viewport"><TrajectoryScene trajectories={selectedTrajectories} selected={selected} bodyTrajectories={bodyTrajectories} epoch={viewerEpoch} /><div className="viewport-badge">J2000 / ICRF · velocity-smoothed trajectories · Earth-plane grid</div><div className="trajectory-legend"><span><i className="legend-burn" />Thrusting</span><span><i className="legend-coast" />Coast</span><span><i className="legend-body" />SPICE orbit</span></div></main>
         <aside className="inspector">
           <div className="panel-title">Inspector</div>
           {inspected ? <><h3>{inspected.sequence_text}</h3><dl><dt>Status</dt><dd>{inspected.status}</dd><dt>Fidelity</dt><dd>{inspected.fidelity || '—'}</dd><dt>Launch</dt><dd>{inspected.launch_mjd?.toFixed(3) || '—'} MJD</dd><dt>Flight time</dt><dd>{inspected.flight_time_days?.toFixed(2) || '—'} d</dd><dt>Propellant</dt><dd>{inspected.propellant_used_kg?.toFixed(2) || '—'} kg</dd><dt>Delivered mass</dt><dd>{inspected.delivered_mass_kg?.toFixed(2) || '—'} kg</dd><dt>Max thrust</dt><dd>{inspected.thrust_max_n?.toPrecision(4) || '—'} N</dd></dl><button onClick={() => api.materialize(inspected.id).then(refreshSolutions)}>Request dense ephemeris</button></> : <p>Select a solution to inspect its metrics and trajectory.</p>}
         </aside>
       </div>
-      <section className="timeline"><div className="timeline-controls"><button onClick={() => setPlaying(!playing)}>{playing ? '❚❚' : '▶'}</button><button onClick={() => setEpoch(minEpoch)}>↤</button><strong>{epoch ? formatEpoch(epoch) : 'No trajectory loaded'}</strong><label>Time <select value={timeMode} onChange={event => setTimeMode(event.target.value as typeof timeMode)}><option value="utc">UTC</option><option value="mjd">MJD</option><option value="elapsed">Elapsed</option></select></label><label>Speed <select value={speed} onChange={event => setSpeed(Number(event.target.value))}><option value={0.25}>0.25×</option><option value={1}>1×</option><option value={4}>4×</option><option value={16}>16×</option></select></label></div><input type="range" min={minEpoch} max={maxEpoch} step={(maxEpoch - minEpoch) / 10000 || 1} value={epoch} onChange={event => setEpoch(Number(event.target.value))} /><div className="time-labels"><span>{minEpoch ? minEpoch.toFixed(2) : '—'}</span><span>Full trajectory remains visible while time advances</span><span>{maxEpoch ? maxEpoch.toFixed(2) : '—'}</span></div></section>
+      <section className="timeline"><div className="timeline-controls"><button disabled={!hasTrajectoryTime} onClick={() => setPlaying(!playing)}>{playing ? '❚❚' : '▶'}</button><button disabled={!hasTrajectoryTime} onClick={() => setEpoch(minEpoch)}>↤</button><strong>{viewerEpoch ? formatEpoch(viewerEpoch) : 'Loading current ephemeris'}</strong><label>Time <select value={timeMode} onChange={event => setTimeMode(event.target.value as typeof timeMode)}><option value="utc">UTC</option><option value="mjd">MJD</option><option value="elapsed">Elapsed</option></select></label><label>Speed <select disabled={!hasTrajectoryTime} value={speed} onChange={event => setSpeed(Number(event.target.value))}><option value={0.25}>0.25×</option><option value={1}>1×</option><option value={4}>4×</option><option value={16}>16×</option></select></label></div><input disabled={!hasTrajectoryTime} type="range" min={timelineMinEpoch} max={timelineMaxEpoch} step={hasTrajectoryTime ? ((maxEpoch - minEpoch) / 10000 || 1) : 1} value={viewerEpoch} onChange={event => setEpoch(Number(event.target.value))} /><div className="time-labels"><span>{timelineMinEpoch ? timelineMinEpoch.toFixed(2) : '—'}</span><span>{hasTrajectoryTime ? 'Full trajectory remains visible while time advances' : 'SPICE bodies shown at the current epoch'}</span><span>{timelineMaxEpoch ? timelineMaxEpoch.toFixed(2) : '—'}</span></div></section>
       <section className="catalog"><div className="panel-title"><span>Solution catalog <button className={catalogMode === 'table' ? 'active' : ''} onClick={() => setCatalogMode('table')}>Table</button><button className={catalogMode === 'pareto' ? 'active' : ''} onClick={() => setCatalogMode('pareto')}>Pareto</button></span><span>{total.toLocaleString()} evaluations · {selected.length} compared</span></div>{catalogMode === 'table' ? <SolutionTable solutions={solutions} selected={selectedIds} onToggle={toggle} /> : <ParetoPlot solutions={solutions} selected={selectedIds} onToggle={toggle} />}</section>
     </>}
   </div>

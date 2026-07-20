@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .search_effort import PRODUCTION_SEARCH_EFFORT, apply_search_effort
+
 
 def _runtime_roots(workspace: Path, bundled_root: Path) -> list[Path]:
     candidates: list[Path] = []
@@ -57,7 +59,7 @@ def default_search_configuration(workspace: Path, bundled_root: Path) -> dict[st
             "fixed_final": final_body,
             "repairs": [],
             "mission_genes": {
-                "launch_epoch": {"kind": "integer", "lower": launch_lower, "upper": launch_upper},
+                "launch_window_open_date": {"kind": "integer", "lower": launch_lower, "upper": launch_upper},
                 "flight_time": {"kind": "integer", "lower": flight_lower, "upper": flight_upper},
             },
             "journey_genes": {
@@ -69,33 +71,34 @@ def default_search_configuration(workspace: Path, bundled_root: Path) -> dict[st
         },
         "objectives": ["flight_time", "delivered_mass"],
         "algorithm": {
-            "population_size": 4,
-            "generations": 2,
+            "population_size": 20,
+            "generations": 4,
             "tournament_size": 2,
             "crossover_probability": 0.9,
             "mutation_probability": 0.7,
-            "stall_generations": 2,
+            "stall_generations": 4,
             "trials": 1,
         },
         "evaluator": {
             "type": "emtg",
-            "timeout_seconds": 120,
+            "timeout_seconds": 720,
             "check_ephemeris_coverage": False,
             "ephemeris_source_override": 1,
             "supported_phase_types": [phase_type],
             "budget": {
                 "inner_loop": "mbh",
-                "mbh_max_run_time": 30,
-                "mbh_max_trials": 500,
+                "mbh_max_run_time": 600,
+                "mbh_max_trials": 200000,
                 "nlp_solver_type": 2,
-                "nlp_max_run_time": 30,
-                "nlp_major_iterations": 500,
+                "nlp_max_run_time": 600,
+                "nlp_major_iterations": 5000,
                 "quiet_nlp": 1,
             },
         },
-        "workers": {"count": 2, "infrastructure_retries": 1},
+        "workers": {"count": 10, "infrastructure_retries": 1},
         "checkpoint_every": 2,
     }
+    apply_search_effort(config, PRODUCTION_SEARCH_EFFORT)
     required = {
         "EMTG executable": Path(config["assets"]["executable"]),
         "base mission": base_case,

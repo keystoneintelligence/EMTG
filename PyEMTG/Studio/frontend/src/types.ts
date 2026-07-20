@@ -20,6 +20,26 @@ export type SearchDefaults = {
   template: string
 }
 
+export type SearchEffortPreset = {
+  id: string
+  name: string
+  description: string
+  parallel_candidates: number
+  population_size: number
+  generations: number
+  stall_generations: number
+  trials: number
+  solve_time_seconds: number
+  nlp_major_iterations: number
+  mbh_max_trials: number
+  watchdog_seconds: number
+}
+
+export type SearchEffortPresetCollection = {
+  default_id: string
+  items: SearchEffortPreset[]
+}
+
 export type BodyOption = {
   name: string
   display_name: string
@@ -45,6 +65,19 @@ export type BodyTrajectory = {
   coverage_end_mjd?: number
   error?: string
   samples: BodyTrajectorySample[]
+}
+
+export type BodyEphemerisResponse = {
+  frame: string
+  central_body: string
+  observer_spice_id: number
+  sample_count: number
+  series: BodyTrajectory[]
+}
+
+export type CurrentBodyEphemerisResponse = BodyEphemerisResponse & {
+  current_epoch_mjd: number
+  current_utc: string
 }
 
 export type Solution = {
@@ -81,9 +114,12 @@ export type TrajectorySample = {
   event_type?: string
   location?: string
   mass_kg?: number
+  control?: [number, number, number]
   thrust_n?: [number, number, number]
   thrust_magnitude_n?: number
   available_thrust_n?: number
+  mass_flow_rate_kg_s?: number
+  active_engines?: number
   active_power_kw?: number
 }
 
@@ -112,4 +148,6 @@ export type OptionField = {
   upper?: unknown
   description: string
   choices: Array<{ value: number; label: string }>
+  aliases: string[]
+  applicable_solvers: number[]
 }

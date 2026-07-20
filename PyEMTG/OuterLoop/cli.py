@@ -62,7 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("config")
     run.add_argument("--max-new-evaluations", type=int)
 
-    resume = subparsers.add_parser("resume", help="resume an interrupted campaign exactly")
+    resume = subparsers.add_parser("resume", help="resume an incomplete campaign exactly")
     resume.add_argument("checkpoint")
     resume.add_argument("--max-new-evaluations", type=int)
 

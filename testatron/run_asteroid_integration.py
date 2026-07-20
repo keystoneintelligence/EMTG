@@ -51,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--min-final-mass",
         type=float,
-        default=1800.0,
+        default=1200.0,
         help="Minimum acceptable final spacecraft mass in kg.",
     )
     parser.add_argument(
@@ -89,7 +89,7 @@ def write_run_options(
     if run_budget_seconds is not None:
         if run_budget_seconds <= 0:
             raise ValueError("--run-budget-seconds must be positive")
-        options.snopt_max_run_time = run_budget_seconds
+        options.NLP_max_run_time = run_budget_seconds
 
     run_options = output_dir / case_file.name
     options.write_options_file(str(run_options), not options.print_only_non_default_options)

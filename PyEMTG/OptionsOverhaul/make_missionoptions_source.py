@@ -1,4 +1,18 @@
 def make_missionoptions_source(OptionsDefinitions, now, path = '.'):
+    adaptive_integrator_options = {
+        'integrator_tolerance', 'integrator_error_control_mode',
+        'integrator_relative_tolerance', 'integrator_absolute_tolerance_position',
+        'integrator_absolute_tolerance_velocity', 'integrator_absolute_tolerance_mass',
+        'integrator_absolute_tolerance_time', 'integrator_absolute_tolerance_other',
+        'integrator_stm_error_control', 'integrator_stm_relative_tolerance',
+        'integrator_stm_absolute_tolerance', 'integration_time_step_size',
+        'integrator_initial_step_size', 'integrator_minimum_step_size',
+        'integrator_safety_factor', 'integrator_minimum_step_scale',
+        'integrator_maximum_step_scale', 'integrator_rejection_limit',
+    }
+    compact_writer_options = adaptive_integrator_options | {
+        'integratorType', 'num_timesteps', 'spiral_segments',
+    }
     # first load the copyright info
     with open(path + "PyEMTG/OptionsOverhaul/copyright_block.txt", 'r') as file:  # path passed into function = EMTG_path
         copyright_block = file.read()
@@ -216,7 +230,12 @@ def make_missionoptions_source(OptionsDefinitions, now, path = '.'):
                 if option['scale'] != None:
                     scale = ' * ' + str(option['scale']) + '.0'
 
-            file.write('        if (linecell[0] == "' + name + '")\n')
+            accepted_names = [name] + [alias.strip() for alias in option.get('aliases', '').split('|') if alias.strip()]
+            if len(accepted_names) == 1:
+                file.write('        if (linecell[0] == "' + name + '")\n')
+            else:
+                accepted_condition = ' || '.join('linecell[0] == "' + accepted_name + '"' for accepted_name in accepted_names)
+                file.write('        if (' + accepted_condition + ')\n')
             file.write('        {\n')
             #bounds check and assignment
             if 'std::vector' in option['dataType']:
@@ -297,7 +316,7 @@ def make_missionoptions_source(OptionsDefinitions, now, path = '.'):
                         file.write('(' + option['dataType'] + ') std::stoi(linecell[1]);\n')
                     #bounds check
                     if 'bool' not in dataType:
-                        file.write('            \n')
+                        file.write('\n' if name in adaptive_integrator_options else '            \n')
                         file.write('            //bounds check\n')
                         file.write('            if (this->' + name + ' < this->' + name + '_lowerBound || this->' + name + ' > this->' + name + '_upperBound)\n')
                         file.write('            {\n')
@@ -379,7 +398,7 @@ def make_missionoptions_source(OptionsDefinitions, now, path = '.'):
                 file.write('            optionsFileStream << "#' + option['description'] + '" << std::endl;\n')
                 file.write('            optionsFileStream << "' + name + ' " << this->' + name + scale + ' << std::endl;\n')
                 file.write('        }\n')
-                if name == 'SPICE_high_fidelity_derivatives':
+                if name == 'SPICE_high_fidelity_derivatives' or name in compact_writer_options:
                     file.write('\n')
                 else:
                     file.write('    \n')

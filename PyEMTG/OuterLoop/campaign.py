@@ -24,6 +24,7 @@ from .evaluator import (
 )
 from .fidelity import promote_diverse_nondominated
 from .genome import GenomeSchema, TopologyError, decode_genotype, random_genotype, stratify_genotype
+from .gene_names import canonical_mission_gene_name
 from .model import (
     CandidateRecord,
     EvaluationRequest,
@@ -600,11 +601,12 @@ class Campaign:
                     )
                     mission = dict(genotype.mission)
                     for column, gene in mapping.items():
-                        if column not in record.values or str(gene) not in self.config.search.mission_genes:
+                        canonical_gene = canonical_mission_gene_name(str(gene))
+                        if column not in record.values or canonical_gene not in self.config.search.mission_genes:
                             raise ValueError(f"legacy gene mapping {column}->{gene} is invalid")
-                        spec = self.config.search.mission_genes[str(gene)]
+                        spec = self.config.search.mission_genes[canonical_gene]
                         raw = record.values[column]
-                        mission[str(gene)] = int(raw) if spec.kind == "integer" else float(raw) if spec.kind == "decimal" else raw
+                        mission[canonical_gene] = int(raw) if spec.kind == "integer" else float(raw) if spec.kind == "decimal" else raw
                     output.append((replace(genotype, mission=mission), f"legacy:{path.name}:{record_index}"))
                 continue
             for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -884,7 +886,7 @@ class Campaign:
                 if bool(self.config.evaluator.get("check_ephemeris_coverage", True)):
                     launch = float(
                         phenotype.mission.get(
-                            "launch_epoch", emtg_evaluator.builder._base.launch_window_open_date
+                            "launch_window_open_date", emtg_evaluator.builder._base.launch_window_open_date
                         )
                     )
                     flight_bounds = phenotype.mission.get(
@@ -898,6 +900,18 @@ class Campaign:
                         duration = float(flight_bounds[-1])
                     else:
                         duration = float(flight_bounds)
+                    first_template = emtg_evaluator.builder._base.Journeys[
+                        emtg_evaluator.builder.journey_template_index
+                    ]
+                    wait_bounds = phenotype.journeys[0].values.get(
+                        "wait_time_bounds", first_template.wait_time_bounds
+                    )
+                    if isinstance(wait_bounds, (list, tuple)):
+                        wait_lower, wait_upper = float(wait_bounds[0]), float(wait_bounds[-1])
+                    else:
+                        wait_lower = wait_upper = float(wait_bounds)
+                    coverage_start = launch + wait_lower
+                    coverage_end = launch + wait_upper + duration
                     spice_ids = []
                     for journey in phenotype.journeys:
                         template = emtg_evaluator.builder._base.Journeys[emtg_evaluator.builder.journey_template_index]
@@ -909,11 +923,11 @@ class Campaign:
                             if body in catalog.bodies
                         )
                     missing = emtg_evaluator.ephemeris_coverage().missing(
-                        spice_ids, launch, launch + duration
+                        spice_ids, coverage_start, coverage_end
                     )
                     if missing:
                         raise ValueError(
-                            f"SPK coverage is missing for body IDs {missing} over MJD {launch}..{launch + duration}"
+                            f"SPK coverage is missing for body IDs {missing} over MJD {coverage_start}..{coverage_end}"
                         )
             except Exception as error:
                 return EvaluationResult(
@@ -1162,7 +1176,7 @@ class Campaign:
         if phenotype.resonance:
             metrics["resonance"] = phenotype.resonance
         architectural_metrics = {
-            "launch_epoch": "launch_epoch",
+            "launch_window_open_date": "launch_window_open_date",
             "beginning_of_life_power": "beginning_of_life_power",
             "power_at_1_AU": "beginning_of_life_power",
             "bus_power": "bus_power",
@@ -1845,7 +1859,21 @@ class Campaign:
                 trial, generation, role, max_new_evaluations, used
             )
             if not complete:
-                self.store.checkpoint({"status": "interrupted", "trial": trial, "generation": generation, "role": role})
+                if self.cancel_event.is_set():
+                    status, reason = "interrupted", "cancelled"
+                elif self.pause_requested:
+                    status, reason = "interrupted", "paused"
+                elif max_new_evaluations is not None:
+                    status, reason = "yielded", "evaluation_budget"
+                else:
+                    status, reason = "interrupted", "unknown"
+                self.store.checkpoint({
+                    "status": status,
+                    "trial": trial,
+                    "generation": generation,
+                    "role": role,
+                    "reason": reason,
+                })
                 return CampaignOutcome(False, trial, generation, used, self._archive_total(), str(self.store.checkpoint_path))
 
             current = self._evaluated(self.store.load_candidates(trial, generation, role))

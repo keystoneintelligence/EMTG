@@ -11,6 +11,7 @@ import pytest
 
 from OuterLoop.campaign import Campaign
 from OuterLoop.config import CampaignConfig
+from OuterLoop.control import RunDirective
 from OuterLoop.evaluator import EMTGCaseBuilder, EMTGResultParser, SyntheticEvaluator
 from OuterLoop.model import (
     CandidateRecord,
@@ -43,7 +44,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def phenotype(*flybys: str, phase_type: int = 6) -> MissionPhenotype:
     phases = tuple(PhasePhenotype(target, {"phase_type": phase_type, "dsm_count": 1}) for target in (*flybys, "Mars"))
     return MissionPhenotype(
-        {"launch_epoch": 60000},
+        {"launch_window_open_date": 60000},
         (JourneyPhenotype("Earth", "Mars", tuple(flybys), {"phase_type": phase_type}, phases),),
     )
 
@@ -176,6 +177,8 @@ def test_case_builder_maps_logical_body_names_and_phase_data(tmp_path):
     assert options.Journeys[0].sequence == [2]
     assert options.Journeys[0].phase_type == 6
     assert options.Journeys[0].impulses_per_phase == 1
+    assert options.launch_window_open_date == 60000
+    assert options.Journeys[0].wait_time_bounds == builder._base.Journeys[0].wait_time_bounds
     assert options.forced_working_directory.replace("/", "\\") == str(tmp_path).replace("/", "\\")
 
 
@@ -330,13 +333,16 @@ def deterministic_metrics(rows):
     ]
 
 
-def test_campaign_resume_matches_uninterrupted_and_deduplicates(tmp_path):
-    interrupted_config = CampaignConfig.from_dict(campaign_data(str(tmp_path / "interrupted"), workers=3), tmp_path / "campaign-a.json")
-    evaluator = CountingEvaluator(interrupted_config.evaluator)
-    first = Campaign(interrupted_config, evaluator=evaluator).run(max_new_evaluations=2)
+def test_campaign_resume_after_budget_yield_matches_full_run_and_deduplicates(tmp_path):
+    yielded_config = CampaignConfig.from_dict(campaign_data(str(tmp_path / "yielded"), workers=3), tmp_path / "campaign-a.json")
+    evaluator = CountingEvaluator(yielded_config.evaluator)
+    first = Campaign(yielded_config, evaluator=evaluator).run(max_new_evaluations=2)
     assert not first.complete and first.new_evaluations == 2
-    resumed_evaluator = CountingEvaluator(interrupted_config.evaluator)
-    resumed = Campaign(interrupted_config, evaluator=resumed_evaluator).run()
+    yielded = CampaignStore(tmp_path / "yielded").load_checkpoint()
+    assert yielded["status"] == "yielded"
+    assert yielded["reason"] == "evaluation_budget"
+    resumed_evaluator = CountingEvaluator(yielded_config.evaluator)
+    resumed = Campaign(yielded_config, evaluator=resumed_evaluator).run()
     assert resumed.complete
 
     full_config = CampaignConfig.from_dict(campaign_data(str(tmp_path / "full"), workers=1), tmp_path / "campaign-b.json")
@@ -344,16 +350,36 @@ def test_campaign_resume_matches_uninterrupted_and_deduplicates(tmp_path):
     uninterrupted = Campaign(full_config, evaluator=full_evaluator).run()
     assert uninterrupted.complete
 
-    interrupted_store = CampaignStore(tmp_path / "interrupted")
+    yielded_store = CampaignStore(tmp_path / "yielded")
     full_store = CampaignStore(tmp_path / "full")
-    interrupted_rows = interrupted_store.load_candidates(resumed.trial, resumed.generation, "parents")
+    yielded_rows = yielded_store.load_candidates(resumed.trial, resumed.generation, "parents")
     full_rows = full_store.load_candidates(uninterrupted.trial, uninterrupted.generation, "parents")
-    assert [candidate.candidate_id for candidate, _ in interrupted_rows] == [candidate.candidate_id for candidate, _ in full_rows]
-    assert deterministic_metrics(interrupted_rows) == deterministic_metrics(full_rows)
-    assert interrupted_store.status()["archive_count"] == full_store.status()["archive_count"]
+    assert [candidate.candidate_id for candidate, _ in yielded_rows] == [candidate.candidate_id for candidate, _ in full_rows]
+    assert deterministic_metrics(yielded_rows) == deterministic_metrics(full_rows)
+    assert yielded_store.status()["archive_count"] == full_store.status()["archive_count"]
     # Fewer actual calls than individual slots demonstrates phenotype/context deduplication.
     total_calls = evaluator.count + resumed_evaluator.count
-    assert total_calls < interrupted_config.algorithm.population_size * (interrupted_config.algorithm.generations + 1)
+    assert total_calls < yielded_config.algorithm.population_size * (yielded_config.algorithm.generations + 1)
+
+
+@pytest.mark.parametrize(
+    ("directive", "reason"),
+    [(RunDirective(pause=True), "paused"), (RunDirective(cancel=True), "cancelled")],
+)
+def test_campaign_records_user_stops_as_interruptions(tmp_path, directive, reason):
+    class StaticRunControl:
+        def snapshot(self):
+            return directive
+
+    config = CampaignConfig.from_dict(
+        campaign_data(str(tmp_path / reason)), tmp_path / f"{reason}.json"
+    )
+    outcome = Campaign(config, run_control=StaticRunControl()).run(max_new_evaluations=2)
+
+    assert not outcome.complete
+    checkpoint = CampaignStore(tmp_path / reason).load_checkpoint()
+    assert checkpoint["status"] == "interrupted"
+    assert checkpoint["reason"] == reason
 
 
 def test_worker_count_does_not_change_campaign_result(tmp_path):

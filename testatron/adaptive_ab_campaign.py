@@ -108,7 +108,7 @@ def prepare_run_options(case_file: Path,
     options.MBH_RNG_seed = seed
     if run_budget_seconds is not None:
         options.MBH_max_run_time = run_budget_seconds
-        options.snopt_max_run_time = run_budget_seconds
+        options.NLP_max_run_time = run_budget_seconds
     options.override_working_directory = 1
     options.forced_working_directory = output_dir.as_posix()
     options.override_mission_subfolder = 1

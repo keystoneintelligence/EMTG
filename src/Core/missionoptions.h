@@ -99,12 +99,12 @@ namespace EMTG
         double MBH_Pareto_alpha;//Pareto distribution alpha
         bool MBH_write_every_improvement;//Write every MBH improvement for later animation?
         double MBH_time_hop_probability;//probability of MBH time hop operation
-        double snopt_feasibility_tolerance;//feasibility tolerance
-        double snopt_optimality_tolerance;//optimality tolerance
-        double NLP_max_step;//NLP max step
-        size_t snopt_major_iterations;//NLP major iterations
-        size_t snopt_minor_iterations;//NLP minor iterations
-        int snopt_max_run_time;//NLP max run time (seconds)
+        double NLP_feasibility_tolerance;//NLP feasibility tolerance
+        double NLP_optimality_tolerance;//NLP optimality tolerance
+        double snopt_major_step_limit;//SNOPT major step limit
+        size_t NLP_iteration_limit;//NLP iteration limit
+        size_t snopt_minor_iterations;//SNOPT minor iterations
+        int NLP_max_run_time;//NLP max run time (seconds)
         bool enable_Scalatron;//Enable Scalatron?
         bool enable_NLP_chaperone;//Enable NLP chaperone?
         bool seed_MBH;//Seed MBH?
@@ -293,18 +293,18 @@ namespace EMTG
         double MBH_Pareto_alpha_upperBound;
         double MBH_time_hop_probability_lowerBound;
         double MBH_time_hop_probability_upperBound;
-        double snopt_feasibility_tolerance_lowerBound;
-        double snopt_feasibility_tolerance_upperBound;
-        double snopt_optimality_tolerance_lowerBound;
-        double snopt_optimality_tolerance_upperBound;
-        double NLP_max_step_lowerBound;
-        double NLP_max_step_upperBound;
-        size_t snopt_major_iterations_lowerBound;
-        size_t snopt_major_iterations_upperBound;
+        double NLP_feasibility_tolerance_lowerBound;
+        double NLP_feasibility_tolerance_upperBound;
+        double NLP_optimality_tolerance_lowerBound;
+        double NLP_optimality_tolerance_upperBound;
+        double snopt_major_step_limit_lowerBound;
+        double snopt_major_step_limit_upperBound;
+        size_t NLP_iteration_limit_lowerBound;
+        size_t NLP_iteration_limit_upperBound;
         size_t snopt_minor_iterations_lowerBound;
         size_t snopt_minor_iterations_upperBound;
-        int snopt_max_run_time_lowerBound;
-        int snopt_max_run_time_upperBound;
+        int NLP_max_run_time_lowerBound;
+        int NLP_max_run_time_upperBound;
         double NLP_objective_goal_lowerBound;
         double NLP_objective_goal_upperBound;
         int NLP_write_output_check_time_lowerBound;

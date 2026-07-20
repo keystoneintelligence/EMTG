@@ -52,9 +52,9 @@ namespace EMTG
             bool get_print_NLP_movie_frames() { return this->print_NLP_movie_frames; }
             bool get_stop_on_goal_attain() { return this->stop_on_goal_attain; }
 
-            size_t get_major_iterations_limit() { return this->major_iterations_limit; }
-            size_t get_minor_iterations_limit() { return this->minor_iterations_limit; }
-            double get_max_step() { return this->max_step; }
+            size_t get_iteration_limit() { return this->iteration_limit; }
+            size_t get_snopt_minor_iterations_limit() { return this->snopt_minor_iterations_limit; }
+            double get_snopt_major_step_limit() { return this->snopt_major_step_limit; }
             time_t get_max_run_time_seconds() { return this->max_run_time_seconds; }
 
             double get_feasibility_tolerance() { return this->feasibility_tolerance; }
@@ -72,10 +72,10 @@ namespace EMTG
             void set_quiet_NLP(const bool& quiet_NLP) { this->quiet_NLP = quiet_NLP; }
             void set_print_NLP_movie_frames(const bool& print_NLP_movie_frames) { this->print_NLP_movie_frames = print_NLP_movie_frames; }
             void set_stop_on_goal_attain(const bool& stop_on_goal_attain) { this->stop_on_goal_attain = stop_on_goal_attain; }
-            void set_major_iterations_limit(const size_t& major_iterations_limit) { this->major_iterations_limit = major_iterations_limit; }
-            void set_minor_iterations_limit(const size_t& minor_iterations_limit) { this->minor_iterations_limit = minor_iterations_limit; }
+            void set_iteration_limit(const size_t& iteration_limit) { this->iteration_limit = iteration_limit; }
+            void set_snopt_minor_iterations_limit(const size_t& limit) { this->snopt_minor_iterations_limit = limit; }
             void set_max_run_time_seconds(const time_t& max_run_time_seconds) { this->max_run_time_seconds = max_run_time_seconds; }
-            void set_max_step(const double& max_step) { this->max_step = max_step; }
+            void set_snopt_major_step_limit(const double& limit) { this->snopt_major_step_limit = limit; }
             void set_feasibility_tolerance(const double& feasibility_tolerance) { this->feasibility_tolerance = feasibility_tolerance; }
             void set_optimality_tolerance(const double& optimality_tolerance) { this->optimality_tolerance = optimality_tolerance; }
             void set_objective_goal(const double& objective_goal) { this->objective_goal = objective_goal; }
@@ -92,11 +92,11 @@ namespace EMTG
             bool print_NLP_movie_frames;
             bool stop_on_goal_attain;
 
-            size_t major_iterations_limit;
-            size_t minor_iterations_limit;
+            size_t iteration_limit;
+            size_t snopt_minor_iterations_limit;
             time_t max_run_time_seconds;
 
-            double max_step;
+            double snopt_major_step_limit;
             double feasibility_tolerance;
             double optimality_tolerance;
             double objective_goal;

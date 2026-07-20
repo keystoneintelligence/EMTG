@@ -75,7 +75,61 @@ def test_ipopt_solver_selection_roundtrips_with_stable_numeric_id(tmp_path):
 
 
 def test_open_source_default_solver_is_ipopt():
-    assert MissionOptions.MissionOptions().NLP_solver_type == 2
+    options = MissionOptions.MissionOptions()
+    assert options.NLP_solver_type == 2
+    assert options.NLP_feasibility_tolerance == 1.0e-8
+
+
+def test_legacy_solver_option_attributes_normalize_and_write_canonical_names(tmp_path):
+    options = MissionOptions.MissionOptions()
+    legacy_values = {
+        'snopt_feasibility_tolerance': 1.0e-7,
+        'snopt_optimality_tolerance': 2.0e-7,
+        'NLP_max_step': 0.25,
+        'snopt_major_iterations': 321,
+        'snopt_max_run_time': 45,
+    }
+    canonical_values = {
+        'NLP_feasibility_tolerance': 1.0e-7,
+        'NLP_optimality_tolerance': 2.0e-7,
+        'snopt_major_step_limit': 0.25,
+        'NLP_iteration_limit': 321,
+        'NLP_max_run_time': 45,
+    }
+
+    for legacy_name, value in legacy_values.items():
+        setattr(options, legacy_name, value)
+
+    for canonical_name, value in canonical_values.items():
+        assert getattr(options, canonical_name) == value
+    assert not set(legacy_values).intersection(vars(options))
+
+    output = tmp_path / 'canonical_solver_names.emtgopt'
+    options.write_options_file(str(output), writeAll=True)
+    option_names = {
+        line.split(' ', 1)[0]
+        for line in output.read_text(encoding='utf-8').splitlines()
+        if line and not line.startswith('#')
+    }
+
+    assert set(canonical_values).issubset(option_names)
+    assert not set(legacy_values).intersection(option_names)
+
+
+def test_legacy_solver_option_file_names_load_into_canonical_attributes():
+    options = MissionOptions.MissionOptions(
+        str(REPO_ROOT / 'testatron' / 'tests' / 'output_options' / 'outputoptions_frameICRF.emtgopt')
+    )
+
+    assert options.NLP_feasibility_tolerance == 1.0e-5
+    assert options.NLP_optimality_tolerance == 0.002
+    assert options.snopt_major_step_limit == 1
+    assert options.NLP_iteration_limit == 500
+    assert options.NLP_max_run_time == 59
+    assert not {
+        'snopt_feasibility_tolerance', 'snopt_optimality_tolerance',
+        'NLP_max_step', 'snopt_major_iterations', 'snopt_max_run_time',
+    }.intersection(vars(options))
 
 
 def test_fixed_and_adaptive_integration_options_roundtrip(tmp_path):

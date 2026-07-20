@@ -222,7 +222,7 @@ def _scoped_gene_mutation(
 
 def timing_mutation(schema: GenomeSchema, genotype: Genotype, rng: random.Random) -> Genotype:
     names = {
-        "launch_epoch", "launch_window", "flight_time", "flight_time_bounds",
+        "launch_window_open_date", "launch_window", "flight_time", "flight_time_bounds",
         "wait_time_bounds", "journey_time_bounds",
     }
     result = _scoped_gene_mutation(schema, genotype, rng, "mission", names)

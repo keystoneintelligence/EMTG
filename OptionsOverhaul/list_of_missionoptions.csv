@@ -1,4 +1,4 @@
-dataType,name,scale,length,defaultValue,lowerBound,upperBound,comment,description
+dataType,name,scale,length,defaultValue,lowerBound,upperBound,comment,description,aliases,applicableSolvers
 std::string,mission_name,,,default,,,mission name,mission name
 ObjectiveFunctionType,objective_type,,,2,0,27,"objective type, see ObjectiveFunctionType in EMTG_enums.h",objective function type\n#0: minimum deltaV\n#1: minimum time\n#2: maximum final mass\n#3: maximize initial mass\n#4: depart as late as possible in the window\n#5: depart as early as possible in the window\n#6: maximize orbit energy\n#7: minimize launch mass\n#8: arrive as early as possible\n#9: arrive as late as possible\n#10: <PLACEHOLDER FOR FUTURE OBJECTIVE FUNCTIONS>\n#11: maximum dry/wet ratio\n#12: maximum arrival kinetic energy\n#13: minimum BOL power\n#14: maximize log_10(final mass)\n#15: maximum log_e(final mass)\n#16: maximum dry mass margin\n#17: maximum dry mass\n#18: maximum log_10(dry mass)\n#19: maximum log_e(dry mass)\n#20: minimize chemical fuel\n#21: minimize chemical oxidizer\n#22: minimize electric propellant\n#23: minimize total propellant\n#24: minimize waypoint tracking error\n#25: minimize initial impulse magnitude\n#26: maximize distance from central body
 size_t,objective_journey,,,0,0,inf,Journey associated with objective function (if applicable),Journey associated with objective function (if applicable)
@@ -23,12 +23,12 @@ int,MBH_hop_distribution,,,2,0,3,"MBH hop probabilty distribution. Choices are 0
 double,MBH_Pareto_alpha,,,1.4,1.00E-10,inf,Pareto distribution alpha,Pareto distribution alpha
 bool,MBH_write_every_improvement,,,0,0,1,Write every MBH improvement for later animation?,Write every MBH improvement for later animation?
 double,MBH_time_hop_probability,,,0.05,0,1,probability of MBH time hop operation,probability of MBH time hop operation
-double,snopt_feasibility_tolerance,,,1.00E-05,1.00E-10,1,feasibility tolerance,feasibility tolerance
-double,snopt_optimality_tolerance,,,1.00E-05,1.00E-10,1,optimality tolerance,optimality tolerance
-double,NLP_max_step,,,1,1.00E-10,1,NLP max step,NLP max step
-size_t,snopt_major_iterations,,,8000,0,inf,NLP major iterations,NLP major iterations
-size_t,snopt_minor_iterations,,,500,0,inf,NLP minor iterations,NLP minor iterations
-int,snopt_max_run_time,,,15,0,inf,NLP max run time (seconds),NLP max run time (seconds)
+double,NLP_feasibility_tolerance,,,1.00E-08,1.00E-10,1,NLP feasibility tolerance,NLP feasibility tolerance,snopt_feasibility_tolerance,
+double,NLP_optimality_tolerance,,,1.00E-05,1.00E-10,1,NLP optimality tolerance,NLP optimality tolerance,snopt_optimality_tolerance,
+double,snopt_major_step_limit,,,1,1.00E-10,1,SNOPT major step limit,SNOPT major step limit,NLP_max_step,SNOPT
+size_t,NLP_iteration_limit,,,8000,0,inf,NLP iteration limit,NLP iteration limit,snopt_major_iterations,
+size_t,snopt_minor_iterations,,,500,0,inf,SNOPT minor iterations,SNOPT minor iterations,,SNOPT
+int,NLP_max_run_time,,,15,0,inf,NLP max run time (seconds),NLP max run time (seconds),snopt_max_run_time,
 bool,enable_Scalatron,,,1,0,1,Enable Scalatron?,Enable Scalatron?
 bool,enable_NLP_chaperone,,,1,0,1,Enable NLP chaperone?,Enable NLP chaperone?
 bool,seed_MBH,,,0,0,1,Seed MBH?,Seed MBH?

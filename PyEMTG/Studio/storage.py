@@ -9,6 +9,8 @@ import sqlite3
 import uuid
 from typing import Any, Mapping
 
+from .search_effort import default_search_effort_presets
+
 
 SCHEMA_VERSION = 1
 
@@ -116,6 +118,10 @@ class StudioStore:
                 "INSERT OR IGNORE INTO settings(key,value) VALUES('global_core_limit',?)",
                 (str(max(1, (os.cpu_count() or 2) - 1)),),
             )
+            connection.execute(
+                "INSERT OR IGNORE INTO settings(key,value) VALUES('search_effort_presets',?)",
+                (json.dumps(default_search_effort_presets(), sort_keys=True),),
+            )
             if recover:
                 # A process that disappeared during shutdown is safe to resume
                 # from the outer-loop checkpoint. A requested pause remains paused.
@@ -140,6 +146,24 @@ class StudioStore:
                 "UPDATE jobs SET effective_cores=MIN(requested_cores, ?) WHERE status NOT IN ('completed','cancelled')",
                 (value,),
             )
+
+    def search_effort_presets(self) -> dict[str, Any]:
+        with _connect(self.database_path) as connection:
+            row = connection.execute(
+                "SELECT value FROM settings WHERE key='search_effort_presets'"
+            ).fetchone()
+        if row is None:
+            return default_search_effort_presets()
+        return json.loads(row["value"])
+
+    def set_search_effort_presets(self, value: Mapping[str, Any]) -> dict[str, Any]:
+        document = dict(value)
+        with _connect(self.database_path) as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO settings(key,value) VALUES('search_effort_presets',?)",
+                (json.dumps(document, sort_keys=True, allow_nan=False),),
+            )
+        return self.search_effort_presets()
 
     def create_job(self, name: str, config: Mapping[str, Any], requested_cores: int, queue: bool) -> dict[str, Any]:
         if requested_cores < 1:

@@ -43,11 +43,21 @@ def run_job(database: str | Path, job_id: str) -> int:
             effective = min(int(job["requested_cores"]), store.global_core_limit())
             if hasattr(campaign.backend, "max_workers"):
                 campaign.backend.max_workers = effective
+            checkpoint = campaign.store.load_checkpoint() or {}
+            store.update_progress(job_id, {
+                **job["progress"],
+                "activity_status": "evaluating",
+                "checkpoint_status": checkpoint.get("status"),
+                "trial": checkpoint.get("trial", job["progress"].get("trial", 0)),
+                "generation": checkpoint.get("generation", job["progress"].get("generation", 0)),
+                "effective_cores": effective,
+            })
             outcome = campaign.run(max_new_evaluations=effective)
             catalog.ingest_job(job_id)
             checkpoint = campaign.store.load_checkpoint() or {}
             store.update_progress(job_id, {
                 **asdict(outcome),
+                "activity_status": "complete" if outcome.complete else "evaluating",
                 "checkpoint_status": checkpoint.get("status"),
                 "effective_cores": effective,
             })
