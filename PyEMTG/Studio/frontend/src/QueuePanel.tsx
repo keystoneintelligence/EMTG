@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
+import { jobProgressLabel } from './jobProgress'
 import { applySearchEffort, formatDuration, searchEffortEstimate } from './searchEffort'
 import type { BodyOption, Job, SearchEffortPreset } from './types'
 
@@ -160,7 +161,7 @@ export function QueuePanel({ jobs, globalCores, refresh }: { jobs: Job[]; global
         const evaluator = evaluatorType(job)
         return <article className={`job job-${job.status}`} key={job.id}>
           <div className="job-heading"><strong>{job.name}</strong><span className="job-badges"><span className="status-chip">{job.status}</span>{evaluator === 'synthetic' && <span className="synthetic-chip">synthetic</span>}{evaluator === 'emtg' && <span className="emtg-chip">real EMTG</span>}</span></div>
-          <small>{job.effective_cores}/{job.requested_cores} parallel candidates · {String(job.progress.checkpoint_status || 'not started')}</small>
+          <small>{job.effective_cores}/{job.requested_cores} parallel candidates · {jobProgressLabel(job)}</small>
           <div className="job-actions">
             {job.status === 'running' && <button onClick={() => api.jobAction(job.id, 'pause').then(refresh)}>Pause</button>}
             {job.status === 'paused' && <button onClick={() => api.jobAction(job.id, 'resume').then(refresh)}>Resume</button>}

@@ -1859,7 +1859,21 @@ class Campaign:
                 trial, generation, role, max_new_evaluations, used
             )
             if not complete:
-                self.store.checkpoint({"status": "interrupted", "trial": trial, "generation": generation, "role": role})
+                if self.cancel_event.is_set():
+                    status, reason = "interrupted", "cancelled"
+                elif self.pause_requested:
+                    status, reason = "interrupted", "paused"
+                elif max_new_evaluations is not None:
+                    status, reason = "yielded", "evaluation_budget"
+                else:
+                    status, reason = "interrupted", "unknown"
+                self.store.checkpoint({
+                    "status": status,
+                    "trial": trial,
+                    "generation": generation,
+                    "role": role,
+                    "reason": reason,
+                })
                 return CampaignOutcome(False, trial, generation, used, self._archive_total(), str(self.store.checkpoint_path))
 
             current = self._evaluated(self.store.load_candidates(trial, generation, role))
