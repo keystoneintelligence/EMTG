@@ -5,11 +5,15 @@ from __future__ import annotations
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 import threading
-from typing import Any, Iterator, Mapping, Protocol, Sequence
+from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence, TypeVar
 
 from .evaluator import Evaluator
 from .model import EvaluationRequest, EvaluationResult, EvaluationStatus
 from .serde import candidate_from_dict, candidate_to_dict, result_from_dict, result_to_dict
+
+
+_WorkItem = TypeVar("_WorkItem")
+_WorkResult = TypeVar("_WorkResult")
 
 
 class WorkerBackend(Protocol):
@@ -69,6 +73,26 @@ class LocalWorkerBackend:
         for index, result in self.evaluate_stream(requests, evaluator, cancel_event):
             results[index] = result
         return [result for result in results if result is not None]
+
+    def map_stream(
+        self,
+        items: Sequence[_WorkItem],
+        function: Callable[[_WorkItem], _WorkResult],
+    ) -> Iterator[tuple[int, _WorkResult]]:
+        """Yield generic independent work in completion order.
+
+        Family continuation uses this primitive with batches no larger than
+        ``max_workers`` so a soft pause never leaves an unbounded executor
+        queue. Campaign evaluation retains its status-aware retry adapter.
+        """
+        with ThreadPoolExecutor(
+            max_workers=self.max_workers, thread_name_prefix="emtg-outerloop"
+        ) as executor:
+            futures: dict[Future[_WorkResult], int] = {
+                executor.submit(function, item): index for index, item in enumerate(items)
+            }
+            for future in as_completed(futures):
+                yield futures[future], future.result()
 
     def evaluate_stream(
         self,

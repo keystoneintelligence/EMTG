@@ -14,7 +14,7 @@ def load_options():
     )
 
 
-def test_studio_asteroid_fixture_enforces_reference_spacecraft_mass_model():
+def test_asteroid_fixture_enforces_reference_spacecraft_mass_model():
     options = MissionOptions.MissionOptions(
         str(
             REPO_ROOT

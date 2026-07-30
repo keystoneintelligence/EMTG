@@ -3,6 +3,7 @@
 #################
 build/*
 _local/
+*.dspkg
 dist/
 CMakeFiles/
 CMakeCache.txt

@@ -303,6 +303,31 @@ def test_artifact_store_is_content_addressed_and_cache_conflicts_are_rejected(tm
         cache.put(conflicting, request.context)
 
 
+def test_shared_cache_freezes_file_artifacts_outside_the_producing_run(tmp_path):
+    cache = EvaluationCache(tmp_path / "shared-cache")
+    run = tmp_path / "run"
+    run.mkdir()
+    output = run / "result.emtg"
+    output.write_text("durable result\n", encoding="utf-8")
+    _, _, request = candidate(tmp_path)
+    result = EvaluationResult(
+        request.evaluation_key,
+        request.candidate.candidate_id,
+        EvaluationStatus.FEASIBLE,
+        request.fidelity,
+        artifacts={"emtg": str(output), "case_directory": str(run)},
+    )
+    frozen = cache.put_frozen(result, request.context)
+    managed = Path(frozen.artifacts["emtg"])
+    assert managed.is_file() and managed != output
+    assert "case_directory" not in frozen.artifacts
+    output.unlink()
+    hit = cache.get(request.evaluation_key)
+    assert hit is not None and Path(hit.artifacts["emtg"]).read_text() == "durable result\n"
+    with pytest.raises(ValueError, match="immutable cache conflict"):
+        cache.put_frozen(replace(result, metrics={"different": 1}), request.context)
+
+
 def test_mission_options_user_data_accepts_literals_not_code():
     import MissionOptions
 

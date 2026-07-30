@@ -44,8 +44,15 @@ Each run contains:
 - `checkpoint.json`: atomic human-readable restart state;
 - `cache/`: immutable context-addressed results;
 - `cases/`: isolated options, logs, and EMTG artifacts;
+- `cases/**/*.dspkg`: standardized immutable solution handoffs for downstream
+  storage (one package per completed EMTG evaluation);
 - `campaign-summary.json`: duplicates, status counts, runtime, seed rates, diversity, and archive indicators;
 - `exports/`: JSONL, CSV, legacy `.NSGAII`, convergence history, and optional plots.
+
+`campaign.sqlite`, checkpoints, and caches are operational solver state. They
+remain local to the outer-loop run and are not the durable solution catalog.
+Publish `.dspkg` artifacts to DeepSpace Storage; solution families,
+memberships, lineage, and long-term artifact ownership live there.
 
 Heuristic filters are disabled unless configured. Each may specify `audit_fraction`; audited rejects are still evaluated so false-rejection risk can be measured. Strict topology, asset, solver, hardware, body-menu, and ephemeris checks cannot be audited away.
 

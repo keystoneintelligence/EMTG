@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime, timezone
 import json
 import os
@@ -200,6 +201,7 @@ class EvaluationCache:
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve()
         self.entries = self.root / "entries"
+        self.artifacts = ArtifactStore(self.root / "artifacts")
         self.database_path = self.root / "cache.sqlite"
         existing = _existing_schema(self.database_path)
         if existing is not None and existing != str(CACHE_SCHEMA):
@@ -289,6 +291,56 @@ class EvaluationCache:
                     ),
                 )
         return path
+
+    def put_frozen(
+        self, result: EvaluationResult, context: Mapping[str, Any]
+    ) -> EvaluationResult:
+        """Store a result with cache-owned, content-addressed file artifacts.
+
+        Ordinary run-local caches retain the historical :meth:`put` behavior.
+        Studio's shared cache uses this method so a hit remains usable after the
+        producing run directory has been removed.
+        """
+        if isinstance(result, ScoredEvaluationResult):
+            raise TypeError("the evaluation cache accepts raw EvaluationResult values only")
+        existing = self.get(result.evaluation_key)
+        artifacts = dict(result.artifacts)
+        provenance = dict(result.provenance)
+        hashes = dict(provenance.get("artifact_hashes", {}))
+        references = dict(provenance.get("artifact_refs", {}))
+        for role, raw_path in sorted(artifacts.items()):
+            source = Path(str(raw_path))
+            if not source.is_file():
+                if existing is not None and role in existing.artifacts:
+                    artifacts[role] = existing.artifacts[role]
+                    prior_hashes = existing.provenance.get("artifact_hashes", {})
+                    prior_refs = existing.provenance.get("artifact_refs", {})
+                    if role in prior_hashes:
+                        hashes[role] = prior_hashes[role]
+                    if role in prior_refs:
+                        references[role] = prior_refs[role]
+                else:
+                    # Directories and missing run-local files are not durable
+                    # cache artifacts. Their constituent result files are
+                    # frozen under their own roles.
+                    artifacts.pop(role, None)
+                    hashes.pop(role, None)
+                    references.pop(role, None)
+                continue
+            stored, digest = self.artifacts.put(source)
+            artifacts[role] = str(stored)
+            hashes[role] = digest
+            references[role] = {
+                "role": role,
+                "sha256": digest,
+                "path": str(stored),
+                "size_bytes": stored.stat().st_size,
+            }
+        provenance["artifact_hashes"] = hashes
+        provenance["artifact_refs"] = references
+        frozen = replace(result, artifacts=artifacts, provenance=provenance)
+        self.put(frozen, context)
+        return self.get(frozen.evaluation_key) or frozen
 
     def explain(
         self,

@@ -1,6 +1,3 @@
--r requirements-studio.txt
-
 numpy
 pandas
 pytest
-httpx>=0.27,<1
