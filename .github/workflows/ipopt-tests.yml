@@ -2,6 +2,12 @@ name: IPOPT Open-Source Solver
 
 on:
   workflow_dispatch:
+    inputs:
+      run_aeps_atlas_qualification:
+        description: Run the four-case electric-propulsion Atlas qualification
+        required: true
+        type: boolean
+        default: false
   pull_request:
   push:
     branches:
@@ -12,7 +18,7 @@ jobs:
   linux-ipopt-only:
     name: Linux IPOPT-only build and analytic regression
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 150
     env:
       CSPICE_ROOT: ${{ github.workspace }}/_local/cspice-linux/cspice
       IPOPT_PREFIX: ${{ github.workspace }}/_local/ipopt-3.14.19
@@ -123,3 +129,36 @@ jobs:
 
       - name: Run IPOPT interface regression
         run: ctest --preset ipopt-only -R ipopt
+
+      - name: Install AEPS Atlas qualification dependencies
+        if: github.event_name == 'workflow_dispatch' && inputs.run_aeps_atlas_qualification
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Stage the CI-built EMTG executable for the qualification harness
+        if: github.event_name == 'workflow_dispatch' && inputs.run_aeps_atlas_qualification
+        run: |
+          cp _local/builds/ipopt-only/bin/EMTGv9 bin/EMTGv9.exe
+          chmod +x bin/EMTGv9.exe
+
+      - name: Run electric-propulsion Atlas qualification
+        if: github.event_name == 'workflow_dispatch' && inputs.run_aeps_atlas_qualification
+        env:
+          EMTG_RUN_OUTERLOOP_INTEGRATION: '1'
+          EMTG_ATLAS_AEPS_BUDGET_SECONDS: '1200'
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: >-
+          python -m pytest
+          tests/test_outerloop_emtg_integration.py::test_aeps_real_atlas_baseline_and_nearby_hardware_matrix
+          -vv
+          -s
+          -p no:cacheprovider
+          --basetemp _local/atlas-aeps-qualification
+
+      - name: Upload electric-propulsion Atlas evidence
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.run_aeps_atlas_qualification
+        uses: actions/upload-artifact@v4
+        with:
+          name: atlas-aeps-qualification-${{ github.sha }}
+          path: _local/atlas-aeps-qualification
+          if-no-files-found: error
+          retention-days: 30
