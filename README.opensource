@@ -44,9 +44,9 @@ See `BUILDING.md` for developer builds and `INSTALLING.md` for the portable
 Windows and experimental Linux bundles. The older PDF build guides are retained
 only as historical documentation.
 
-The modern local interface is EMTG Studio. From source, build its frontend and
-run `python -m PyEMTG.Studio`; release builds provide `EMTGStudio.exe`. See
-`docs/0_Users/emtg_studio.md`.
+EMTG emits storage-neutral DeepSpace solution packages for downstream tools.
+See `docs/0_Users/solution_packages.md`. The internal EMTG Studio viewer and
+DeepSpace Storage service are maintained as separate projects.
 
 =============================================================================================================================
 *****************************************************************************************************************************
@@ -61,10 +61,9 @@ Frequently Asked Questions (FAQ)
 Q: Is there a user guide?
 A: Yes. There are a couple of User Guides is in the /docs/0_Users/ directory. 
 
-Q: How do I use the GUI?
-A: Launch EMTG Studio. It provides mission-option editing, a durable outer-loop
-queue, a filterable solution catalog, and a time-aware 3D trajectory workbench
-in a local browser.
+Q: How do I use the internal solution viewer?
+A: Install the separate EMTG Studio and DeepSpace Storage projects. EMTG core
+does not embed the viewer or its durable catalog.
 
 Q: Can you give me technical support for installing and operating EMTG?
 A: Feel free to reach out to the team contact information provided at the header of this file but be aware that the 
@@ -92,9 +91,8 @@ portable ZIP, and an experimental Linux tarball. SNOPT remains excluded because
 it requires a separate commercial license.
 
 Q: Why doesn't the historical wxPython PyEMTG window work?
-A: The wxPython window is retained only during EMTG Studio's parity transition.
-Use EMTG Studio for new workflows; its dependencies are recorded in
-`requirements-studio.txt` and the frontend lockfile.
+A: The wxPython window is retained for historical workflows. The modern
+internal viewer is the separately distributed EMTG Studio project.
 
 Q: I have a different SNOPT version than what is listed in the build system instructions. Will it work with EMTG?
 A: It is possible other versions will work. Feel free to try it and if you succeed consider providing us with updates we 

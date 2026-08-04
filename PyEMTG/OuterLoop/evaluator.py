@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass, replace
 import importlib
-import json
 import math
 import os
 import platform
@@ -20,7 +19,7 @@ from .canonical import content_hash, file_sha256
 from .ephemeris import EphemerisCoverage
 from .hardware import HardwareCatalog
 from .model import ArtifactRef, EvaluationRequest, EvaluationResult, EvaluationStatus, MissionPhenotype
-from .process import ProcessOutcome, run_process
+from .process import run_process
 from .rules import UniverseCatalog
 from .storage import ArtifactStore
 
@@ -335,6 +334,8 @@ class ParsedEMTGResult:
     constraint_descriptions: tuple[str, ...]
     constraint_vector: tuple[float, ...]
     failure_reason: str | None = None
+    xlowerbounds: tuple[float, ...] = ()
+    xupperbounds: tuple[float, ...] = ()
 
 
 class EMTGResultParser:
@@ -368,6 +369,8 @@ class EMTGResultParser:
         journey_mass_increments: list[float] = []
         xdescriptions: tuple[str, ...] = ()
         decision_vector: tuple[float, ...] = ()
+        xlowerbounds: tuple[float, ...] = ()
+        xupperbounds: tuple[float, ...] = ()
         fdescriptions: tuple[str, ...] = ()
         constraint_vector: tuple[float, ...] = ()
         events: list[dict[str, Any]] = []
@@ -401,6 +404,10 @@ class EMTGResultParser:
                 xdescriptions = tuple(stripped.split(",")[1:])
             elif stripped.startswith("Decision Vector:"):
                 decision_vector = _parse_numeric_csv(stripped.split(",")[1:])
+            elif stripped.startswith("Xlowerbounds,"):
+                xlowerbounds = _parse_numeric_csv(stripped.split(",")[1:])
+            elif stripped.startswith("Xupperbounds,"):
+                xupperbounds = _parse_numeric_csv(stripped.split(",")[1:])
             elif stripped.startswith("Fdescriptions,"):
                 fdescriptions = tuple(stripped.split(",")[1:])
             elif stripped.startswith("Constraint_Vector,"):
@@ -493,8 +500,15 @@ class EMTGResultParser:
             metrics["mission_events"] = events
         feasible = not failure_file and (best_feasible_attempt > 0 or first_feasible > 0)
         decision_complete = xdescriptions == () or len(xdescriptions) == len(decision_vector)
+        bounds_complete = (
+            (not xlowerbounds or len(xlowerbounds) == len(xdescriptions))
+            and (not xupperbounds or len(xupperbounds) == len(xdescriptions))
+        )
         constraint_complete = fdescriptions == () or len(fdescriptions) == len(constraint_vector)
-        complete = objective is not None and bool(lines) and decision_complete and constraint_complete
+        complete = (
+            objective is not None and bool(lines) and decision_complete
+            and bounds_complete and constraint_complete
+        )
         reason = None
         if not complete:
             reason = "missing objective or inconsistent decision/constraint-vector output"
@@ -511,6 +525,8 @@ class EMTGResultParser:
             fdescriptions,
             constraint_vector,
             reason,
+            xlowerbounds,
+            xupperbounds,
         )
 
     @staticmethod
@@ -676,6 +692,8 @@ class EMTGCaseBuilder:
         evaluation_seed: int,
         budget: Mapping[str, Any],
         initial_guess: Mapping[str, Any] | None,
+        atlas_case: Mapping[str, Any] | None = None,
+        artifact_store_root: str | Path | None = None,
     ) -> Path:
         case_directory = Path(case_directory).resolve()
         case_directory.mkdir(parents=True, exist_ok=True)
@@ -696,16 +714,35 @@ class EMTGCaseBuilder:
         options.HardwarePath = str(self.hardware_path).replace("\\", "/") + "/"
         options.seed_MBH = int(evaluation_seed % (2**31 - 1))
         self._apply_budget(options, budget)
-        self._apply_mission_genes(options, phenotype.mission)
+        mission_genes = dict(phenotype.mission)
+        atlas_marker = mission_genes.pop("__atlas_case_v1__", None)
+        if bool(atlas_marker) != bool(atlas_case):
+            raise CaseGenerationError("atlas candidate marker and prepared case context disagree")
+        if atlas_case is not None and atlas_marker != atlas_case:
+            raise CaseGenerationError("atlas candidate marker does not match prepared case identity")
+        self._apply_mission_genes(options, mission_genes)
         options.Journeys = self._build_journeys(options, phenotype)
         options.number_of_journeys = len(options.Journeys)
         if not options.Journeys:
             raise CaseGenerationError("decoded mission has no journeys")
         self._apply_boundary_genes(options, phenotype)
+        if atlas_case is not None:
+            if artifact_store_root is None:
+                raise CaseGenerationError("atlas case requires an artifact store root")
+            from .atlas_evaluation import apply_prepared_atlas_case
+            apply_prepared_atlas_case(
+                options,
+                atlas_case,
+                artifact_store_root=artifact_store_root,
+                case_directory=case_directory,
+            )
         self._apply_initial_guess(options, initial_guess)
         options.AssembleMasterConstraintVectors()
         output = case_directory / f"{case_name}.emtgopt"
         options.write_options_file(str(output), True)
+        if atlas_case is not None:
+            from .atlas_evaluation import verify_written_atlas_case
+            verify_written_atlas_case(output, atlas_case)
         return output
 
     @staticmethod
@@ -1077,6 +1114,12 @@ class EMTGEvaluator:
                 evaluation_seed=request.evaluation_seed,
                 budget=request.budget,
                 initial_guess=request.initial_guess,
+                atlas_case=(
+                    request.context.get("atlas_case_v1")
+                    if isinstance(request.context.get("atlas_case_v1"), Mapping)
+                    else None
+                ),
+                artifact_store_root=self.artifact_store.root,
             )
         except (OSError, PermissionError) as error:
             return _result(
@@ -1153,6 +1196,8 @@ class EMTGEvaluator:
         metrics.update({
             "xdescriptions": parsed.xdescriptions,
             "decision_vector": parsed.decision_vector,
+            "decision_vector_lower_bounds": parsed.xlowerbounds,
+            "decision_vector_upper_bounds": parsed.xupperbounds,
             "constraint_descriptions": parsed.constraint_descriptions,
             "constraint_vector": parsed.constraint_vector,
             "number_of_journeys": len(request.candidate.phenotype.journeys),
@@ -1164,6 +1209,36 @@ class EMTGEvaluator:
             status = EvaluationStatus.FEASIBLE
         else:
             status = EvaluationStatus.EMTG_INFEASIBLE
+        try:
+            # DeepSpace packages are the storage-neutral boundary. EMTG writes
+            # the package beside its native output; publication remains an
+            # explicit downstream action so solver runs stay offline-safe.
+            try:
+                from ..Solution.exporter import create_solution_package
+            except ImportError:
+                from Solution.exporter import create_solution_package
+
+            package_metadata = {
+                "evaluation_key": request.evaluation_key,
+                "candidate_id": request.candidate.candidate_id,
+                "fidelity": request.fidelity,
+                "status": status.value,
+                "evaluation_seed": request.evaluation_seed,
+            }
+            family_context = request.context.get("family")
+            if isinstance(family_context, Mapping):
+                package_metadata["family"] = dict(family_context)
+            package_path = create_solution_package(
+                output_path,
+                case_directory / f"{case_name}.dspkg",
+                artifacts=artifacts,
+                metadata=package_metadata,
+            )
+            artifacts["solution-package"] = str(package_path)
+        except Exception as error:
+            # Preserve the scientifically useful native EMTG output even when
+            # an ancillary package cannot be constructed.
+            provenance["solution_package_error"] = str(error)
         artifacts, provenance = self._freeze_artifacts(artifacts, provenance)
         return _result(
             request,

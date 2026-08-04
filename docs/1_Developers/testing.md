@@ -51,6 +51,13 @@ python testatron.py -a -e path\to\EMTGv9.exe -p ..\PyEMTG
 
 The IPOPT asteroid integration uses reviewed numerical acceptance envelopes rather than byte-identical truth output. Run it with `python testatron/run_asteroid_integration.py --emtg path/to/EMTGv9`.
 
+The bounded electric-propulsion Atlas gate runs two baseline and two nearby
+hardware cases through the real EMTG solver. Its current qualification scope,
+evidence, and reproduction command are recorded in
+[`atlas_electric_propulsion_qualification.md`](atlas_electric_propulsion_qualification.md).
+GitHub can repeat the gate by manually dispatching `IPOPT Open-Source Solver`
+with `run_aeps_atlas_qualification` enabled.
+
 ## GitHub Testatron Smoke Asset Strategy
 
 `testatron --smoke` should become a separate GitHub workflow after the EMTG executable and required runtime assets are reproducible in CI. Do not commit generated EMTG binaries, Testatron output, or large SPICE kernels directly to git.
