@@ -54,12 +54,12 @@ def Convert_emtgopt_v1_to_v2(fileName):
         newOptions.MBH_Pareto_alpha  = originalOptions.MBH_Pareto_alpha 
         newOptions.MBH_write_every_improvement  = originalOptions.MBH_write_every_improvement 
         newOptions.MBH_time_hop_probability  = originalOptions.MBH_time_hop_probability 
-        newOptions.snopt_feasibility_tolerance  = originalOptions.snopt_feasibility_tolerance 
-        newOptions.snopt_optimality_tolerance  = originalOptions.snopt_optimality_tolerance 
-        newOptions.NLP_max_step  = originalOptions.NLP_max_step 
-        newOptions.snopt_major_iterations  = originalOptions.snopt_major_iterations 
+        newOptions.NLP_feasibility_tolerance = originalOptions.snopt_feasibility_tolerance
+        newOptions.NLP_optimality_tolerance = originalOptions.snopt_optimality_tolerance
+        newOptions.snopt_major_step_limit = originalOptions.NLP_max_step
+        newOptions.NLP_iteration_limit = originalOptions.snopt_major_iterations
         newOptions.snopt_minor_iterations  = originalOptions.snopt_minor_iterations 
-        newOptions.snopt_max_run_time  = originalOptions.snopt_max_run_time
+        newOptions.NLP_max_run_time = originalOptions.snopt_max_run_time
         newOptions.enable_NLP_chaperone  = originalOptions.enable_NLP_chaperone 
         newOptions.seed_MBH  = originalOptions.seed_MBH 
         newOptions.skip_first_nlp_run  = originalOptions.skip_first_nlp_run 

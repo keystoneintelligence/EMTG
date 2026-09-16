@@ -27,30 +27,12 @@
 
 namespace EMTG
 {
-    covariance_reader::covariance_reader() :
-        fitSplines(false)
-    {
-    }
+    covariance_reader::covariance_reader() = default;
 
     covariance_reader::covariance_reader(const std::string& inputfilename, const std::string& leap_seconds_path)
         : covariance_reader()
     {
         this->initialize(inputfilename, leap_seconds_path);
-    }
-
-    covariance_reader::~covariance_reader()
-    {
-        if (this->fitSplines)
-        {
-            this->fitSplines = false;
-
-            for (size_t headerIndex = 1; headerIndex < 50; ++headerIndex)
-            {
-                gsl_spline_free(std::get<1>(this->data[this->MatrixHeaders[headerIndex]]));
-            }
-
-            gsl_interp_accel_free(this->SplineAccelerator);
-        }
     }
 
     void covariance_reader::initialize(const std::string& inputfilename, const std::string& leap_seconds_path)
@@ -137,19 +119,12 @@ namespace EMTG
 
     void covariance_reader::fit_splines()
     {
-        this->fitSplines = true;
-
-        //allocate accelerator
-        this->SplineAccelerator = gsl_interp_accel_alloc();
-
         for (size_t columnIndex = 1; columnIndex < 50; ++columnIndex)
         {
             std::string header = this->MatrixHeaders[columnIndex];
-            //allocate
-            std::get<1>(this->data[header]) = gsl_spline_alloc(gsl_interp_cspline, this->dataRows);
-
-            //initialize
-            gsl_spline_init(std::get<1>(this->data[this->MatrixHeaders[columnIndex]]), std::get<0>(this->data["epoch"]).data(), std::get<0>(this->data[header]).data(), this->dataRows);
+            std::get<1>(this->data[header]).initialize(
+                std::get<0>(this->data["epoch"]),
+                std::get<0>(this->data[header]));
         }
     }//end fit_splines()
 

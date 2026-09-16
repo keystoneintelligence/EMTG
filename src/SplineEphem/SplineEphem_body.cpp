@@ -155,24 +155,14 @@ namespace SplineEphem
             this->zdot[tindex] = SPICE_state[5];
         }
 
-        //set up GSL accelerators and splines
-        this->SplineAccelerator = gsl_interp_accel_alloc();
-        this->Spline_x = gsl_spline_alloc(gsl_interp_cspline, this->number_of_steps + 1);
-        this->Spline_y = gsl_spline_alloc(gsl_interp_cspline, this->number_of_steps + 1);
-        this->Spline_z = gsl_spline_alloc(gsl_interp_cspline, this->number_of_steps + 1);
-        this->Spline_xdot = gsl_spline_alloc(gsl_interp_cspline, this->number_of_steps + 1);
-        this->Spline_ydot = gsl_spline_alloc(gsl_interp_cspline, this->number_of_steps + 1);
-        this->Spline_zdot = gsl_spline_alloc(gsl_interp_cspline, this->number_of_steps + 1);
+        this->Spline_x.initialize(t, x);
+        this->Spline_y.initialize(t, y);
+        this->Spline_z.initialize(t, z);
+        this->Spline_xdot.initialize(t, xdot);
+        this->Spline_ydot.initialize(t, ydot);
+        this->Spline_zdot.initialize(t, zdot);
 
-        //initialize GSL splines
-        gsl_spline_init(this->Spline_x, t.data(), x.data(), this->number_of_steps + 1);
-        gsl_spline_init(this->Spline_y, t.data(), y.data(), this->number_of_steps + 1);
-        gsl_spline_init(this->Spline_z, t.data(), z.data(), this->number_of_steps + 1);
-        gsl_spline_init(this->Spline_xdot, t.data(), xdot.data(), this->number_of_steps + 1);
-        gsl_spline_init(this->Spline_ydot, t.data(), ydot.data(), this->number_of_steps + 1);
-        gsl_spline_init(this->Spline_zdot, t.data(), zdot.data(), this->number_of_steps + 1);
-
-        //clear the data arrays, because GSL splines make copies of their own data arrays for some reason and so we no longer need the originals
+        //The spline owns its coefficients, so the sampled state arrays are no longer needed.
         t.clear();
         x.clear();
         y.clear();
@@ -390,14 +380,12 @@ namespace SplineEphem
     //free function
     void body::free()
     {
-        //free GSL accelerators and splines
-        gsl_spline_free(this->Spline_x);
-        gsl_spline_free(this->Spline_y);
-        gsl_spline_free(this->Spline_z);
-        gsl_spline_free(this->Spline_xdot);
-        gsl_spline_free(this->Spline_ydot);
-        gsl_spline_free(this->Spline_zdot);
-        gsl_interp_accel_free(this->SplineAccelerator);
+        this->Spline_x.clear();
+        this->Spline_y.clear();
+        this->Spline_z.clear();
+        this->Spline_xdot.clear();
+        this->Spline_ydot.clear();
+        this->Spline_zdot.clear();
     }
 
     //evaluate functions

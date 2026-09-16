@@ -2,16 +2,39 @@
 # build artifacts
 #################
 build/*
+_local/
+*.dspkg
+dist/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+DartConfiguration.tcl
+/Testing/
+cmake_install.cmake
+build.ninja
+.ninja_deps
+.ninja_log
+depend/boost/tools/build/*
 bin/*
 EMTG_v9_Results/*
 scripts/*
+!scripts/audit-linux-dependencies.sh
+!scripts/audit-windows-dependencies.ps1
+!scripts/audit-release-paths.py
+!scripts/render-winget.ps1
 #EMTG-config.cmake
 *.debug
 *.d
 *.o
+*.obj
+*.ilk
+*.idb
+*.pdb
+*.exp
 *.so
 *.out
 *.1
+*.dll
 EMTG-Config\.cmake
 
 #########################
@@ -30,6 +53,12 @@ PyEMTG/HighFidelityTest\.emtgopt
 PyEMTG/PSFBtest\.emtgopt
 PyEMTG/PyEMTG.options
 *.pyc
+*.pyo
+__pycache__/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
 PyEMTG/PyEMTG\.lnk
 PyEMTG/.spyproject/*
 PyEMTG.zip
@@ -50,6 +79,8 @@ PyEMTG/.idea/*
 Universe/ephemeris_files/*.bsp
 Universe/ephemeris_files/*.tls
 Universe/ephemeris_files/*.tpc
+Universe/ephemeris_files/*.bpc
+/testatron/universe/ephemeris_files/*.bsp
 
 #######################
 # Latex build artifacts

@@ -4,10 +4,10 @@ set(missionoptions_test_executable_files   ${missionoptions_test_executable_file
 set(missionoptions_test_source      ${missionoptions_test_source}
                                     ${CMAKE_CURRENT_SOURCE_DIR}/../../Utilities/file_utilities.h
                                     ${CMAKE_CURRENT_SOURCE_DIR}/../../Utilities/file_utilities.cpp
-                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../core/missionoptions.h
-                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../core/missionoptions.cpp
-                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../core/journeyoptions.h
-                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../core/journeyoptions.cpp)
+                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/missionoptions.h
+                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/missionoptions.cpp
+                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/journeyoptions.h
+                                    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/journeyoptions.cpp)
 
 source_group("Executable" FILES ${missionoptions_test_executable_files} ${missionoptions_test_source})
 
@@ -17,6 +17,10 @@ link_directories(${PROJECT_BINARY_DIR}/src/Testing/${CMAKE_CFG_INTDIR})
 # create the executable
 if(RUN_MISSIONOPTIONS_TESTBED)
     add_executable(missionoptions_testbed  ${missionoptions_test_executable_files} ${missionoptions_test_source})
+    emtg_configure_executable(missionoptions_testbed)
+    target_compile_definitions(missionoptions_testbed PRIVATE BOOST_ALL_NO_LIB EMTG_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    target_link_libraries(missionoptions_testbed ${Boost_LIBRARIES})
+    emtg_add_testbed_test(EMTG.missionoptions_testbed missionoptions_testbed)
 endif()
 
 #create the boost::python module

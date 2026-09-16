@@ -302,7 +302,11 @@ namespace EMTG
                 this->state_before_event(7) = this->EventLeftEpoch;
 
                 //let's do a check to make sure that the central body exists wrt the Sun at this epoch. If it doesn't then we're going to have a kaboom so let's throw an error and make SNOPT walk back
-                if (this->myUniverse->central_body.spice_ID != 10)//because the Sun always exists wrt itself{
+                // This window query is specific to SplineEphem. SPICE and
+                // static-ephemeris builds do not have a spline universe.
+#ifdef SPLINE_EPHEM
+                if (this->myOptions->ephemeris_source == 2
+                    && this->myUniverse->central_body.spice_ID != 10)//because the Sun always exists wrt itself{
                 {
                     double latestAllowedEpoch = this->myUniverse->MySplineEphemUniverse->getEphemerisWindowClose(this->myUniverse->central_body.spice_ID, 10);
                     if (this->EventLeftEpoch > latestAllowedEpoch)
@@ -314,6 +318,7 @@ namespace EMTG
                             + " Should you choose to debug, place a breakpoint at " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
                     }
                 }
+#endif
             }//end process_left_epoch
 
             //function to process the virtual propellant constraint

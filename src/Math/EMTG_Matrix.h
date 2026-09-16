@@ -116,7 +116,10 @@ namespace EMTG { namespace math {
 #ifndef FAST_EMTG_MATRIX
             if (i > n - 1 || j > m - 1 || i < 0 || j < 0)
             {
-                throw std::invalid_argument("EXCEPTION: Invalid index in [" << i << ", " << j << "]. Place a breakpoint in " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
+                throw std::invalid_argument("EXCEPTION: Invalid index in ["
+                    + std::to_string(i) + ", " + std::to_string(j)
+                    + "]. Place a breakpoint in " + std::string(__FILE__)
+                    + ", line " + std::to_string(__LINE__));
             }
 #endif
             return values[i*m + j];
@@ -127,7 +130,10 @@ namespace EMTG { namespace math {
 #ifndef FAST_EMTG_MATRIX
             if (i > n - 1 || j > m - 1 || i < 0 || j < 0)
             {
-                throw std::invalid_argument("EXCEPTION: Invalid index in [" << i << ", " << j << "]. Place a breakpoint in " + std::string(__FILE__) + ", line " + std::to_string(__LINE__));
+                throw std::invalid_argument("EXCEPTION: Invalid index in ["
+                    + std::to_string(i) + ", " + std::to_string(j)
+                    + "]. Place a breakpoint in " + std::string(__FILE__)
+                    + ", line " + std::to_string(__LINE__));
             }
 #endif
             return values[i*m + j];

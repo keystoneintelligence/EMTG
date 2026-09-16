@@ -24,7 +24,7 @@
 
 #include "problem.h"
 #include "EMTG_enums.h"
-#include "SNOPT_interface.h"
+#include "NLP_interface.h"
 #include "EMTG_innerloop_solution.h"
 
 #include <vector>
@@ -42,7 +42,7 @@ namespace EMTG
             //constructors
             FilamentWalker();
             FilamentWalker(problem* myProblem,
-                           SNOPT_interface* mySNOPT);
+                           NLP_interface* myNLP);
 
             //get/set
 
@@ -62,7 +62,7 @@ namespace EMTG
 
             //fields
             problem* myProblem;
-            SNOPT_interface* mySNOPT;
+            NLP_interface* myNLP;
             std::ofstream outputfile;
             size_t nX;
             bool WalkSoftly;

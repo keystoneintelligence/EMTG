@@ -473,7 +473,7 @@ namespace EMTG
     void writey_thing::write_ephemeris_line(std::ofstream& outputfile,
         const math::Matrix<doubleType>& state,
         const math::Matrix<doubleType>& ControlVector,
-        const doubleType& ThrustMagnitude,
+        const doubleType& ThrustMagnitudeNewtons,
         const doubleType& MassFlowRate,
         const doubleType& Isp,
         const int& NumberOfActiveThrusters,
@@ -492,7 +492,7 @@ namespace EMTG
 
         //Step 3: thrust magnitude
         if (this->myOptions->append_thrust_to_ephemeris_output)
-            outputfile << ", " << ThrustMagnitude _GETVALUE;
+            outputfile << ", " << ThrustMagnitudeNewtons _GETVALUE;
 
         //Step 4: mass flow rate
         if (this->myOptions->append_mdot_to_ephemeris_output)

@@ -26,7 +26,7 @@ The Solver Options tab contains settings defining exactly how a given problem sh
 
 
 \listitem{Evaluate trialX}{Propagate an initial guess without solving. This will user either the Keplerian propagator or integrate the equations of motion, depending on the users chosen mission type and physics settings. Users must provide an initial guess as a {\tt .emtg} solution file via the ``Trial decision vector or initial guess'' input option.}
-\indent\listitem{\ac{NLP} with initial guess}{Leverages a gradient-based solver to solve a problem given an initial guess. Currently, the only available solver is the \ac{SNOPT}. More detail is provided in \ref{sec:gradient_based_solver}. Users must provide an initial guess as a {\tt .emtg} solution file via the ``Trial decision vector or initial guess'' input option.}
+\indent\listitem{\ac{NLP} with initial guess}{Leverages a gradient-based solver to solve a problem given an initial guess. EMTG supports IPOPT and optional SNOPT backends. More detail is provided in \ref{sec:gradient_based_solver}. Users must provide an initial guess as a {\tt .emtg} solution file via the ``Trial decision vector or initial guess'' input option.}
 \indent\listitem{Monotonic Basin Hopping}{This solver mode allows users to provide no initial guess and instead generate one with the \ac{MBH} stochastic global search method. This runs in conjunction with the gradient-based solver to allow users to start with no initial guess and obtain a satisfied, locally optimized solution. In theory, if users allow \ac{MBH} to run for extended periods of time, this will ensure solutions converge to globally or near-globally optimal solutions. More detail is provided in \ref{sec:monotonic_basin_hopping}.}
 
 \subsection{Gradient-Based Solver}
@@ -44,22 +44,22 @@ The optimization problems in \ac{EMTG} are formulated as Nonlinear Programming (
 \endgroup
 \noindent where $\mathbf{x}_{lb}$ and $\mathbf{x}_{ub}$ define the lower and upper bounds on the decision (control) vector, $\mathbf{c(x)}$ is a vector of nonlinear constraint functions, and $A$ is a matrix describing linear constraints.
 
-\noindent Since most interplanetary trajectory optimization problems may consist of hundreds of variables and tens to hundreds of constraints, these problems are best solved with sparse \ac{NLP} solvers. \ac{EMTG} leverages the \ac{SNOPT} to solve these problems. For detailed information on this optimizer beyond what is described here, see the \ac{SNOPT} user guide at \href{https://web.stanford.edu/group/SOL/guides/sndoc7.pdf}{https://web.stanford.edu/group/SOL/guides/sndoc7.pdf}.
+\noindent Since most interplanetary trajectory optimization problems may consist of hundreds of variables and tens to hundreds of constraints, these problems are best solved with sparse \ac{NLP} solvers. \ac{EMTG} uses IPOPT by default and may also be built with SNOPT.
 
 \noindent \ac{SNOPT} uses a sparse sequential quadratic programming (SQP) method and benefits greatly from partial derivatives with respect to the decision variables. \ac{EMTG} is designed to provide analytical expressions for all necessary partial derivatives (objectives and constraints) which improves convergence. Users may modify the following options for the \ac{NLP} solver: \\
 
 
 \begin{enumerate}
 
-    \item \textbf{\ac{NLP} solver:} Allows users to choose which of the available \ac{NLP} solvers to use. Currently, only \ac{SNOPT} may be used.
+    \item \textbf{\ac{NLP} solver:} Allows users to choose a solver compiled into the current build. IPOPT is the open-source default; SNOPT is optional. Legacy WORHP value 1 is unsupported.
         \begin{table}[H]
             \hspace{2cm}
             \begin{tabular}{lp{5cm}}
             \ac{EMTG} Variable Name & \verb|NLP_solver_type| \\
             Data Type & \verb|int| \\
             Allowed Values & \verb|0: \ac{SNOPT},| \newline
-                            \verb|1: WORHP|  \\
-            Default Value & \verb|0: \ac{SNOPT}| \\
+                            \verb|2: IPOPT|  \\
+            Default Value & \verb|2: IPOPT| \\
             \end{tabular}
         \end{table}
 

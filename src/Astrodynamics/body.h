@@ -151,8 +151,8 @@ namespace EMTG
             virtual bool operator== (const body& OtherBody) const;
             virtual bool operator!= (const body& OtherBody) const;
 
-            double getEphemerisWindowOpen() const { return this->MySplineUniverse->getEphemerisWindowOpen(this->spice_ID, this->central_body_spice_ID); }
-            double getEphemerisWindowClose() const { return this->MySplineUniverse->getEphemerisWindowClose(this->spice_ID, this->central_body_spice_ID); }
+            double getEphemerisWindowOpen() const { return this->ephemeris_window_open; }
+            double getEphemerisWindowClose() const { return this->ephemeris_window_close; }
             bool getMassCoeffsAreNorm() const { return this->mass_coeffs_are_normalized; };
             std::vector< std::vector<double> > getMassCoeff_Cnm() const { return this->Cnm; };
             std::vector< std::vector<double> > getMassCoeff_Snm() const { return this->Snm; };

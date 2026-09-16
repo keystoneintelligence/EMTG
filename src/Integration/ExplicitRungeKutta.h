@@ -26,7 +26,6 @@
 
 #include "doubleType.h"
 #include "EMTG_enums.h"
-#include "FBLT_EOM.h"
 #include "Integrand.h"
 #include "IntegrationScheme.h"
 #include "RungeKuttaTableau.h"
@@ -76,6 +75,9 @@ namespace EMTG {
                                              doubleType & error,
                                              math::Matrix<double> & error_scaling_factors);
 
+            virtual size_t getLastStepRhsEvaluations() const override { return this->num_stages; }
+            virtual EmbeddedErrorEstimate getLastEmbeddedErrorEstimate() const override { return this->last_error_estimate; }
+
         protected:
             // methods
 
@@ -90,15 +92,35 @@ namespace EMTG {
                                    const doubleType & step_size,
                                    const bool & needSTM);
 
-            void stateUpdate(const math::Matrix<doubleType> & state_left,
-                             const math::Matrix<double> & coefficients,
-                             const size_t & stage_index,
-                             const doubleType & step_size);
+            void storeStageGradient(const size_t & stage_index);
 
-            void stmUpdate(const math::Matrix<double> & STM_left,
-                           const math::Matrix<double> & coefficients,
-                           const size_t & stage_index,
-                           const doubleType & step_size);
+            void stateUpdateFromTableauRow(const math::Matrix<doubleType> & state_left,
+                                           const size_t & coefficient_row,
+                                           const size_t & stage_index,
+                                           const doubleType & step_size);
+
+            void stateUpdateFromWeights(const math::Matrix<doubleType> & state_left,
+                                        const math::Matrix<double> & coefficients,
+                                        const size_t & stage_index,
+                                        const doubleType & step_size);
+
+            void addScaledSTMStage(const math::Matrix<double> & coefficients,
+                                   const size_t & stage_index);
+
+            void addScaledSTMStageFromTableauRow(const size_t & coefficient_row,
+                                                 const size_t & stage_index);
+
+            void stmStageUpdate(const doubleType & step_size);
+
+            void stmUpdateFromTableauRow(const math::Matrix<double> & STM_left,
+                                         const size_t & coefficient_row,
+                                         const size_t & stage_index,
+                                         const doubleType & step_size);
+
+            void stmUpdateFromWeights(const math::Matrix<double> & STM_left,
+                                      const math::Matrix<double> & coefficients,
+                                      const size_t & stage_index,
+                                      const doubleType & step_size);
 
             void stageLoop(const math::Matrix<doubleType> & state_left,
                            math::Matrix<doubleType> & state_right,
@@ -128,8 +150,13 @@ namespace EMTG {
         private:
             size_t num_stages;
 
-            EMTG::math::Matrix <double> STM, STM_stage, fx, dstepdState, grad_vec;
+            EMTG::math::Matrix <double> STM, STM_stage, grad_vec;
             math::Matrix<doubleType> f, y, x_left, x_right;
+            doubleType error_step_size;
+            bool error_step_includes_STM;
+            const math::Matrix<doubleType>* error_state_left = nullptr;
+            const math::Matrix<double>* error_stm_left = nullptr;
+            EmbeddedErrorEstimate last_error_estimate;
 
             RungeKuttaTableau * RK_tableau;
 

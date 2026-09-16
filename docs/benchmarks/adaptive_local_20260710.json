@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "campaign": "paired_fixed_adaptive_local",
+  "date_utc": "2026-07-10",
+  "build": {
+    "configuration": "Release",
+    "compiler": "MSVC 19.44.35214.0",
+    "nlp_solver": "IPOPT 3.14.20",
+    "emtg_sha256": "a81e7d377320b02823a0c718f0035d17997586c1fa07076fce9a13fc81bb10ea"
+  },
+  "machine": {
+    "os": "Windows 10.0.19045",
+    "processor": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+  },
+  "case": {
+    "path": "testatron/tests/integration_asteroid_missions/A20136163_AEPS_IPOPT_FBLT.emtgopt",
+    "sha256": "ec1c585359d4c6b1f3f4d6382eff55f688adcc63a645867955fdee5d9e73f4ec",
+    "seeds": [104729, 130363, 155921, 181081, 206369],
+    "equal_run_budget_seconds": 180,
+    "alternating_order": true
+  },
+  "runs": [
+    {"seed": 104729, "mode": "fixed", "order": 0, "feasible": false, "wall_seconds": 193.1677455, "objective": -0.7631260445785354, "worst_constraint_violation": 0.0001518949784398718},
+    {"seed": 104729, "mode": "adaptive", "order": 1, "feasible": true, "wall_seconds": 157.4149592, "time_to_first_feasible_seconds": 146.633, "objective": -0.7634110936036691, "worst_constraint_violation": 0.00000923599544496377, "solution_family": "3094db90451b21d0"},
+    {"seed": 130363, "mode": "adaptive", "order": 0, "feasible": true, "wall_seconds": 157.5485632, "time_to_first_feasible_seconds": 146.673, "objective": -0.7634110936036691, "worst_constraint_violation": 0.00000923599544496377, "solution_family": "3094db90451b21d0"},
+    {"seed": 130363, "mode": "fixed", "order": 1, "feasible": false, "wall_seconds": 193.2208771, "objective": -0.7631260445785354, "worst_constraint_violation": 0.0001518949784398718},
+    {"seed": 155921, "mode": "fixed", "order": 0, "feasible": false, "wall_seconds": 193.5270677, "objective": -0.7631260445785354, "worst_constraint_violation": 0.0001518949784398718},
+    {"seed": 155921, "mode": "adaptive", "order": 1, "feasible": true, "wall_seconds": 157.6145765, "time_to_first_feasible_seconds": 146.557, "objective": -0.7634110936036691, "worst_constraint_violation": 0.00000923599544496377, "solution_family": "3094db90451b21d0"},
+    {"seed": 181081, "mode": "adaptive", "order": 0, "feasible": true, "wall_seconds": 156.7204496, "time_to_first_feasible_seconds": 145.743, "objective": -0.7634110936036691, "worst_constraint_violation": 0.00000923599544496377, "solution_family": "3094db90451b21d0"},
+    {"seed": 181081, "mode": "fixed", "order": 1, "feasible": false, "wall_seconds": 193.7208580, "objective": -0.7631260445785354, "worst_constraint_violation": 0.0001518949784398718},
+    {"seed": 206369, "mode": "fixed", "order": 0, "feasible": false, "wall_seconds": 193.5457665, "objective": -0.7631260445785354, "worst_constraint_violation": 0.0001518949784398718},
+    {"seed": 206369, "mode": "adaptive", "order": 1, "feasible": true, "wall_seconds": 157.8204779, "time_to_first_feasible_seconds": 146.811, "objective": -0.7634110936036691, "worst_constraint_violation": 0.00000923599544496377, "solution_family": "3094db90451b21d0"}
+  ],
+  "summary": {
+    "fixed": {
+      "feasible_runs": 0,
+      "runs": 5,
+      "feasible_rate": 0.0,
+      "runtime_median_seconds": 193.5270677,
+      "runtime_stdev_seconds": 0.2343733,
+      "objective": -0.7631260445785354,
+      "worst_constraint_violation": 0.0001518949784398718,
+      "distinct_feasible_families": 0
+    },
+    "adaptive": {
+      "feasible_runs": 5,
+      "runs": 5,
+      "feasible_rate": 1.0,
+      "runtime_median_seconds": 157.5485632,
+      "runtime_stdev_seconds": 0.4195518,
+      "objective": -0.7634110936036691,
+      "worst_constraint_violation": 0.00000923599544496377,
+      "distinct_feasible_families": 1
+    },
+    "paired_runtime": {
+      "mean_adaptive_change_percent": -18.617123,
+      "stdev_change_percent": 0.272824,
+      "confidence_95_half_width_percentage_points": 0.338756,
+      "mean_difference_seconds": -36.012658
+    }
+  },
+  "limitations": [
+    "Five deterministic pairs are moderate local evidence, not a nightly-scale statistical campaign.",
+    "Every mode repeated the same outcome across seeds; this fixture's first solve dominated the 180-second budget, so the sample does not demonstrate stochastic basin exploration.",
+    "No fixed feasible family was available under this budget, so family overlap/loss cannot be estimated.",
+    "Mission-level RHS and accepted/rejected-step totals were not emitted by this build."
+  ]
+}

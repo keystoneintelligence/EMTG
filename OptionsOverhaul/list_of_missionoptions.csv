@@ -1,4 +1,4 @@
-dataType,name,scale,length,defaultValue,lowerBound,upperBound,comment,description
+dataType,name,scale,length,defaultValue,lowerBound,upperBound,comment,description,aliases,applicableSolvers
 std::string,mission_name,,,default,,,mission name,mission name
 ObjectiveFunctionType,objective_type,,,2,0,27,"objective type, see ObjectiveFunctionType in EMTG_enums.h",objective function type\n#0: minimum deltaV\n#1: minimum time\n#2: maximum final mass\n#3: maximize initial mass\n#4: depart as late as possible in the window\n#5: depart as early as possible in the window\n#6: maximize orbit energy\n#7: minimize launch mass\n#8: arrive as early as possible\n#9: arrive as late as possible\n#10: <PLACEHOLDER FOR FUTURE OBJECTIVE FUNCTIONS>\n#11: maximum dry/wet ratio\n#12: maximum arrival kinetic energy\n#13: minimum BOL power\n#14: maximize log_10(final mass)\n#15: maximum log_e(final mass)\n#16: maximum dry mass margin\n#17: maximum dry mass\n#18: maximum log_10(dry mass)\n#19: maximum log_e(dry mass)\n#20: minimize chemical fuel\n#21: minimize chemical oxidizer\n#22: minimize electric propellant\n#23: minimize total propellant\n#24: minimize waypoint tracking error\n#25: minimize initial impulse magnitude\n#26: maximize distance from central body
 size_t,objective_journey,,,0,0,inf,Journey associated with objective function (if applicable),Journey associated with objective function (if applicable)
@@ -9,7 +9,7 @@ std::vector<double>,total_flight_time_bounds,86400,2,"[0.0, 302]","[0.0, 1e-10]"
 std::vector<double>,DLA_bounds,,2,"[-90.0, 90.0]","[-90.0, -90.0]","[90.0, 90.0]",DLA in degrees,DLA in degrees
 std::vector<double>,RLA_bounds,,2,"[-2880.0, 2880.0]",minf,inf,RLA in degrees,RLA in degrees
 PhaseType,mission_type,,,2,0,11,"mission type. Choices are 0 - MGALTS, 1 - FBLTS, 2 - MGALT, 3 - FBLT, 4 - PSBI, 5 - PSFB, 6 - MGAnDSMs, 7 - CoastPhase, 8 - SundmanCoastPhase, 9 - variable phase type, 10 - ProbeEntryPhase, 11 - ControlLawThrustPhase",phase type\n#0: MGALTS\n#1: FBLTS\n#2: MGALT\n#3: FBLT\n#4: PSBI\n#5: PSFB\n#6: MGAnDSMs\n#7: CoastPhase\n#8: SundmanCoastPhase\n#9: variable phase type\n#10: ProbeEntryPhase\n#11: ControlLawThrustPhase
-int,NLP_solver_type,,,0,0,1,"NLP solver type. Choices are 0 - SNOPT, 1 - WORHP",NLP solver type\n#0: SNOPT\n#1: WORHP
+int,NLP_solver_type,,,2,0,2,"NLP solver type. Choices are 0 - SNOPT and 2 - IPOPT. Legacy value 1 (WORHP) is parsed but unsupported.",NLP solver type\n#0: SNOPT\n#2: IPOPT
 NLPMode,NLP_solver_mode,,,1,0,2,"NLP solver mode. Choices are 0 -  find feasible point only, 1 - find optimal solution, 2 - satisfy equality constraints",NLP solver mode\n#0: find feasible point only\n#1: find optimal solution\n#2: satisfy equality constraints
 bool,quiet_NLP,,,1,0,1,Quiet NLP solver?,Quiet NLP solver?
 bool,ACE_feasible_point_finder,,,0,0,1,Enable ACE feasible point finder?,Enable ACE feasible point finder?
@@ -23,12 +23,12 @@ int,MBH_hop_distribution,,,2,0,3,"MBH hop probabilty distribution. Choices are 0
 double,MBH_Pareto_alpha,,,1.4,1.00E-10,inf,Pareto distribution alpha,Pareto distribution alpha
 bool,MBH_write_every_improvement,,,0,0,1,Write every MBH improvement for later animation?,Write every MBH improvement for later animation?
 double,MBH_time_hop_probability,,,0.05,0,1,probability of MBH time hop operation,probability of MBH time hop operation
-double,snopt_feasibility_tolerance,,,1.00E-05,1.00E-10,1,feasibility tolerance,feasibility tolerance
-double,snopt_optimality_tolerance,,,1.00E-05,1.00E-10,1,optimality tolerance,optimality tolerance
-double,NLP_max_step,,,1,1.00E-10,1,NLP max step,NLP max step
-size_t,snopt_major_iterations,,,8000,0,inf,NLP major iterations,NLP major iterations
-size_t,snopt_minor_iterations,,,500,0,inf,NLP minor iterations,NLP minor iterations
-int,snopt_max_run_time,,,15,0,inf,NLP max run time (seconds),NLP max run time (seconds)
+double,NLP_feasibility_tolerance,,,1.00E-05,1.00E-10,1,NLP feasibility tolerance,NLP feasibility tolerance,snopt_feasibility_tolerance,
+double,NLP_optimality_tolerance,,,1.00E-05,1.00E-10,1,NLP optimality tolerance,NLP optimality tolerance,snopt_optimality_tolerance,
+double,snopt_major_step_limit,,,1,1.00E-10,1,SNOPT major step limit,SNOPT major step limit,NLP_max_step,SNOPT
+size_t,NLP_iteration_limit,,,8000,0,inf,NLP iteration limit,NLP iteration limit,snopt_major_iterations,
+size_t,snopt_minor_iterations,,,500,0,inf,SNOPT minor iterations,SNOPT minor iterations,,SNOPT
+int,NLP_max_run_time,,,15,0,inf,NLP max run time (seconds),NLP max run time (seconds),snopt_max_run_time,
 bool,enable_Scalatron,,,1,0,1,Enable Scalatron?,Enable Scalatron?
 bool,enable_NLP_chaperone,,,1,0,1,Enable NLP chaperone?,Enable NLP chaperone?
 bool,seed_MBH,,,0,0,1,Seed MBH?,Seed MBH?
@@ -43,6 +43,7 @@ std::string,SPICE_leap_seconds_kernel,,,naif0012.tls,,,SPICE leap seconds kernel
 std::string,SPICE_reference_frame_kernel,,,pck00010.tpc,,,SPICE_reference_frame_kernel,SPICE_reference_frame_kernel
 std::string,universe_folder,,,C:/emtg/Universe,,,Universe folder,Universe folder
 int,ephemeris_source,,,2,0,2,"Choices are 0 - static, 1 - SPICE (default to static if no SPICE file supplied for a body), 2 - SplineEphem","0: static, 1: SPICE (default to static if no SPICE file supplied for a body), 2: SplineEphem"
+bool,SPICE_high_fidelity_derivatives,,,0,0,1,Use central differencing for SPICE acceleration derivatives? Disable to use one-sided velocity differencing for lower runtime cost.,Use central differencing for SPICE acceleration derivatives? Disable to use one-sided velocity differencing for lower runtime cost.
 size_t,SplineEphem_points_per_period,,,360,1,inf,How many sample points should SplineEphem use per orbital period of each body?,How many sample points should SplineEphem use per orbital period of each body?
 size_t,SplineEphem_non_central_body_sun_points_per_period,,,10000,1,inf,How many sample points should SplineEphem use per orbital period of the sun with respect to the central body?,How many sample points should SplineEphem use per orbital period of the sun with respect to the central body?
 bool,SplineEphem_truncate_ephemeris_at_maximum_mission_epoch,,,0,0,1,Truncate SplineEphem at maximum mission epoch?,"Truncate SplineEphem at maximum mission epoch?\n#If you enable this option, global search will be impeded but you will save a lot of memory\n#Useful for monte-carlo, launch period analysis, etc."
@@ -50,8 +51,24 @@ double,earliestPossibleEpoch,,,51554.5,33251,100000,Beginning of the SplineEphem
 double,latestPossibleEpoch,,,88058,33251,100000,End of the SplineEphem data set,End of the SplineEphem data set
 PropagatorType,propagatorType,,,0,0,1,"Propagator type. Choices are 0 - Keplerian propagator, 1 - Integrated propagator",Propagator type\n#0: Keplerian propagator\n#1: Integrated propagator
 IntegratorType,integratorType,,,1,0,1,"Integrator type. Choices are 0 - rk7813M adaptive step, 1 - rk8 fixed step",Integrator type\n#0: rk7813M adaptive step\n#1: rk8 fixed step
-double,integrator_tolerance,,,1.00E-08,1.00E-12,1,adaptive step integrator tolerance,adaptive step integrator tolerance
+double,integrator_tolerance,,,1.00E-08,1.00E-12,1,"legacy adaptive local-error tolerance; used as rtol and to derive dimensional atols when integrator_error_control_mode is 0","legacy adaptive local-error tolerance (compatibility mode only; this is not a terminal-accuracy guarantee)"
+int,integrator_error_control_mode,,,0,0,1,"adaptive error-control contract: 0 migrates integrator_tolerance, 1 uses explicit component tolerances","adaptive error-control contract\n#0: legacy migration\n#1: explicit component atol/rtol"
+double,integrator_relative_tolerance,,,1.00E-08,1.00E-14,1,global state relative tolerance for explicit component error control,global adaptive state relative tolerance
+double,integrator_absolute_tolerance_position,,,1.00E-06,1.00E-16,inf,position absolute tolerance in km,adaptive position absolute tolerance (km)
+double,integrator_absolute_tolerance_velocity,,,1.00E-09,1.00E-16,inf,velocity absolute tolerance in km/s,adaptive velocity absolute tolerance (km/s)
+double,integrator_absolute_tolerance_mass,,,1.00E-09,1.00E-16,inf,mass and virtual-propellant absolute tolerance in kg,adaptive mass/virtual-propellant absolute tolerance (kg)
+double,integrator_absolute_tolerance_time,,,1.00E-06,1.00E-16,inf,epoch or independent-variable absolute tolerance in seconds,adaptive epoch/independent-variable absolute tolerance (s)
+double,integrator_absolute_tolerance_other,,,1.00E-10,1.00E-16,inf,absolute tolerance for formulation-specific auxiliary states,adaptive auxiliary-state absolute tolerance
+int,integrator_stm_error_control,,,1,0,1,"STM error-control policy: 0 state only, 1 separate normalized state and STM infinity norms combined by max","STM error-control policy\n#0: state only\n#1: state and STM"
+double,integrator_stm_relative_tolerance,,,1.00E-08,1.00E-14,1,relative tolerance for each STM entry,adaptive STM relative tolerance
+double,integrator_stm_absolute_tolerance,,,1.00E-10,1.00E-16,inf,"base STM absolute tolerance, scaled by output/input characteristic-unit ratio",adaptive dimensionally scaled STM absolute tolerance
 double,integration_time_step_size,,,86400,1.00E-10,inf,"integration step size (maximum for adaptive, fixed for fixed)","integration step size (maximum for adaptive, fixed for fixed)"
+double,integrator_initial_step_size,,,0,0,inf,"adaptive initial step in seconds; 0 uses integration_time_step_size",adaptive initial step (0 uses maximum step)
+double,integrator_minimum_step_size,,,0,0,inf,"adaptive minimum step in seconds; 0 derives a scale-aware machine-precision floor",adaptive minimum step (0 selects automatic floor)
+double,integrator_safety_factor,,,0.9,0.01,1,adaptive controller safety factor,adaptive controller safety factor
+double,integrator_minimum_step_scale,,,0.2,0.01,1,minimum adaptive controller resize factor,minimum adaptive controller step-scale factor
+double,integrator_maximum_step_scale,,,5,1,100,maximum adaptive controller growth factor,maximum adaptive controller step-scale factor
+size_t,integrator_rejection_limit,,,50,1,10000,maximum consecutive adaptive rejections before failure,adaptive consecutive-step rejection limit
 int,num_timesteps,,,20,1,inf,number of timesteps per phase,number of timesteps per phase
 size_t,spiral_segments,,,1,1,inf,number of spiral segments,number of spiral segments
 bool,allow_initial_mass_to_vary,,,0,0,1,Allow the mass at the beginning of the first journey to vary up to the allowed maximum?,Allow the mass at the beginning of the first journey to vary up to the allowed maximum?

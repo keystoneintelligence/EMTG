@@ -17,8 +17,8 @@
 // governing permissions and limitations under the License.
 
 #include "IntegratedFixedStepPropagator.h"
-#include "missionoptions.h"
-#include "universe.h"
+
+#include <cmath>
 
 namespace EMTG {
     namespace Astrodynamics {
@@ -41,6 +41,7 @@ namespace EMTG {
             math::Matrix<doubleType> & state_right = *this->StateRightPointer;
             math::Matrix<double> & STM_ptr = *this->STMpointer;
 
+            this->beginStatistics(propagation_span _GETVALUE);
             this->propagatorSetup(state_left, STM_ptr, STM_needed);
 
             //TODO: let user set a global integration step size for the mission AND allow the user to override it at the journey level
@@ -68,6 +69,10 @@ namespace EMTG {
                                                    integration_step_size,
                                                    this->dstep_sizedProp_var,
                                                    STM_needed);
+
+                    this->recordAcceptedStep(integration_step_size _GETVALUE,
+                                             STM_needed,
+                                             std::fabs(integration_step_size _GETVALUE) < this->PropagationStepSize);
 
                     if (this->store_propagation_history)
                     {
@@ -113,6 +118,10 @@ namespace EMTG {
                                                    this->dstep_sizedProp_var,
                                                    STM_needed);
 
+                    this->recordAcceptedStep(integration_step_size _GETVALUE,
+                                             STM_needed,
+                                             std::fabs(integration_step_size _GETVALUE) < this->PropagationStepSize);
+
                     if (this->store_propagation_history)
                     {
                         this->propagation_history.push_back(this->state_right(this->index_of_epoch_in_state_vec) _GETVALUE - this->state_left(this->index_of_epoch_in_state_vec) _GETVALUE);
@@ -136,6 +145,7 @@ namespace EMTG {
             }//end backward propagation
 
             this->propagatorTeardown(state_left, state_right, STM_ptr, propagation_span);
+            this->finishStatistics();
         }
 
         void IntegratedFixedStepPropagator::propagate(const doubleType & propagation_span, 
@@ -146,6 +156,7 @@ namespace EMTG {
             math::Matrix<doubleType> & state_right = *this->StateRightPointer;
             math::Matrix<double> & STM_ptr = *this->STMpointer;
             
+            this->beginStatistics(propagation_span _GETVALUE);
             this->propagatorSetup(state_left, STM_left, STM_needed);
 
             //TODO: let user set a global integration step size for the mission AND allow the user to override it at the journey level
@@ -175,6 +186,10 @@ namespace EMTG {
                                                    this->dstep_sizedProp_var,
                                                    STM_needed);
 
+                    this->recordAcceptedStep(integration_step_size _GETVALUE,
+                                             STM_needed,
+                                             std::fabs(integration_step_size _GETVALUE) < this->PropagationStepSize);
+
                     if (this->store_propagation_history)
                     {
                         this->propagation_history.push_back(this->state_right(this->index_of_epoch_in_state_vec) _GETVALUE - this->state_left(this->index_of_epoch_in_state_vec) _GETVALUE);
@@ -220,6 +235,10 @@ namespace EMTG {
                                                    this->dstep_sizedProp_var,
                                                    STM_needed);
 
+                    this->recordAcceptedStep(integration_step_size _GETVALUE,
+                                             STM_needed,
+                                             std::fabs(integration_step_size _GETVALUE) < this->PropagationStepSize);
+
                     if (this->store_propagation_history)
                     {
                         this->propagation_history.push_back(this->state_right(this->index_of_epoch_in_state_vec) _GETVALUE - this->state_left(this->index_of_epoch_in_state_vec) _GETVALUE);
@@ -243,6 +262,7 @@ namespace EMTG {
             }//end backward propagation
 
             this->propagatorTeardown(state_left, state_right, STM_ptr, propagation_span);
+            this->finishStatistics();
         }
 
     } // end namespace Astrodynamics
