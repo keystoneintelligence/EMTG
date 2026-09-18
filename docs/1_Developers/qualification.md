@@ -45,6 +45,12 @@ qualification. Export parsing alone does not establish complete NASA mission
 compatibility or equal optima between solvers.
 
 Propulator and PyHardware require matching Python/Boost.Python toolchains.
+On Windows their optional build targets produce `.pyd` modules. Licensed Windows
+SNOPT builds stage the legacy `lib/snopt.dll` or configuration-specific
+`build/libsnopt.dll` runtime beside the executable and install it in `bin`.
+For a custom layout, set `EMTG_SNOPT_RUNTIME_DLL` to the existing DLL. Static
+builds need no DLL, and SNOPT-disabled builds never stage one. Additional vendor
+runtime dependencies remain the licensed developer's responsibility.
 The historical GUI needs a separately qualified wxPython environment. These
 are not part of the managed CLI release qualification. macOS and other Linux
 platforms or architectures remain unqualified.
@@ -58,9 +64,14 @@ produce candidate artifacts; its matching-tag path can publish a release.
 `IPOPT Open-Source Solver` exercises the separate Linux solver graph; enable
 its `run_aeps_atlas_qualification` input to run the AEPS matrix.
 
+The bounded native gates use the [small checked-in regression ephemeris](../../tests/fixtures/ephemeris/README.md).
+Stage it with `python scripts/prepare_test_ephemeris.py --output _local/test-universe`
+and set `EMTG_TEST_UNIVERSE` to that directory's absolute path. This replaces the
+large development BSP inventory for these tests only. The public IPOPT workflow
+does this automatically for its AEPS opt-in; it requires no private asset transfer.
+
 After staging the candidate executable as `bin/EMTGv9.exe` (the existing test
-harness path on either platform) and providing the scientific assets, the
-native gates can be selected from the source root as follows:
+harness path on either platform), select the native gates from the source root:
 
 ```text
 python -m pytest tests/test_outerloop_emtg_integration.py -k "not aeps_real_atlas"

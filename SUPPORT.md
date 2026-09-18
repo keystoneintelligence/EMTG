@@ -53,6 +53,11 @@ See [qualification scope](docs/1_Developers/qualification.md) for development
 evidence and remaining gates. Release readiness is tracked using the
 [release checklist](docs/1_Developers/releasing.md).
 
+The [upstream compatibility review](docs/1_Developers/upstream_compatibility_review.md)
+records the restored Windows Python-extension/SNOPT runtime packaging behavior
+and low-level C++ tolerance default, with focused regression evidence. Complete
+optional-workflow qualification remains separate from the public IPOPT CLI scope.
+
 ## Getting help
 
 Report fork-specific problems through

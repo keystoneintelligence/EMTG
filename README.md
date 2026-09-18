@@ -46,6 +46,10 @@ configurations and [INSTALLING.md](INSTALLING.md) for running a portable bundle.
 Large SPICE BSP kernels are separate scientific inputs and must be supplied for
 the selected mission. Keep Windows checkout and run paths short.
 
+The bounded native regression tests have a separate
+[18.8 MB checked-in ephemeris fixture](tests/fixtures/ephemeris/README.md), with
+offline staging and recorded hashes. It covers those tests only.
+
 For existing option files, explicitly select the intended solver: `0` is SNOPT
 and `2` is IPOPT. Files that omitted NASA's old SNOPT default now select IPOPT.
 See [solver semantics and migration](docs/1_Developers/ipopt.md) and
