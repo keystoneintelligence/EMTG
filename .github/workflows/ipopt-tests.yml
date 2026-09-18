@@ -140,12 +140,17 @@ jobs:
           cp _local/builds/ipopt-only/bin/EMTGv9 bin/EMTGv9.exe
           chmod +x bin/EMTGv9.exe
 
+      - name: Stage the checksum-verified regression ephemeris
+        if: github.event_name == 'workflow_dispatch' && inputs.run_aeps_atlas_qualification
+        run: python scripts/prepare_test_ephemeris.py --output _local/test-universe
+
       - name: Run electric-propulsion Atlas qualification
         if: github.event_name == 'workflow_dispatch' && inputs.run_aeps_atlas_qualification
         env:
           EMTG_RUN_OUTERLOOP_INTEGRATION: '1'
           EMTG_ATLAS_AEPS_BUDGET_SECONDS: '1200'
           PYTHONDONTWRITEBYTECODE: '1'
+          EMTG_TEST_UNIVERSE: '${{ github.workspace }}/_local/test-universe'
         run: >-
           python -m pytest
           tests/test_outerloop_emtg_integration.py::test_aeps_real_atlas_baseline_and_nearby_hardware_matrix

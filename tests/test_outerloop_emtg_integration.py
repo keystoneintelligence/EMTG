@@ -53,6 +53,7 @@ from run_asteroid_integration import read_mission_name, validate_output_dir
 
 
 ROOT = Path(__file__).resolve().parents[1]
+TEST_UNIVERSE = Path(os.environ.get('EMTG_TEST_UNIVERSE', ROOT / 'testatron' / 'universe')).resolve()
 
 
 def _nearby_fblt_targets(anchor: AtlasAnchor) -> dict[str, Decimal]:
@@ -117,7 +118,7 @@ def test_bounded_real_emtg_evaluation_is_typed_and_isolated(tmp_path):
         executable=ROOT / "bin" / "EMTGv9.exe",
         run_directory=tmp_path,
         timeout_seconds=15,
-        universe_folder=ROOT / "testatron" / "universe",
+        universe_folder=TEST_UNIVERSE,
         hardware_path=ROOT / "testatron" / "HardwareModels",
         brief_executable=ROOT / "depend" / "cspice" / "exe" / "brief.exe",
         ephemeris_source_override=1,
@@ -187,7 +188,7 @@ def test_atlas_real_case_uses_transported_trialx_and_case_local_hardware(
         executable=ROOT / "bin" / "EMTGv9.exe",
         run_directory=tmp_path,
         timeout_seconds=30,
-        universe_folder=ROOT / "testatron" / "universe",
+        universe_folder=TEST_UNIVERSE,
         hardware_path=ROOT / "testatron" / "HardwareModels",
         ephemeris_source_override=1,
     )
@@ -404,7 +405,7 @@ def test_aeps_real_atlas_baseline_and_nearby_hardware_matrix(
     options.forced_mission_subfolder = "."
     options.short_output_file_names = 1
     options.background_mode = 1
-    options.universe_folder = (ROOT / "testatron" / "universe").as_posix()
+    options.universe_folder = TEST_UNIVERSE.as_posix()
     options.NLP_max_run_time = int(os.environ.get("EMTG_ATLAS_AEPS_BUDGET_SECONDS", "1200"))
     run_options = case_directory / fixture.name
     options.write_options_file(
@@ -436,7 +437,7 @@ def test_real_emtg_one_step_maximum_mass_continuation_smoke(tmp_path):
         executable=ROOT / "bin" / "EMTGv9.exe",
         run_directory=tmp_path / "emtg",
         timeout_seconds=12,
-        universe_folder=ROOT / "testatron" / "universe",
+        universe_folder=TEST_UNIVERSE,
         hardware_path=ROOT / "testatron" / "HardwareModels",
         ephemeris_source_override=1,
     )

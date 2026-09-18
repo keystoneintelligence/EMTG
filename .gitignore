@@ -21,6 +21,9 @@ scripts/*
 !scripts/audit-linux-dependencies.sh
 !scripts/audit-windows-dependencies.ps1
 !scripts/audit-release-paths.py
+!scripts/build_test_ephemeris.py
+!scripts/prepare_test_ephemeris.py
+!scripts/verify_test_ephemeris.py
 !scripts/render-winget.ps1
 #EMTG-config.cmake
 *.debug
@@ -93,6 +96,7 @@ Universe/ephemeris_files/*.bpc
 *.toc
 *.aux
 *.gz
+!tests/fixtures/ephemeris/emtg-tests-v1.bsp.gz
 *.blg
 *.bbl
 *.lof

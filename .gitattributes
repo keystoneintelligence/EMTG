@@ -1,1 +1,3 @@
 *.sh text eol=lf
+tests/fixtures/ephemeris/*.json text eol=lf
+tests/fixtures/ephemeris/*.bsp.gz binary
