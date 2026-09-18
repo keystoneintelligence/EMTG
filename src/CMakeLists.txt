@@ -173,6 +173,9 @@ if(BUILD_EMTG_TESTBED)
 	add_subdirectory(Testing)
 endif()
 
+include("${PROJECT_SOURCE_DIR}/cmake/OptionalWindowsRuntime.cmake")
+emtg_stage_snopt_runtime(EMTGv9)
+
 # if desired, build the propulator
 if(BUILD_PROPULATOR)
     SET(Python_ADDITIONAL_VERSIONS ${PYTHON_VERSIONS_REQUIRED}$ )
@@ -218,6 +221,7 @@ if(BUILD_PROPULATOR)
     target_link_libraries(PropulatorDriver emtg ${EMTG_LIBRARIES})
     
     add_library(propulator SHARED ${PROPULATOR_MODULE_FILES})
+    emtg_configure_python_extension(propulator)
     target_include_directories(propulator PRIVATE ${PYTHON_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
     #turn on the flag to compile the python interface, and the flag to disable boost auto-link
     target_compile_definitions(propulator PRIVATE PROPULATOR_PYTHON_INTERFACE BOOST_ALL_NO_LIB BOOST_PYTHON_STATIC_LIB)
@@ -269,6 +273,7 @@ if(BUILD_PYHARDWARE)
     target_compile_definitions(PyHardware PRIVATE PROPULATOR_PYTHON_INTERFACE BOOST_ALL_NO_LIB BOOST_PYTHON_STATIC_LIB)
     target_link_libraries(PyHardware emtg ${EMTG_LIBRARIES}  ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
     SET_TARGET_PROPERTIES(PyHardware PROPERTIES PREFIX "")
+    emtg_configure_python_extension(PyHardware)
 endif()
 
 #ignore default libraries on Windows
