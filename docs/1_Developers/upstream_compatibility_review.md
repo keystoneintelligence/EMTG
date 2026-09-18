@@ -138,5 +138,5 @@ outputs were not changed by this work.
 The AEPS input-reduction check used the previously qualified executable. The
 rebuilt executable additionally passed CTest, bounded native and package checks;
 the full AEPS matrix has not been repeated on that binary. Neither run qualifies
-a new laptop build or the separate Linux IPOPT 3.14.19 graph. Follow
+a fresh-machine build or the separate Linux IPOPT 3.14.19 graph. Follow
 [qualification.md](qualification.md) for those gates.
