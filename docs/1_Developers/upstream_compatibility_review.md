@@ -74,6 +74,16 @@ The five option aliases are `snopt_feasibility_tolerance` →
    checks direct/default-mission construction and preservation of caller-selected
    settings. Strict IPOPT tests retain their explicit `1e-8` tolerance; ordinary
    mission-driven construction still copies the mission setting unchanged.
+5. **Test reproducibility: native MBH random seed.** One final bounded test run
+   failed to find a feasible solution within its existing five-second budget.
+   Its base options used `MBH_RNG_seed=-1` (clock seed); OuterLoop's request seed
+   currently assigns the separate `seed_MBH` initial-guess flag, not the native
+   RNG seed. Fixed-seed inputs produced feasible solutions with both the prior
+   and rebuilt executables. The smoke fixture now explicitly selects native seed
+   `7`, preserving budgets, strict tolerances and all scientific assertions.
+   Production OuterLoop seed mapping is unchanged to avoid silently changing
+   caller search behavior. Callers needing reproducible native MBH must set
+   `MBH_RNG_seed` in their base options; correcting that mapping is separate work.
 
 ## Intentional differences requiring scientific qualification
 
@@ -107,13 +117,15 @@ outputs were not changed by this work.
 
 ## Evidence from this review
 
-- Public Python suite after compatibility fixes: 233 passed, 14 skipped. Skips include explicitly opt-in
-  native/package/NASA checks and the unavailable Fortran compiler probe; native
-  and NASA parser selections were exercised separately below.
+- Isolated public-checkout Python suite after compatibility fixes: 234 passed,
+  13 skipped with NASA's parser supplied. Skips cover explicitly opt-in native/
+  package checks and the unavailable Fortran compiler probe; native and package
+  selections were exercised separately below.
 - Rebuilt managed Windows CTest executables: 14 passed, including default and
   explicit caller tolerance checks. This uses the provisioned development machine.
 - New fixture preparation/precedence tests and viewer formatter test: seven passed.
-- Native bounded selection with the new staged fixture: eight passed.
+- Native bounded selection with the rebuilt executable and new staged fixture:
+  eight passed after explicitly seeding the smoke fixture, as described above.
 - NASA export/parser selection with the pinned upstream parser: six passed.
 - Compact SPK regeneration: two byte-identical outputs; 13,468 state-vector
   comparisons are bit-identical to the recorded full source kernel inventory.
@@ -123,7 +135,8 @@ outputs were not changed by this work.
 - Rebuilt Windows release ZIP: both relocation tests passed; executable and
   archive path audits passed. Dependency audit reports only operating-system DLLs.
 
-Native fixture checks use the existing development executable whose source tree
-matches the public candidate's scientific implementation. They qualify the input
-reduction on that executable, not a new laptop build or the separate Linux
-IPOPT 3.14.19 graph. Follow [qualification.md](qualification.md) for those gates.
+The AEPS input-reduction check used the previously qualified executable. The
+rebuilt executable additionally passed CTest, bounded native and package checks;
+the full AEPS matrix has not been repeated on that binary. Neither run qualifies
+a new laptop build or the separate Linux IPOPT 3.14.19 graph. Follow
+[qualification.md](qualification.md) for those gates.

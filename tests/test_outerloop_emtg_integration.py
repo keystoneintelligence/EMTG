@@ -113,8 +113,15 @@ def _nearby_impulsive_targets(anchor: AtlasAnchor) -> dict[str, Decimal]:
     reason="set EMTG_RUN_OUTERLOOP_INTEGRATION=1 for the bounded real solver test",
 )
 def test_bounded_real_emtg_evaluation_is_typed_and_isolated(tmp_path):
+    # seed_MBH controls use of an initial guess; MBH_RNG_seed controls the
+    # native random stream. Pin the latter so this short smoke test does not
+    # depend on the wall clock. Keep the existing budgets and acceptance tests.
+    base = MissionOptions(str(ROOT / "testatron" / "tests" / "transcription_tests" / "MGAnDSMs_EMintercept.emtgopt"))
+    base.MBH_RNG_seed = 7
+    base_case = tmp_path / "seeded-base.emtgopt"
+    base.write_options_file(str(base_case), True)
     evaluator = EMTGEvaluator(
-        base_case=ROOT / "testatron" / "tests" / "transcription_tests" / "MGAnDSMs_EMintercept.emtgopt",
+        base_case=base_case,
         executable=ROOT / "bin" / "EMTGv9.exe",
         run_directory=tmp_path,
         timeout_seconds=15,
@@ -161,6 +168,7 @@ def test_bounded_real_emtg_evaluation_is_typed_and_isolated(tmp_path):
     assert result.metrics["flight_time"] > 0.0
     assert Path(result.artifacts["case_directory"]).is_dir()
     assert Path(result.artifacts["options"]).is_file()
+    assert MissionOptions(result.artifacts["options"]).MBH_RNG_seed == 7
     assert Path(result.artifacts["stdout"]).is_file()
     assert result.provenance["process_arguments"][0] == str((ROOT / "bin" / "EMTGv9.exe").resolve())
 
