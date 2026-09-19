@@ -59,8 +59,11 @@ link_directories(${PROJECT_BINARY_DIR}/src/Testing/${CMAKE_CFG_INTDIR})
 
 # create the executable
 add_executable(acceleration_model_tests  ${acceleration_model_tests_executable_files})
+emtg_configure_executable(acceleration_model_tests)
 if (USE_AD_INSTRUMENTATION)
     target_link_libraries(acceleration_model_tests testbed_library)
 else()
     target_link_libraries(acceleration_model_tests emtg)
 endif()
+
+emtg_add_testbed_test(EMTG.acceleration_model_tests acceleration_model_tests)

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "emtg",
+  "version-semver": "9.2.0",
+  "description": "Evolutionary Mission Trajectory Generator",
+  "license": "NASA-1.3",
+  "dependencies": [
+    "boost-algorithm",
+    "boost-date-time",
+    "boost-lexical-cast",
+    "boost-ptr-container",
+    "coin-or-ipopt",
+    "cspice"
+  ]
+}

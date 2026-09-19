@@ -51,6 +51,7 @@ namespace EMTG {
             }
 
             inline EMTG::math::Matrix<double> getStatePropMat() const { return this->state_propagation_matrix; }
+            inline const EMTG::math::Matrix<double>& getStatePropMatRef() const { return this->state_propagation_matrix; }
 
         protected:
             doubleType current_independent_variable;

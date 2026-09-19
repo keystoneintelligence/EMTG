@@ -17,6 +17,17 @@ set(CSPICE_DIR /archive/Utilities/CSPICE)
 
 #Update this line and change it to be your appropriate path (works for Windows or Unix-based systems)
 	set(SNOPT_ROOT_DIR /archive/Libraries/snopt76)
+
+#---------IPOPT hints------------
+#Change these lines to point toward your Ipopt installation if you want to build EMTG with IPOPT support.
+#For a MinGW-built Ipopt consumed by an MSVC EMTG build, IPOPT_ROOT_DIR should point at the install prefix.
+#If IPOPT depends on MinGW runtime DLLs, point IPOPT_MINGW_BIN_DIR at the directory that contains them.
+
+    set(IPOPT_ROOT_DIR /archive/Libraries/ipopt)
+    set(IPOPT_INCLUDE_DIR ${IPOPT_ROOT_DIR}/include)
+    set(IPOPT_LIBRARY_DIR ${IPOPT_ROOT_DIR}/lib)
+    set(IPOPT_BIN_DIR ${IPOPT_ROOT_DIR}/bin)
+    #set(IPOPT_MINGW_BIN_DIR C:/msys64/mingw64/bin)
     
 #If you are on Windows and have installed Visual Fortran, you will need to point to your Visual Fortran library directory
 #    set(INTEL_FORTRAN_DIR "C:/Program Files (x86)/IntelSWTools/compilers_and_libraries_2016.1.146/windows/compiler/lib/intel64")

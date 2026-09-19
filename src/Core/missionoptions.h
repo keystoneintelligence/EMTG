@@ -85,7 +85,7 @@ namespace EMTG
         std::vector<double> DLA_bounds;//DLA in degrees
         std::vector<double> RLA_bounds;//RLA in degrees
         PhaseType mission_type;//mission type. Choices are 0 - MGALTS, 1 - FBLTS, 2 - MGALT, 3 - FBLT, 4 - PSBI, 5 - PSFB, 6 - MGAnDSMs, 7 - CoastPhase, 8 - SundmanCoastPhase, 9 - variable phase type, 10 - ProbeEntryPhase, 11 - ControlLawThrustPhase
-        int NLP_solver_type;//NLP solver type. Choices are 0 - SNOPT, 1 - WORHP
+        int NLP_solver_type;//NLP solver type. Choices are 0 - SNOPT and 2 - IPOPT. Legacy value 1 (WORHP) is parsed but unsupported.
         NLPMode NLP_solver_mode;//NLP solver mode. Choices are 0 -  find feasible point only, 1 - find optimal solution, 2 - satisfy equality constraints
         bool quiet_NLP;//Quiet NLP solver?
         bool ACE_feasible_point_finder;//Enable ACE feasible point finder?
@@ -99,12 +99,12 @@ namespace EMTG
         double MBH_Pareto_alpha;//Pareto distribution alpha
         bool MBH_write_every_improvement;//Write every MBH improvement for later animation?
         double MBH_time_hop_probability;//probability of MBH time hop operation
-        double snopt_feasibility_tolerance;//feasibility tolerance
-        double snopt_optimality_tolerance;//optimality tolerance
-        double NLP_max_step;//NLP max step
-        size_t snopt_major_iterations;//NLP major iterations
-        size_t snopt_minor_iterations;//NLP minor iterations
-        int snopt_max_run_time;//NLP max run time (seconds)
+        double NLP_feasibility_tolerance;//NLP feasibility tolerance
+        double NLP_optimality_tolerance;//NLP optimality tolerance
+        double snopt_major_step_limit;//SNOPT major step limit
+        size_t NLP_iteration_limit;//NLP iteration limit
+        size_t snopt_minor_iterations;//SNOPT minor iterations
+        int NLP_max_run_time;//NLP max run time (seconds)
         bool enable_Scalatron;//Enable Scalatron?
         bool enable_NLP_chaperone;//Enable NLP chaperone?
         bool seed_MBH;//Seed MBH?
@@ -119,6 +119,7 @@ namespace EMTG
         std::string SPICE_reference_frame_kernel;//SPICE_reference_frame_kernel
         std::string universe_folder;//Universe folder
         int ephemeris_source;//Choices are 0 - static, 1 - SPICE (default to static if no SPICE file supplied for a body), 2 - SplineEphem
+        bool SPICE_high_fidelity_derivatives;//Use central differencing for SPICE acceleration derivatives? Disable to use one-sided velocity differencing for lower runtime cost.
         size_t SplineEphem_points_per_period;//How many sample points should SplineEphem use per orbital period of each body?
         size_t SplineEphem_non_central_body_sun_points_per_period;//How many sample points should SplineEphem use per orbital period of the sun with respect to the central body?
         bool SplineEphem_truncate_ephemeris_at_maximum_mission_epoch;//Truncate SplineEphem at maximum mission epoch?
@@ -126,8 +127,24 @@ namespace EMTG
         double latestPossibleEpoch;//End of the SplineEphem data set
         PropagatorType propagatorType;//Propagator type. Choices are 0 - Keplerian propagator, 1 - Integrated propagator
         IntegratorType integratorType;//Integrator type. Choices are 0 - rk7813M adaptive step, 1 - rk8 fixed step
-        double integrator_tolerance;//adaptive step integrator tolerance
+        double integrator_tolerance;//legacy adaptive local-error tolerance; used as rtol and to derive dimensional atols when integrator_error_control_mode is 0
+        int integrator_error_control_mode;//adaptive error-control contract: 0 migrates integrator_tolerance, 1 uses explicit component tolerances
+        double integrator_relative_tolerance;//global state relative tolerance for explicit component error control
+        double integrator_absolute_tolerance_position;//position absolute tolerance in km
+        double integrator_absolute_tolerance_velocity;//velocity absolute tolerance in km/s
+        double integrator_absolute_tolerance_mass;//mass and virtual-propellant absolute tolerance in kg
+        double integrator_absolute_tolerance_time;//epoch or independent-variable absolute tolerance in seconds
+        double integrator_absolute_tolerance_other;//absolute tolerance for formulation-specific auxiliary states
+        int integrator_stm_error_control;//STM error-control policy: 0 state only, 1 separate normalized state and STM infinity norms combined by max
+        double integrator_stm_relative_tolerance;//relative tolerance for each STM entry
+        double integrator_stm_absolute_tolerance;//base STM absolute tolerance, scaled by output/input characteristic-unit ratio
         double integration_time_step_size;//integration step size (maximum for adaptive, fixed for fixed)
+        double integrator_initial_step_size;//adaptive initial step in seconds; 0 uses integration_time_step_size
+        double integrator_minimum_step_size;//adaptive minimum step in seconds; 0 derives a scale-aware machine-precision floor
+        double integrator_safety_factor;//adaptive controller safety factor
+        double integrator_minimum_step_scale;//minimum adaptive controller resize factor
+        double integrator_maximum_step_scale;//maximum adaptive controller growth factor
+        size_t integrator_rejection_limit;//maximum consecutive adaptive rejections before failure
         int num_timesteps;//number of timesteps per phase
         size_t spiral_segments;//number of spiral segments
         bool allow_initial_mass_to_vary;//Allow the mass at the beginning of the first journey to vary up to the allowed maximum?
@@ -276,18 +293,18 @@ namespace EMTG
         double MBH_Pareto_alpha_upperBound;
         double MBH_time_hop_probability_lowerBound;
         double MBH_time_hop_probability_upperBound;
-        double snopt_feasibility_tolerance_lowerBound;
-        double snopt_feasibility_tolerance_upperBound;
-        double snopt_optimality_tolerance_lowerBound;
-        double snopt_optimality_tolerance_upperBound;
-        double NLP_max_step_lowerBound;
-        double NLP_max_step_upperBound;
-        size_t snopt_major_iterations_lowerBound;
-        size_t snopt_major_iterations_upperBound;
+        double NLP_feasibility_tolerance_lowerBound;
+        double NLP_feasibility_tolerance_upperBound;
+        double NLP_optimality_tolerance_lowerBound;
+        double NLP_optimality_tolerance_upperBound;
+        double snopt_major_step_limit_lowerBound;
+        double snopt_major_step_limit_upperBound;
+        size_t NLP_iteration_limit_lowerBound;
+        size_t NLP_iteration_limit_upperBound;
         size_t snopt_minor_iterations_lowerBound;
         size_t snopt_minor_iterations_upperBound;
-        int snopt_max_run_time_lowerBound;
-        int snopt_max_run_time_upperBound;
+        int NLP_max_run_time_lowerBound;
+        int NLP_max_run_time_upperBound;
         double NLP_objective_goal_lowerBound;
         double NLP_objective_goal_upperBound;
         int NLP_write_output_check_time_lowerBound;
@@ -310,8 +327,40 @@ namespace EMTG
         IntegratorType integratorType_upperBound;
         double integrator_tolerance_lowerBound;
         double integrator_tolerance_upperBound;
+        int integrator_error_control_mode_lowerBound;
+        int integrator_error_control_mode_upperBound;
+        double integrator_relative_tolerance_lowerBound;
+        double integrator_relative_tolerance_upperBound;
+        double integrator_absolute_tolerance_position_lowerBound;
+        double integrator_absolute_tolerance_position_upperBound;
+        double integrator_absolute_tolerance_velocity_lowerBound;
+        double integrator_absolute_tolerance_velocity_upperBound;
+        double integrator_absolute_tolerance_mass_lowerBound;
+        double integrator_absolute_tolerance_mass_upperBound;
+        double integrator_absolute_tolerance_time_lowerBound;
+        double integrator_absolute_tolerance_time_upperBound;
+        double integrator_absolute_tolerance_other_lowerBound;
+        double integrator_absolute_tolerance_other_upperBound;
+        int integrator_stm_error_control_lowerBound;
+        int integrator_stm_error_control_upperBound;
+        double integrator_stm_relative_tolerance_lowerBound;
+        double integrator_stm_relative_tolerance_upperBound;
+        double integrator_stm_absolute_tolerance_lowerBound;
+        double integrator_stm_absolute_tolerance_upperBound;
         double integration_time_step_size_lowerBound;
         double integration_time_step_size_upperBound;
+        double integrator_initial_step_size_lowerBound;
+        double integrator_initial_step_size_upperBound;
+        double integrator_minimum_step_size_lowerBound;
+        double integrator_minimum_step_size_upperBound;
+        double integrator_safety_factor_lowerBound;
+        double integrator_safety_factor_upperBound;
+        double integrator_minimum_step_scale_lowerBound;
+        double integrator_minimum_step_scale_upperBound;
+        double integrator_maximum_step_scale_lowerBound;
+        double integrator_maximum_step_scale_upperBound;
+        size_t integrator_rejection_limit_lowerBound;
+        size_t integrator_rejection_limit_upperBound;
         int num_timesteps_lowerBound;
         int num_timesteps_upperBound;
         size_t spiral_segments_lowerBound;

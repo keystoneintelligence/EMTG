@@ -18,7 +18,6 @@ add_subdirectory(Scalatron)
 if(SPLINE_EPHEM)
     add_subdirectory(SplineEphem)
 	include_directories(SplineEphem)
-	include_directories(${GSL_INCLUDE_DIRS})
 endif(SPLINE_EPHEM)
 include_directories(Astrodynamics 
                     Core 
@@ -100,17 +99,82 @@ source_group("Executable" FILES ${EXECUTABLE_FILES})
 add_library(emtg ${EMTG_FILES})
 set_property(TARGET emtg PROPERTY CXX_STANDARD 17)
 set_property(TARGET emtg PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(emtg PUBLIC BOOST_ALL_NO_LIB)
 target_link_libraries(emtg ${EMTG_LIBRARIES})
 
 # create the EMTG executable
 add_executable(EMTGv9 ${EXECUTABLE_FILES})
+
+# Fold the GNU C++, GCC, and Fortran runtimes into the standalone executable.
+# Ordinary Windows system DLL imports remain dynamic.
+emtg_configure_executable(EMTGv9)
 target_include_directories(EMTGv9 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/OuterLoop)
+target_compile_definitions(EMTGv9 PRIVATE BOOST_ALL_NO_LIB EMTG_VERSION="${PROJECT_VERSION}")
+target_compile_features(EMTGv9 PRIVATE cxx_std_17)
 target_link_libraries(EMTGv9 emtg ${EMTG_LIBRARIES})
+
+if(BUILD_TESTING)
+    set(EMTG_DOCTOR_FIXTURE_ROOT "${CMAKE_BINARY_DIR}/tests/doctor")
+    set(EMTG_DOCTOR_READY_DATA "${EMTG_DOCTOR_FIXTURE_ROOT}/ready")
+    set(EMTG_DOCTOR_MISSING_KERNELS_DATA "${EMTG_DOCTOR_FIXTURE_ROOT}/missing-kernels")
+    foreach(FIXTURE IN ITEMS "${EMTG_DOCTOR_READY_DATA}" "${EMTG_DOCTOR_MISSING_KERNELS_DATA}")
+        file(MAKE_DIRECTORY
+            "${FIXTURE}/Universe/ephemeris_files"
+            "${FIXTURE}/HardwareModels")
+        file(WRITE "${FIXTURE}/Universe/ephemeris_files/naif0012.tls" "test fixture\n")
+        file(WRITE "${FIXTURE}/Universe/ephemeris_files/pck00010.tpc" "test fixture\n")
+    endforeach()
+    file(WRITE "${EMTG_DOCTOR_READY_DATA}/Universe/ephemeris_files/test.bsp" "test fixture\n")
+
+    add_test(NAME EMTG.cli.version COMMAND $<TARGET_FILE:EMTGv9> --version)
+    set_tests_properties(EMTG.cli.version PROPERTIES
+        PASS_REGULAR_EXPRESSION "EMTG ${PROJECT_VERSION}"
+        LABELS "cli;portable")
+
+    add_test(NAME EMTG.cli.capabilities COMMAND $<TARGET_FILE:EMTGv9> --capabilities)
+    set_tests_properties(EMTG.cli.capabilities PROPERTIES
+        PASS_REGULAR_EXPRESSION "\\\"ipopt\\\""
+        LABELS "cli;portable")
+
+    add_test(NAME EMTG.cli.doctor
+        COMMAND $<TARGET_FILE:EMTGv9> --doctor --data-dir "${EMTG_DOCTOR_READY_DATA}")
+    set_tests_properties(EMTG.cli.doctor PROPERTIES
+        PASS_REGULAR_EXPRESSION "Status: ready"
+        LABELS "cli;portable")
+
+    add_test(NAME EMTG.cli.doctor_missing_kernels
+        COMMAND ${CMAKE_COMMAND}
+            -DEXECUTABLE=$<TARGET_FILE:EMTGv9>
+            -DEXPECTED_EXIT=3
+            "-DARGUMENTS=--doctor;--data-dir;${EMTG_DOCTOR_MISSING_KERNELS_DATA}"
+            "-DEXPECTED_OUTPUT=naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/"
+            -P "${PROJECT_SOURCE_DIR}/cmake/RunAndCheckExit.cmake")
+    set_tests_properties(EMTG.cli.doctor_missing_kernels PROPERTIES LABELS "cli;data")
+
+    add_test(NAME EMTG.cli.mission_missing_kernels
+        COMMAND ${CMAKE_COMMAND}
+            -DEXECUTABLE=$<TARGET_FILE:EMTGv9>
+            -DEXPECTED_EXIT=3
+            "-DARGUMENTS=--data-dir;${EMTG_DOCTOR_MISSING_KERNELS_DATA};${PROJECT_SOURCE_DIR}/PyEMTG/default.emtgopt"
+            "-DEXPECTED_OUTPUT=required kernels are missing"
+            -P "${PROJECT_SOURCE_DIR}/cmake/RunAndCheckExit.cmake")
+    set_tests_properties(EMTG.cli.mission_missing_kernels PROPERTIES LABELS "cli;data")
+
+    add_test(NAME EMTG.cli.missing_options
+        COMMAND ${CMAKE_COMMAND}
+            -DEXECUTABLE=$<TARGET_FILE:EMTGv9>
+            -DEXPECTED_EXIT=2
+            -P "${PROJECT_SOURCE_DIR}/cmake/RunAndCheckExit.cmake")
+    set_tests_properties(EMTG.cli.missing_options PROPERTIES LABELS "cli;portable")
+endif()
 
 # if desired, build the testbeds
 if(BUILD_EMTG_TESTBED)
 	add_subdirectory(Testing)
 endif()
+
+include("${PROJECT_SOURCE_DIR}/cmake/OptionalWindowsRuntime.cmake")
+emtg_stage_snopt_runtime(EMTGv9)
 
 # if desired, build the propulator
 if(BUILD_PROPULATOR)
@@ -152,10 +216,12 @@ if(BUILD_PROPULATOR)
     add_subdirectory(Propulator)
     
     add_executable(PropulatorDriver ${PROPULATOR_FILES})
+    emtg_configure_executable(PropulatorDriver)
     target_include_directories(PropulatorDriver PRIVATE)
     target_link_libraries(PropulatorDriver emtg ${EMTG_LIBRARIES})
     
     add_library(propulator SHARED ${PROPULATOR_MODULE_FILES})
+    emtg_configure_python_extension(propulator)
     target_include_directories(propulator PRIVATE ${PYTHON_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
     #turn on the flag to compile the python interface, and the flag to disable boost auto-link
     target_compile_definitions(propulator PRIVATE PROPULATOR_PYTHON_INTERFACE BOOST_ALL_NO_LIB BOOST_PYTHON_STATIC_LIB)
@@ -207,6 +273,7 @@ if(BUILD_PYHARDWARE)
     target_compile_definitions(PyHardware PRIVATE PROPULATOR_PYTHON_INTERFACE BOOST_ALL_NO_LIB BOOST_PYTHON_STATIC_LIB)
     target_link_libraries(PyHardware emtg ${EMTG_LIBRARIES}  ${Boost_LIBRARIES} ${PYTHON_LIBRARIES})
     SET_TARGET_PROPERTIES(PyHardware PROPERTIES PREFIX "")
+    emtg_configure_python_extension(PyHardware)
 endif()
 
 #ignore default libraries on Windows
@@ -214,42 +281,13 @@ if (MSVC)
     SET_TARGET_PROPERTIES(emtg PROPERTIES LINK_FLAGS /NODEFAULTLIB:\"libcmt.lib;libcmtd.lib;msvcrtd.lib\")
 endif()
 
-# perform installation actions
-if(MSVC)
-    # move the SNOPT dll
-    if (SNOPT_MINGW_DLL)
-        STRING(REGEX REPLACE "/" "\\\\" SNOPTORIGIN "${SNOPTDIR_OVRD}\\build\\${CMAKE_CFG_INTDIR}\\libsnopt.dll")
-        add_custom_command(TARGET EMTGv9 POST_BUILD COMMAND copy /Y ${SNOPTORIGIN} ${OUTPUTDESTINATION} WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-    else()
-        install(FILES ${SNOPTDIR_OVRD}/lib/snopt.dll DESTINATION "${PROJECT_SOURCE_DIR}/bin")
-    endif()
-    
-    # copy the executable
-    add_custom_command(TARGET EMTGv9 POST_BUILD COMMAND copy /Y "${CMAKE_CFG_INTDIR}\\EMTGv9.exe" ${OUTPUTDESTINATION} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})   
-    
-    if (BUILD_PROPULATOR)
-        add_custom_command(TARGET PropulatorDriver POST_BUILD COMMAND copy /Y "${CMAKE_CFG_INTDIR}\\PropulatorDriver.exe" ${OUTPUTDESTINATION} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})   
-        
-        add_custom_command(TARGET propulator POST_BUILD
-                           COMMAND ${CMAKE_COMMAND} -E copy
-                               "${CMAKE_CFG_INTDIR}\\propulator.dll"
-                               "${OUTPUTDESTINATION}\\propulator.pyd")
-        
-        add_custom_command(TARGET PyHardware POST_BUILD
-                           COMMAND ${CMAKE_COMMAND} -E copy
-                               "${CMAKE_CFG_INTDIR}\\PyHardware.dll"
-                               "${OUTPUTDESTINATION}\\PyHardware.pyd")
-    endif()
-
-else()
-    install(TARGETS EMTGv9 DESTINATION ${OUTPUTDESTINATION})
-    
-    if(BUILD_PROPULATOR)
-        install(TARGETS PropulatorDriver propulator DESTINATION ${OUTPUTDESTINATION})
-    endif(BUILD_PROPULATOR)
-    
-    if(BUILD_PYHARDWARE)
-        install(TARGETS PyHardware DESTINATION "${OUTPUTDESTINATION}/../PyEMTG")
-    endif(BUILD_PYHARDWARE)
-endif(MSVC)
+# Dynamic developer builds keep their runtime DLLs beside the build-tree
+# executable. Static release profiles leave this list empty.
+if(WIN32 AND ENABLE_IPOPT AND EMTG_IPOPT_RUNTIME_DLLS)
+    foreach(IPOPT_RUNTIME_DLL IN LISTS EMTG_IPOPT_RUNTIME_DLLS)
+        add_custom_command(TARGET EMTGv9 POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${IPOPT_RUNTIME_DLL}" "$<TARGET_FILE_DIR:EMTGv9>")
+    endforeach()
+endif()
 

@@ -37,8 +37,8 @@ class Body(object):
         if J2flag:
             self.name = linecell[0]
             self.shortname = linecell[1]
-            self.number = eval(linecell[2])
-            self.SPICE_ID = eval(linecell[3])
+            self.number = int(float(linecell[2]))
+            self.SPICE_ID = int(float(linecell[3]))
             self.minimum_flyby_altitude = float(linecell[4])
             self.mu = float(linecell[5])
             self.radius = float(linecell[6])
@@ -65,8 +65,8 @@ class Body(object):
         else:
             self.name = linecell[0]
             self.shortname = linecell[1]
-            self.number = eval(linecell[2])
-            self.SPICE_ID = eval(linecell[3])
+            self.number = int(float(linecell[2]))
+            self.SPICE_ID = int(float(linecell[3]))
             self.minimum_flyby_altitude = float(linecell[4])
             self.mu = float(linecell[5])
             self.radius = float(linecell[6])

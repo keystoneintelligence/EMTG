@@ -26,8 +26,7 @@
 #include <random>
 #include "boost/algorithm/string/split.hpp"                                    
 #include "boost/algorithm/string.hpp"
-#include "boost/filesystem.hpp"
-#include "boost/filesystem/fstream.hpp"
+#include <filesystem>
 
 #include "doubleType.h"
 #include "EMTG_Matrix.h"
@@ -167,8 +166,7 @@ void MIRAGE_verification(EMTG::missionoptions& options,
     //create the working directory
     try
     {
-        boost::filesystem::path p("MIRAGE_verification");
-        boost::filesystem::create_directories(p);
+        std::filesystem::create_directories("MIRAGE_verification");
     }
     catch (std::exception &e)
     {

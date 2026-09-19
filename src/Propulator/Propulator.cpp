@@ -49,15 +49,15 @@ namespace EMTG
             {
 
                 //load all ephemeris data if using SPICE
-                std::vector<::boost::filesystem::path> SPICE_files_initial;
-                std::vector<::boost::filesystem::path> SPICE_files_not_required;
+                std::vector<std::filesystem::path> SPICE_files_initial;
+                std::vector<std::filesystem::path> SPICE_files_not_required;
                 this->SPICE_files_required.clear();
                 std::vector<int> SPICE_bodies_required;
                 std::string filestring;
                 if (this->myOptions.ephemeris_source >= 1)
                 {
                     //load all BSP files
-                    EMTG::file_utilities::get_all_files_with_extension(::boost::filesystem::path(this->myOptions.universe_folder + "/ephemeris_files/"), ".bsp", SPICE_files_initial);
+                    EMTG::file_utilities::get_all_files_with_extension(std::filesystem::path(this->myOptions.universe_folder + "/ephemeris_files/"), ".bsp", SPICE_files_initial);
 
                     for (size_t k = 0; k < SPICE_files_initial.size(); ++k)
                     {

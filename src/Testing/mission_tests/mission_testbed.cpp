@@ -24,8 +24,7 @@
 #include <string>
 #include <random>
 
-#include "boost/filesystem.hpp"
-#include "boost/filesystem/fstream.hpp"
+#include <filesystem>
 
 #include "mission.h"
 
@@ -71,13 +70,12 @@ void missionTestbed(EMTG::missionoptions& options,
 
     //create the working directory
 
-    std::string root_directory = boost::filesystem::current_path().string() + "/tests";
+    std::string root_directory = (std::filesystem::current_path() / "tests").string();
 
 
     try
     {
-        boost::filesystem::path p(root_directory);
-        boost::filesystem::create_directories(p);
+        std::filesystem::create_directories(root_directory);
     }
     catch (std::exception& e)
     {

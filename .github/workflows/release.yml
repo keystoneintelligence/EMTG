@@ -1,0 +1,85 @@
+name: Build Release Packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build, test, audit, and package
+        shell: pwsh
+        run: .\build.ps1
+      - name: Verify extracted Windows bundle from another directory
+        shell: pwsh
+        run: |
+          $Archives = @(Get-ChildItem dist/EMTG-*.zip)
+          if ($Archives.Count -ne 1) { throw "Expected one release ZIP" }
+          $Archive = $Archives[0]
+          Expand-Archive -LiteralPath $Archive.FullName -DestinationPath _local/relocated
+          $Executables = @(Get-ChildItem _local/relocated -Filter EMTGv9.exe -Recurse)
+          if ($Executables.Count -ne 1) { throw "Expected one extracted executable" }
+          $Executable = $Executables[0]
+          $env:EMTG_RELEASE_ROOT = Split-Path (Split-Path $Executable.FullName)
+          python -m pip install pytest
+          python -m pytest tests/test_packaged_runtime.py -q
+      - name: Verify build did not modify tracked sources
+        run: git diff --exit-code
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: dist/*
+
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build, test, and package experimental Linux artifacts
+        run: bash ./build.sh --bootstrap
+      - name: Verify extracted Linux bundle from another directory
+        run: |
+          mkdir -p _local/relocated
+          tar xzf dist/EMTG-*-Linux-*-experimental.tar.gz -C _local/relocated
+          export EMTG_RELEASE_ROOT="$(dirname "$(dirname "$(find "$PWD/_local/relocated" -type f -path '*/bin/EMTGv9' -print -quit)")")"
+          _local/tools/cmake/bin/python -m pip install pytest
+          _local/tools/cmake/bin/python -m pytest tests/test_packaged_runtime.py -q
+
+      - name: Verify build did not modify tracked sources
+        run: git diff --exit-code
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-experimental
+          path: dist/*
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify release tag matches VERSION
+        shell: bash
+        run: |
+          expected="$(tr -d '[:space:]' < VERSION)"
+          actual="${GITHUB_REF_NAME#v}"
+          test "$actual" = "$expected" || {
+            echo "Release tag $GITHUB_REF_NAME does not match VERSION ($expected)" >&2
+            exit 1
+          }
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" release/* --generate-notes --verify-tag

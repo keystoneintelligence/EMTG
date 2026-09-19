@@ -23,6 +23,18 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
     None.
 
     """
+    adaptive_integrator_options = {
+        'integratorType', 'integrator_tolerance', 'integrator_error_control_mode',
+        'integrator_relative_tolerance', 'integrator_absolute_tolerance_position',
+        'integrator_absolute_tolerance_velocity', 'integrator_absolute_tolerance_mass',
+        'integrator_absolute_tolerance_time', 'integrator_absolute_tolerance_other',
+        'integrator_stm_error_control', 'integrator_stm_relative_tolerance',
+        'integrator_stm_absolute_tolerance', 'integration_time_step_size',
+        'integrator_initial_step_size', 'integrator_minimum_step_size',
+        'integrator_safety_factor', 'integrator_minimum_step_scale',
+        'integrator_maximum_step_scale', 'integrator_rejection_limit',
+    }
+
     with open(path + "PyEMTG/MissionOptions.py", "w") as file:
         file.write('"""\n')
         file.write('MissionOptions.py\n')
@@ -31,7 +43,49 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
         file.write('\n')
         file.write('"""')
         file.write('\n')
-        file.write('import JourneyOptions\n')
+        file.write('import ast\n')
+        file.write('\n')
+        file.write('try:\n')
+        file.write('    from . import JourneyOptions\n')
+        file.write('except ImportError:  # historical scripts import MissionOptions as a top-level module\n')
+        file.write('    import JourneyOptions\n')
+        file.write('\n')
+        file.write('\n')
+        file.write('def _parse_user_data(text):\n')
+        file.write('    entries = []\n')
+        file.write('    start = 0\n')
+        file.write('    depth = 0\n')
+        file.write('    quote = None\n')
+        file.write('    escaped = False\n')
+        file.write('    for index, character in enumerate(text):\n')
+        file.write('        if escaped:\n')
+        file.write('            escaped = False\n')
+        file.write('            continue\n')
+        file.write('        if character == "\\\\" and quote is not None:\n')
+        file.write('            escaped = True\n')
+        file.write('            continue\n')
+        file.write('        if quote is not None:\n')
+        file.write('            if character == quote:\n')
+        file.write('                quote = None\n')
+        file.write('            continue\n')
+        file.write('        if character in {"\'", \'"\'}:\n')
+        file.write('            quote = character\n')
+        file.write('        elif character in "([{" :\n')
+        file.write('            depth += 1\n')
+        file.write('        elif character in ")]}":\n')
+        file.write('            depth -= 1\n')
+        file.write('        elif character == ":" and depth == 0:\n')
+        file.write('            entries.append(text[start:index])\n')
+        file.write('            start = index + 1\n')
+        file.write('    if text[start:].strip():\n')
+        file.write('        entries.append(text[start:])\n')
+        file.write('    output = {}\n')
+        file.write('    for entry in entries:\n')
+        file.write('        pair = ast.literal_eval(entry.strip())\n')
+        file.write('        if not isinstance(pair, tuple) or len(pair) != 2 or not isinstance(pair[0], str):\n')
+        file.write('            raise ValueError("user_data entries must be (string, literal) pairs")\n')
+        file.write('        output[pair[0]] = pair[1]\n')
+        file.write('    return output\n')
         file.write('\n')
 
         file.write('class MissionOptions(object):\n')
@@ -44,6 +98,24 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
         
         file.write('\n')
         file.write(tab + '"""\n') # end np-style comment block
+
+        aliases = {
+            alias.strip(): option['name']
+            for option in OptionsDefinitions
+            for alias in option.get('aliases', '').split('|')
+            if alias.strip()
+        }
+        file.write('    _OPTION_ALIASES = ' + repr(aliases) + '\n')
+        file.write('\n')
+        file.write('    def __setattr__(self, name, value):\n')
+        file.write('        object.__setattr__(self, self._OPTION_ALIASES.get(name, name), value)\n')
+        file.write('\n')
+        file.write('    def __getattr__(self, name):\n')
+        file.write('        canonical_name = self._OPTION_ALIASES.get(name)\n')
+        file.write('        if canonical_name is not None:\n')
+        file.write('            return object.__getattribute__(self, canonical_name)\n')
+        file.write('        raise AttributeError(name)\n')
+        file.write('\n')
 
         file.write('    #************************************************************************************constructor\n')
         file.write('    def __init__(self, optionsFileName = None):\n')
@@ -84,16 +156,16 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
         file.write('   \n')
         file.write('    #************************************************************************************parse\n')
         file.write('    def parse_mission(self, optionsFileName):\n')
-        file.write('        self.filename = optionsFileName\n')
+        file.write('        self.filename = optionsFileName.replace("\\ufeff", "")\n')
         file.write('        \n')
         file.write('        inputFile = []\n')
         file.write('        lineNumber = 0\n')
         file.write('        from os.path import isfile\n')
         file.write('        if isfile(self.filename):\n')
-        file.write('            inputFile = open(optionsFileName, "r")\n')
+        file.write('            inputFile = open(self.filename, "r")\n')
         file.write('            self.success = 1\n')
         file.write('        else:\n')
-        file.write('            print("Unable to open", optionsFileName, "EMTG Error")\n')
+        file.write('            print("Python is unable to open", self.filename)\n')
         file.write('            return\n')
         file.write('        \n')
         file.write('        while True:\n')
@@ -130,17 +202,14 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
                 converter_out = ')'
             
             
-            file.write('                    ' + ifelse + 'if linecell[0] == "' + option['name'] + '":\n')
+            accepted_names = [option['name']] + [alias.strip() for alias in option.get('aliases', '').split('|') if alias.strip()]
+            if len(accepted_names) == 1:
+                file.write('                    ' + ifelse + 'if linecell[0] == "' + option['name'] + '":\n')
+            else:
+                file.write('                    ' + ifelse + 'if linecell[0] in ' + repr(tuple(accepted_names)) + ':\n')
             if option['name'] == 'user_data':
-                file.write('                        self.user_data = dict()                                                          \n')
-                file.write('                        full_notes = line.lstrip("user_data").lstrip(" ").rstrip(" \\r\\n")                \n')
-                file.write('                        if ":" in full_notes or full_notes.replace(" ","") != "":                        \n')
-                file.write('                            full_notes = full_notes.split(":")                                           \n')
-                file.write('                                                                                                         \n')
-                file.write('                            for note in full_notes:                                                      \n')
-                file.write('                                var = note.lstrip(\'("\').split(",")[0].rstrip(\'"\')                        \n')
-                file.write('                                val = eval(note.lstrip("(").lstrip(var + \'"\').lstrip(", ").rstrip(") ")) \n')
-                file.write('                                self.user_data.update({var:val})                                         \n')
+                file.write('                        full_notes = line[len("user_data"):].lstrip(" ").rstrip(" \\r\\n")\n')
+                file.write('                        self.user_data = _parse_user_data(full_notes) if full_notes.strip() else {}\n')
             elif option['name'] == 'spice_utility_extension':    
                 file.write('                        if len(linecell) > 1:\n')
                 file.write('                            self.' + option['name'] + ' = ' + converter_in + 'linecell[1]' + converter_out + '\n')
@@ -152,7 +221,14 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
                     file.write('                        self.' + option['name'] + ' = ' + converter_in + 'linecell[1]' + converter_out + '\n')
                 else:
                     file.write('                        self.' + option['name'] + ' = [' + converter_in + 'entry' + converter_out + ' for entry in linecell[1:]]\n')
-            file.write('                  \n')
+                if option['name'] == 'mission_type':
+                    file.write('                        # Check for mission types that are not supported in PyEMTG\n')
+                    file.write('                        if (self.mission_type < 2): print("WARNING: The selected options file contains an unsupported mission type. The supported mission types are MGALT, FBLT, PSBI, PSFB, MGAnDSMs, CoastPhase, SundmanCoastPhase, variable phase type, ProbeEntryPhase, and ControlLawThrustPhase. Please select one of these types from the Global Mission Options tab.")\n')
+            if (option['name'] == 'SPICE_high_fidelity_derivatives'
+                    or (option['name'] in adaptive_integrator_options and option['name'] != 'integrator_tolerance')):
+                file.write('\n')
+            else:
+                file.write('                  \n')
             ifelse = 'el'
 
         
@@ -186,7 +262,7 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
             name = option['name']
 
             if name == 'user_data':
-                file.write('            optionsFile.write("#Enter any user data that should be appended to the .emtg file.\\n")\n')
+                file.write('            optionsFile.write("\\n#Enter any user data that should be appended to the .emtg file.\\n")\n')
                 file.write('            optionsFile.write("#This is typically used in python wrappers\\n")\n')
                 file.write('            optionsFile.write("user_data ")\n')
                 file.write('            first_entry = True\n')
@@ -201,6 +277,12 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
                 file.write('                else:\n')
                 file.write('                    optionsFile.write(str(self.user_data[entry]) + ")")\n')
                 file.write('            optionsFile.write("\\n")\n')
+                file.write('            optionsFile.write("\\n")\n')
+
+            elif name == 'print_only_non_default_options':
+                file.write('            # Always output the non-default printing option\n')
+                file.write('            optionsFile.write("#' + option['description'] + '\\n")\n')
+                file.write('            optionsFile.write("' + name + ' " + str(int(self.' + name + ')) + "\\n")\n')
                 file.write('            optionsFile.write("\\n")\n')
 
             else:
@@ -226,7 +308,11 @@ def make_PyEMTG_MissionOptions(OptionsDefinitions, now, path = '.'):
                         file.write('                optionsFile.write("' + name + ' " + str(int(self.' + name + ')) + "\\n")\n')
                     else:
                         file.write('                optionsFile.write("' + name + ' " + str(self.' + name + ') + "\\n")\n')
-                file.write('    \n')        
+                if (name == 'SPICE_high_fidelity_derivatives'
+                        or (name in adaptive_integrator_options and name not in {'integratorType', 'integrator_tolerance'})):
+                    file.write('\n')
+                else:
+                    file.write('    \n')
         
         file.write('            \n')
         file.write('            optionsFile.close()\n')

@@ -1,0 +1,14 @@
+LIBRARY libipopt-3.dll
+EXPORTS
+    AddIpoptIntOption
+    AddIpoptNumOption
+    AddIpoptStrOption
+    CreateIpoptProblem
+    FreeIpoptProblem
+    GetIpoptCurrentIterate
+    GetIpoptCurrentViolations
+    GetIpoptVersion
+    IpoptSolve
+    OpenIpoptOutputFile
+    SetIntermediateCallback
+    SetIpoptProblemScaling

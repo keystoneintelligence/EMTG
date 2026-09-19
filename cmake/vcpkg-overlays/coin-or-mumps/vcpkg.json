@@ -1,0 +1,12 @@
+{
+  "name": "coin-or-mumps",
+  "version-semver": "3.0.12",
+  "description": "Serial MUMPS 5.8.2 through the COIN-OR build harness",
+  "homepage": "https://github.com/coin-or-tools/ThirdParty-Mumps",
+  "license": "EPL-2.0 AND CECILL-C",
+  "dependencies": [
+    "blas",
+    "coin-or-buildtools",
+    "lapack"
+  ]
+}

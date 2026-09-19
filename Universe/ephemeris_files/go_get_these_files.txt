@@ -1,4 +1,19 @@
-Get from the NAIF website:
+EMTG does not redistribute large BSP files. Download the kernels required by
+your mission from the official NASA NAIF archive.
+
+Planetary BSP directory:
+https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/
+
+Direct link to the traditional EMTG planetary kernel:
+https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp
+
+All generic kernels:
+https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
+
+Mission archives and body-specific kernels:
+https://naif.jpl.nasa.gov/pub/naif/
+
+Place downloaded files in this directory. A typical planetary setup includes:
 
 de430.bsp
 naif0012.tls

@@ -20,6 +20,7 @@ import wx
 import wx.adv
 import wx.lib.scrolledpanel
 import platform
+from SolverAvailability import available_solver_choices, SOLVER_NAMES
 
 class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
     def __init__(self, parent, missionoptions):
@@ -39,8 +40,9 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.cmbInnerLoopSolver = wx.ComboBox(self, -1, choices = innerloopsolvertypes, style=wx.CB_READONLY)
 
         self.lblNLP_solver_type = wx.StaticText(self, -1, "NLP solver")
-        NLP_solver_types = ['SNOPT','WORHP']
-        self.cmbNLP_solver_type = wx.ComboBox(self, -1, choices = NLP_solver_types, style=wx.CB_READONLY)
+        solver_choices = available_solver_choices()
+        self.NLP_solver_type_values = [solver_type for solver_type, _ in solver_choices]
+        self.cmbNLP_solver_type = wx.ComboBox(self, -1, choices = [name for _, name in solver_choices], style=wx.CB_READONLY)
 
         self.lblNLP_solver_mode = wx.StaticText(self, -1, "NLP solver mode")
         NLP_solver_modes = ['Feasible point','Optimize','Satisfy equality constraints']
@@ -104,22 +106,22 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.lblprint_NLP_movie_frames = wx.StaticText(self, -1, "Print NLP movie frames at every major iteration?")
         self.chkprint_NLP_movie_frames = wx.CheckBox(self, -1)
         
-        self.lblsnopt_feasibility_tolerance = wx.StaticText(self, -1, "Feasibility tolerance")
-        self.txtsnopt_feasibility_tolerance = wx.TextCtrl(self, -1, "snopt_feasibility_tolerance")
+        self.lblNLP_feasibility_tolerance = wx.StaticText(self, -1, "Feasibility tolerance")
+        self.txtNLP_feasibility_tolerance = wx.TextCtrl(self, -1, "NLP_feasibility_tolerance")
         
-        self.lblsnopt_optimality_tolerance = wx.StaticText(self, -1, "Optimality tolerance")
-        self.txtsnopt_optimality_tolerance = wx.TextCtrl(self, -1, "snopt_optimality_tolerance")
+        self.lblNLP_optimality_tolerance = wx.StaticText(self, -1, "Optimality tolerance")
+        self.txtNLP_optimality_tolerance = wx.TextCtrl(self, -1, "NLP_optimality_tolerance")
 
-        self.lblNLP_max_step = wx.StaticText(self, -1, "NLP max step")
-        self.txtNLP_max_step = wx.TextCtrl(self, -1, "NLP_max_step")
+        self.lblsnopt_major_step_limit = wx.StaticText(self, -1, "SNOPT major step limit")
+        self.txtsnopt_major_step_limit = wx.TextCtrl(self, -1, "snopt_major_step_limit")
 
-        self.lblsnopt_major_iterations = wx.StaticText(self, -1, "SNOPT major iterations limit")
-        self.txtsnopt_major_iterations = wx.TextCtrl(self, -1, "snopt_major_iterations")
+        self.lblNLP_iteration_limit = wx.StaticText(self, -1, "NLP iteration limit")
+        self.txtNLP_iteration_limit = wx.TextCtrl(self, -1, "NLP_iteration_limit")
         self.lblsnopt_minor_iterations = wx.StaticText(self, -1, "SNOPT minor iterations limit")
         self.txtsnopt_minor_iterations = wx.TextCtrl(self, -1, "snopt_minor_iterations")
         
-        self.lblsnopt_max_run_time = wx.StaticText(self, -1, "SNOPT maximum run time (s)")
-        self.txtsnopt_max_run_time = wx.TextCtrl(self, -1, "snopt_max_run_time")
+        self.lblNLP_max_run_time = wx.StaticText(self, -1, "NLP maximum run time (s)")
+        self.txtNLP_max_run_time = wx.TextCtrl(self, -1, "NLP_max_run_time")
         
         self.lblNLP_write_output_check_time = wx.StaticText(self, -1, "Check for new NLP solution to write to file every N seconds. Only works if using NLP chaperone.")
         self.txtNLP_write_output_check_time = wx.TextCtrl(self, -1, "NLP_write_output_check_time")
@@ -154,12 +156,12 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
                                 self.lblcheckFeasibilityTolInMBHToSkipNLP, self.chkcheckFeasibilityTolInMBHToSkipNLP,
                                 self.lblfeasibilityTolInMBHToSkipNLP, self.txtfeasibilityTolInMBHToSkipNLP,
                                 self.lblprint_NLP_movie_frames, self.chkprint_NLP_movie_frames,
-                                self.lblsnopt_feasibility_tolerance, self.txtsnopt_feasibility_tolerance,
-                                self.lblsnopt_optimality_tolerance, self.txtsnopt_optimality_tolerance,
-                                self.lblNLP_max_step, self.txtNLP_max_step,
-                                self.lblsnopt_major_iterations, self.txtsnopt_major_iterations,
+                                self.lblNLP_feasibility_tolerance, self.txtNLP_feasibility_tolerance,
+                                self.lblNLP_optimality_tolerance, self.txtNLP_optimality_tolerance,
+                                self.lblsnopt_major_step_limit, self.txtsnopt_major_step_limit,
+                                self.lblNLP_iteration_limit, self.txtNLP_iteration_limit,
                                 self.lblsnopt_minor_iterations, self.txtsnopt_minor_iterations,
-                                self.lblsnopt_max_run_time, self.txtsnopt_max_run_time,
+                                self.lblNLP_max_run_time, self.txtNLP_max_run_time,
                                 self.lblNLP_write_output_check_time, self.txtNLP_write_output_check_time,
                                 self.lblcheck_derivatives, self.chkcheck_derivatives,
                                 self.lblseed_MBH, self.chkseed_MBH,
@@ -216,12 +218,12 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.chkcheckFeasibilityTolInMBHToSkipNLP.Bind(wx.EVT_CHECKBOX, self.ChangechkcheckFeasibilityTolInMBHToSkipNLP)
         self.txtfeasibilityTolInMBHToSkipNLP.Bind(wx.EVT_KILL_FOCUS, self.ChangetxtfeasibilityTolInMBHToSkipNLP)
         self.chkprint_NLP_movie_frames.Bind(wx.EVT_CHECKBOX, self.Changeprint_NLP_movie_frames)
-        self.txtsnopt_feasibility_tolerance.Bind(wx.EVT_KILL_FOCUS, self.Changesnopt_feasibility_tolerance)
-        self.txtsnopt_optimality_tolerance.Bind(wx.EVT_KILL_FOCUS, self.Changesnopt_optimality_tolerance)
-        self.txtNLP_max_step.Bind(wx.EVT_KILL_FOCUS, self.ChangeNLP_max_step)
-        self.txtsnopt_major_iterations.Bind(wx.EVT_KILL_FOCUS, self.Changesnopt_major_iterations)
+        self.txtNLP_feasibility_tolerance.Bind(wx.EVT_KILL_FOCUS, self.ChangeNLP_feasibility_tolerance)
+        self.txtNLP_optimality_tolerance.Bind(wx.EVT_KILL_FOCUS, self.ChangeNLP_optimality_tolerance)
+        self.txtsnopt_major_step_limit.Bind(wx.EVT_KILL_FOCUS, self.Changesnopt_major_step_limit)
+        self.txtNLP_iteration_limit.Bind(wx.EVT_KILL_FOCUS, self.ChangeNLP_iteration_limit)
         self.txtsnopt_minor_iterations.Bind(wx.EVT_KILL_FOCUS, self.Changesnopt_minor_iterations)
-        self.txtsnopt_max_run_time.Bind(wx.EVT_KILL_FOCUS, self.Changesnopt_max_run_time)
+        self.txtNLP_max_run_time.Bind(wx.EVT_KILL_FOCUS, self.ChangeNLP_max_run_time)
         self.txtNLP_write_output_check_time.Bind(wx.EVT_KILL_FOCUS, self.ChangeNLP_write_output_check_time)
         self.chkcheck_derivatives.Bind(wx.EVT_CHECKBOX, self.ChangeCheckDerivatives)
         self.chkseed_MBH.Bind(wx.EVT_CHECKBOX, self.ChangeSeedMBH)
@@ -236,10 +238,22 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         #inner-loop solver options
         self.cmbInnerLoopSolver.SetSelection(self.missionoptions.run_inner_loop)
         
-        if self.missionoptions.run_inner_loop == 1 and self.missionoptions.MBH_max_run_time < self.missionoptions.snopt_max_run_time: #MBH
-            self.missionoptions.MBH_max_run_time = self.missionoptions.snopt_max_run_time + 1
+        if self.missionoptions.run_inner_loop == 1 and self.missionoptions.MBH_max_run_time < self.missionoptions.NLP_max_run_time: #MBH
+            self.missionoptions.MBH_max_run_time = self.missionoptions.NLP_max_run_time + 1
         
-        self.cmbNLP_solver_type.SetSelection(self.missionoptions.NLP_solver_type)
+        if self.missionoptions.NLP_solver_type in self.NLP_solver_type_values:
+            self.cmbNLP_solver_type.SetSelection(self.NLP_solver_type_values.index(self.missionoptions.NLP_solver_type))
+            self.cmbNLP_solver_type.SetToolTip("")
+        else:
+            self.cmbNLP_solver_type.SetSelection(wx.NOT_FOUND)
+            unavailable_name = SOLVER_NAMES.get(self.missionoptions.NLP_solver_type, "unknown")
+            self.cmbNLP_solver_type.SetToolTip(
+                "This options file requests unavailable solver "
+                + unavailable_name
+                + " ("
+                + str(self.missionoptions.NLP_solver_type)
+                + "). Select a solver compiled into the current EMTG build."
+            )
         self.cmbNLP_solver_mode.SetSelection(self.missionoptions.NLP_solver_mode)
         self.chkquiet_NLP.SetValue(self.missionoptions.quiet_NLP)
         self.chkenable_NLP_chaperone.SetValue(self.missionoptions.enable_NLP_chaperone)
@@ -260,12 +274,12 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.chkcheckFeasibilityTolInMBHToSkipNLP.SetValue(self.missionoptions.checkFeasibilityTolInMBHToSkipNLP)
         self.txtfeasibilityTolInMBHToSkipNLP.SetValue(str(self.missionoptions.feasibilityTolInMBHToSkipNLP))
         self.chkprint_NLP_movie_frames.SetValue(self.missionoptions.print_NLP_movie_frames)
-        self.txtsnopt_feasibility_tolerance.SetValue(str(self.missionoptions.snopt_feasibility_tolerance))
-        self.txtsnopt_optimality_tolerance.SetValue(str(self.missionoptions.snopt_optimality_tolerance))
-        self.txtNLP_max_step.SetValue(str(self.missionoptions.NLP_max_step))
-        self.txtsnopt_major_iterations.SetValue(str(self.missionoptions.snopt_major_iterations))
+        self.txtNLP_feasibility_tolerance.SetValue(str(self.missionoptions.NLP_feasibility_tolerance))
+        self.txtNLP_optimality_tolerance.SetValue(str(self.missionoptions.NLP_optimality_tolerance))
+        self.txtsnopt_major_step_limit.SetValue(str(self.missionoptions.snopt_major_step_limit))
+        self.txtNLP_iteration_limit.SetValue(str(self.missionoptions.NLP_iteration_limit))
         self.txtsnopt_minor_iterations.SetValue(str(self.missionoptions.snopt_minor_iterations))
-        self.txtsnopt_max_run_time.SetValue(str(self.missionoptions.snopt_max_run_time))
+        self.txtNLP_max_run_time.SetValue(str(self.missionoptions.NLP_max_run_time))
         self.txtNLP_write_output_check_time.SetValue(str(self.missionoptions.NLP_write_output_check_time))
         self.chkcheck_derivatives.SetValue(self.missionoptions.check_derivatives)
         self.chkseed_MBH.SetValue(self.missionoptions.seed_MBH)
@@ -278,11 +292,11 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.lblMBH_max_run_time.Show(False)
             self.lblMBH_max_step_size.Show(False)
             self.lblMBH_time_hop_probability.Show(False)
-            self.lblsnopt_feasibility_tolerance.Show(False)
-            self.lblsnopt_optimality_tolerance.Show(False)
-            self.lblsnopt_major_iterations.Show(False)
+            self.lblNLP_feasibility_tolerance.Show(False)
+            self.lblNLP_optimality_tolerance.Show(False)
+            self.lblNLP_iteration_limit.Show(False)
             self.lblsnopt_minor_iterations.Show(False)
-            self.lblsnopt_max_run_time.Show(False)
+            self.lblNLP_max_run_time.Show(False)
             self.lblNLP_write_output_check_time.Show(False)
             self.lblcheck_derivatives.Show(True)
             self.lblseed_MBH.Show(False)
@@ -301,11 +315,11 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.txtMBH_max_run_time.Show(False)
             self.txtMBH_max_step_size.Show(False)
             self.txtMBH_time_hop_probability.Show(False)
-            self.txtsnopt_feasibility_tolerance.Show(False)
-            self.txtsnopt_optimality_tolerance.Show(False)
-            self.txtsnopt_major_iterations.Show(False)
+            self.txtNLP_feasibility_tolerance.Show(False)
+            self.txtNLP_optimality_tolerance.Show(False)
+            self.txtNLP_iteration_limit.Show(False)
             self.txtsnopt_minor_iterations.Show(False)
-            self.txtsnopt_max_run_time.Show(False)
+            self.txtNLP_max_run_time.Show(False)
             self.txtNLP_write_output_check_time.Show(False)
             self.chkcheck_derivatives.Show(True)
             self.chkseed_MBH.Show(False)
@@ -326,8 +340,8 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.chkMBH_write_every_improvement.Show(False)
             self.lblprint_NLP_movie_frames.Show(False)
             self.chkprint_NLP_movie_frames.Show(False)
-            self.lblNLP_max_step.Show(False)
-            self.txtNLP_max_step.Show(False)
+            self.lblsnopt_major_step_limit.Show(False)
+            self.txtsnopt_major_step_limit.Show(False)
         
             self.lblquiet_MBH.Show(False)
             self.chkquiet_MBH.Show(False)
@@ -346,11 +360,11 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.lblMBH_max_run_time.Show(True)
             self.lblMBH_max_step_size.Show(True)
             self.lblMBH_time_hop_probability.Show(True)
-            self.lblsnopt_feasibility_tolerance.Show(True)
-            self.lblsnopt_optimality_tolerance.Show(True)
-            self.lblsnopt_major_iterations.Show(True)
+            self.lblNLP_feasibility_tolerance.Show(True)
+            self.lblNLP_optimality_tolerance.Show(True)
+            self.lblNLP_iteration_limit.Show(True)
             self.lblsnopt_minor_iterations.Show(True)
-            self.lblsnopt_max_run_time.Show(True)
+            self.lblNLP_max_run_time.Show(True)
             self.lblcheck_derivatives.Show(True)
             self.lblseed_MBH.Show(True)
             self.lblMBH_hop_distribution.Show(True)
@@ -365,11 +379,11 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.txtMBH_max_run_time.Show(True)
             self.txtMBH_max_step_size.Show(True)
             self.txtMBH_time_hop_probability.Show(True)
-            self.txtsnopt_feasibility_tolerance.Show(True)
-            self.txtsnopt_optimality_tolerance.Show(True)
-            self.txtsnopt_major_iterations.Show(True)
+            self.txtNLP_feasibility_tolerance.Show(True)
+            self.txtNLP_optimality_tolerance.Show(True)
+            self.txtNLP_iteration_limit.Show(True)
             self.txtsnopt_minor_iterations.Show(True)
-            self.txtsnopt_max_run_time.Show(True)
+            self.txtNLP_max_run_time.Show(True)
             self.chkcheck_derivatives.Show(True)
             self.chkseed_MBH.Show(True)
             self.cmbMBH_hop_distribution.Show(True)
@@ -385,8 +399,8 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.chkMBH_write_every_improvement.Show(True)
             self.lblprint_NLP_movie_frames.Show(True)
             self.chkprint_NLP_movie_frames.Show(True)
-            self.lblNLP_max_step.Show(True)
-            self.txtNLP_max_step.Show(True)
+            self.lblsnopt_major_step_limit.Show(True)
+            self.txtsnopt_major_step_limit.Show(True)
         
             self.lblquiet_MBH.Show(True)
             self.chkquiet_MBH.Show(True)
@@ -450,11 +464,11 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.lblMBH_max_run_time.Show(True)
             self.lblMBH_max_step_size.Show(False)
             self.lblMBH_time_hop_probability.Show(False)
-            self.lblsnopt_feasibility_tolerance.Show(True)
-            self.lblsnopt_optimality_tolerance.Show(True)
-            self.lblsnopt_major_iterations.Show(False)
+            self.lblNLP_feasibility_tolerance.Show(True)
+            self.lblNLP_optimality_tolerance.Show(True)
+            self.lblNLP_iteration_limit.Show(False)
             self.lblsnopt_minor_iterations.Show(False)
-            self.lblsnopt_max_run_time.Show(False)
+            self.lblNLP_max_run_time.Show(False)
             self.lblNLP_write_output_check_time.Show(False)
             self.lblcheck_derivatives.Show(False)
             self.lblseed_MBH.Show(False)
@@ -472,11 +486,11 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.txtMBH_max_run_time.Show(True)
             self.txtMBH_max_step_size.Show(False)
             self.txtMBH_time_hop_probability.Show(False)
-            self.txtsnopt_feasibility_tolerance.Show(True)
-            self.txtsnopt_optimality_tolerance.Show(True)
-            self.txtsnopt_major_iterations.Show(False)
+            self.txtNLP_feasibility_tolerance.Show(True)
+            self.txtNLP_optimality_tolerance.Show(True)
+            self.txtNLP_iteration_limit.Show(False)
             self.txtsnopt_minor_iterations.Show(False)
-            self.txtsnopt_max_run_time.Show(False)
+            self.txtNLP_max_run_time.Show(False)
             self.txtNLP_write_output_check_time.Show(False)
             self.chkcheck_derivatives.Show(False)
             self.chkseed_MBH.Show(False)
@@ -495,8 +509,8 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.chkMBH_write_every_improvement.Show(False)
             self.lblprint_NLP_movie_frames.Show(False)
             self.chkprint_NLP_movie_frames.Show(False)
-            self.lblNLP_max_step.Show(False)
-            self.txtNLP_max_step.Show(False)
+            self.lblsnopt_major_step_limit.Show(False)
+            self.txtsnopt_major_step_limit.Show(False)
         
             self.lblquiet_MBH.Show(False)
             self.chkquiet_MBH.Show(False)
@@ -515,11 +529,11 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.lblMBH_max_run_time.Show(False)
             self.lblMBH_max_step_size.Show(False)
             self.lblMBH_time_hop_probability.Show(False)
-            self.lblsnopt_feasibility_tolerance.Show(True)
-            self.lblsnopt_optimality_tolerance.Show(True)
-            self.lblsnopt_major_iterations.Show(True)
+            self.lblNLP_feasibility_tolerance.Show(True)
+            self.lblNLP_optimality_tolerance.Show(True)
+            self.lblNLP_iteration_limit.Show(True)
             self.lblsnopt_minor_iterations.Show(True)
-            self.lblsnopt_max_run_time.Show(True)
+            self.lblNLP_max_run_time.Show(True)
             self.lblcheck_derivatives.Show(True)
             self.lblseed_MBH.Show(False)
             self.lblMBH_hop_distribution.Show(False)
@@ -534,11 +548,11 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.txtMBH_max_run_time.Show(False)
             self.txtMBH_max_step_size.Show(False)
             self.txtMBH_time_hop_probability.Show(False)
-            self.txtsnopt_feasibility_tolerance.Show(True)
-            self.txtsnopt_optimality_tolerance.Show(True)
-            self.txtsnopt_major_iterations.Show(True)
+            self.txtNLP_feasibility_tolerance.Show(True)
+            self.txtNLP_optimality_tolerance.Show(True)
+            self.txtNLP_iteration_limit.Show(True)
             self.txtsnopt_minor_iterations.Show(True)
-            self.txtsnopt_max_run_time.Show(True)
+            self.txtNLP_max_run_time.Show(True)
             self.chkcheck_derivatives.Show(True)
             self.chkseed_MBH.Show(False)
             self.cmbMBH_hop_distribution.Show(False)
@@ -554,8 +568,8 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.chkMBH_write_every_improvement.Show(False)
             self.lblprint_NLP_movie_frames.Show(True)
             self.chkprint_NLP_movie_frames.Show(True)
-            self.lblNLP_max_step.Show(True)
-            self.txtNLP_max_step.Show(True)
+            self.lblsnopt_major_step_limit.Show(True)
+            self.txtsnopt_major_step_limit.Show(True)
         
             self.lblquiet_MBH.Show(False)
             self.chkquiet_MBH.Show(False)
@@ -596,6 +610,15 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
             self.lbltrialX.Show(False)
             self.btntrialX.Show(False)
 
+        show_snopt_controls = (
+            self.missionoptions.NLP_solver_type == 0
+            and self.missionoptions.run_inner_loop in [1, 3]
+        )
+        self.lblsnopt_major_step_limit.Show(show_snopt_controls)
+        self.txtsnopt_major_step_limit.Show(show_snopt_controls)
+        self.lblsnopt_minor_iterations.Show(show_snopt_controls)
+        self.txtsnopt_minor_iterations.Show(show_snopt_controls)
+
         #re-size the panel
         self.Layout()
         if platform.system() == 'Windows':
@@ -609,7 +632,9 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
 
     def ChangeNLP_solver_type(self, e):
         e.Skip()
-        self.missionoptions.NLP_solver_type = self.cmbNLP_solver_type.GetSelection()
+        selection = self.cmbNLP_solver_type.GetSelection()
+        if selection != wx.NOT_FOUND:
+            self.missionoptions.NLP_solver_type = self.NLP_solver_type_values[selection]
         self.update()
 
     def ChangeNLP_solver_mode(self, e):
@@ -716,24 +741,24 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.missionoptions.print_NLP_movie_frames = int(self.chkprint_NLP_movie_frames.GetValue())
         self.update()
 
-    def Changesnopt_feasibility_tolerance(self, e):
+    def ChangeNLP_feasibility_tolerance(self, e):
         e.Skip()
-        self.missionoptions.snopt_feasibility_tolerance = eval(self.txtsnopt_feasibility_tolerance.GetValue())
+        self.missionoptions.NLP_feasibility_tolerance = eval(self.txtNLP_feasibility_tolerance.GetValue())
         self.update()
 
-    def Changesnopt_optimality_tolerance(self, e):
+    def ChangeNLP_optimality_tolerance(self, e):
         e.Skip()
-        self.missionoptions.snopt_optimality_tolerance = eval(self.txtsnopt_optimality_tolerance.GetValue())
+        self.missionoptions.NLP_optimality_tolerance = eval(self.txtNLP_optimality_tolerance.GetValue())
         self.update()
 
-    def ChangeNLP_max_step(self, e):
+    def Changesnopt_major_step_limit(self, e):
         e.Skip()
-        self.missionoptions.NLP_max_step = eval(self.txtNLP_max_step.GetValue())
+        self.missionoptions.snopt_major_step_limit = eval(self.txtsnopt_major_step_limit.GetValue())
         self.update()
                         
-    def Changesnopt_major_iterations(self, e):
+    def ChangeNLP_iteration_limit(self, e):
         e.Skip()
-        self.missionoptions.snopt_major_iterations = eval(self.txtsnopt_major_iterations.GetValue())
+        self.missionoptions.NLP_iteration_limit = eval(self.txtNLP_iteration_limit.GetValue())
         self.update()
                         
     def Changesnopt_minor_iterations(self, e):
@@ -741,9 +766,9 @@ class SolverOptionsPanel(wx.lib.scrolledpanel.ScrolledPanel):
         self.missionoptions.snopt_minor_iterations = eval(self.txtsnopt_minor_iterations.GetValue())
         self.update()
         
-    def Changesnopt_max_run_time(self, e):
+    def ChangeNLP_max_run_time(self, e):
         e.Skip()
-        self.missionoptions.snopt_max_run_time = eval(self.txtsnopt_max_run_time.GetValue())
+        self.missionoptions.NLP_max_run_time = eval(self.txtNLP_max_run_time.GetValue())
         self.update()
         
     def ChangeNLP_write_output_check_time(self, e):

@@ -73,7 +73,7 @@ namespace EMTG
         virtual void write_ephemeris_line(std::ofstream& outputfile,
             const math::Matrix<doubleType>& state,
             const math::Matrix<doubleType>& ControlVector,
-            const doubleType& ThrustMagnitude,
+            const doubleType& ThrustMagnitudeNewtons,
             const doubleType& MassFlowRate,
             const doubleType& Isp,
             const int& NumberOfActiveThrusters,

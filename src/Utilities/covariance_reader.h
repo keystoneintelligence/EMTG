@@ -25,8 +25,7 @@
 #include <vector>
 #include <map>
 
-#include "gsl/gsl_spline.h"
-#include "gsl/gsl_errno.h" //I'm not really sure what this is but the GSL examples all have it, probably error handling
+#include "NaturalCubicSpline.h"
 
 #include "EMTG_Matrix.h"
 
@@ -40,7 +39,7 @@ namespace EMTG
 
         covariance_reader(const std::string& inputfilename, const std::string& leap_seconds_path);
 
-        virtual ~covariance_reader();
+        virtual ~covariance_reader() = default;
 
         void initialize(const std::string& inputfilename, const std::string& leap_seconds_path);
 
@@ -59,7 +58,7 @@ namespace EMTG
                     for (size_t j = 0; j < 7; ++j)
                     {
                         size_t headerIndex = i * 7 + j + 1;
-                        Pinv(i, j) = gsl_spline_eval(std::get<1>(this->data[this->MatrixHeaders[headerIndex]]), epoch, this->SplineAccelerator);
+                        Pinv(i, j) = std::get<1>(this->data[this->MatrixHeaders[headerIndex]]).evaluate(epoch);
                     }
                 }
             }
@@ -78,7 +77,7 @@ namespace EMTG
                     for (size_t j = 0; j < 7; ++j)
                     {
                         size_t headerIndex = i * 7 + j + 1;
-                        PinvDerivative(i, j) = gsl_spline_eval_deriv(std::get<1>(this->data[this->MatrixHeaders[headerIndex]]), epoch, this->SplineAccelerator);
+                        PinvDerivative(i, j) = std::get<1>(this->data[this->MatrixHeaders[headerIndex]]).derivative(epoch);
                     }
                 }
             }
@@ -89,10 +88,6 @@ namespace EMTG
         //fields
         size_t dataRows;
         std::vector<std::string> MatrixHeaders;
-        std::map< std::string, std::tuple<std::vector<double>, gsl_spline* > > data;
-
-        //GSL spline structs
-        bool fitSplines;
-        gsl_interp_accel *SplineAccelerator;
+        std::map< std::string, std::tuple<std::vector<double>, math::NaturalCubicSpline> > data;
     };//end clss writey_thing
 }

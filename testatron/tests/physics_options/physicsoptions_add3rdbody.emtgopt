@@ -443,7 +443,7 @@ BEGIN_JOURNEY
 #Journey name
 journey_name LEO2GEO_journey
 #Journey central body name
-journey_central_body EARTH
+journey_central_body Earth
 #destination list, as indices from the Universe file
 destination_list 0 0
 #flyby sequence, as indices from the Universe file

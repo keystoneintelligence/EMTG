@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "time_system": "MJD TDB; ET seconds = (MJD - 51544.5) * 86400",
+  "purpose": "Only the bounded Earth-Mars and four-case AEPS regression tests; not a general mission kernel",
+  "extraction": "NAIF spksub, without resampling; later source/segment precedence retained",
+  "sources_in_load_order": [
+    {
+      "name": "20000336.bsp",
+      "sha256": "4bb107c65cedccdbcc32383da1221d7b6727eb16441426dce4b265f7e234897f",
+      "bytes": 723968
+    },
+    {
+      "name": "asteroids_100_2026_04_07.bsp",
+      "sha256": "5321f3ac22197f9a996cc7fb4df0b3a6b3518ae3255ed70900d50a2b86d1cbba",
+      "bytes": 11022336
+    },
+    {
+      "name": "de430.bsp",
+      "sha256": "6e1b277c5f07135a84950604b83e56b736be696a7f3560bcddb1d4aeb944fca1",
+      "bytes": 119741440
+    },
+    {
+      "name": "de442.bsp",
+      "sha256": "8d5001fab315eeff222cc51f7cf7ffcdb43fb38fb9ac73ff09e09a5b361fd388",
+      "bytes": 119771136
+    },
+    {
+      "name": "jup348.bsp",
+      "sha256": "9b04592fb6d5448eba480c347b60ed5f0629d049e59417c40039021b64662701",
+      "bytes": 59772928
+    },
+    {
+      "name": "mar099s.bsp",
+      "sha256": "997dc93ba640e476da7a494d2237dcdeb145e528db37be8ccee588c615e4e1ff",
+      "bytes": 67594240
+    },
+    {
+      "name": "nep105.bsp",
+      "sha256": "be2ea8cd16658c957e803c7896731c81ad1a8afe2caca6fbf87d7b68bc4392c7",
+      "bytes": 210456576
+    },
+    {
+      "name": "sat458.bsp",
+      "sha256": "b2c1aeff113d3d7d62bb0b5ce8548ccdc98958b293a500655bcff141efa23945",
+      "bytes": 71158784
+    },
+    {
+      "name": "ura111xl-799.bsp",
+      "sha256": "fa55665eb129613574a5d029bf2cc7b521d3f0d2edc7de5790add3cf950714bf",
+      "bytes": 1059215360
+    }
+  ],
+  "body_windows_mjd_tdb": {
+    "1": [
+      [
+        51543.0,
+        51545.0
+      ]
+    ],
+    "9": [
+      [
+        51543.0,
+        51545.0
+      ]
+    ],
+    "199": [
+      [
+        51543.0,
+        51545.0
+      ]
+    ],
+    "301": [
+      [
+        51543.0,
+        51545.0
+      ]
+    ],
+    "599": [
+      [
+        51543.0,
+        51545.0
+      ]
+    ],
+    "699": [
+      [
+        51543.0,
+        51545.0
+      ]
+    ],
+    "799": [
+      [
+        51543.0,
+        51545.0
+      ]
+    ],
+    "899": [
+      [
+        51543.0,
+        51545.0
+      ]
+    ],
+    "2": [
+      [
+        51543.0,
+        51545.0
+      ],
+      [
+        61188.0,
+        67993.0
+      ]
+    ],
+    "5": [
+      [
+        51543.0,
+        51545.0
+      ],
+      [
+        61188.0,
+        67993.0
+      ]
+    ],
+    "6": [
+      [
+        51543.0,
+        51545.0
+      ],
+      [
+        61188.0,
+        67993.0
+      ]
+    ],
+    "7": [
+      [
+        51543.0,
+        51545.0
+      ],
+      [
+        61188.0,
+        67993.0
+      ]
+    ],
+    "8": [
+      [
+        51543.0,
+        51545.0
+      ],
+      [
+        61188.0,
+        67993.0
+      ]
+    ],
+    "299": [
+      [
+        51543.0,
+        51545.0
+      ],
+      [
+        61188.0,
+        67993.0
+      ]
+    ],
+    "3": [
+      [
+        51502.0,
+        88020.0
+      ]
+    ],
+    "10": [
+      [
+        51502.0,
+        88020.0
+      ]
+    ],
+    "399": [
+      [
+        51502.0,
+        88020.0
+      ]
+    ],
+    "4": [
+      [
+        51502.0,
+        69807.0
+      ]
+    ],
+    "499": [
+      [
+        51502.0,
+        69807.0
+      ]
+    ],
+    "20136163": [
+      [
+        61188.0,
+        67993.0
+      ]
+    ]
+  },
+  "bounds_rationale": {
+    "initialization": "Universe body reference epochs at MJD 51544; two-day window retains source records",
+    "earth_mars": "Unchanged legacy options initialize SplineEphem from MJD 51513 minus 10 days through 88008.04166666651 plus 10 days even when SPICE is selected. Mars center source ends at 69807.",
+    "aeps": "Unchanged earliestPossibleEpoch 61200 and latestPossibleEpoch 67981, padded beyond SplineEphem +/-10 days and derivative stencils"
+  }
+}

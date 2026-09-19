@@ -25,7 +25,9 @@
 #include "IntegratedFixedStepPropagator.h"
 #include "KeplerPropagatorTimeDomain.h"
 
+#include <algorithm>
 #include <exception>
+#include <vector>
 
 namespace EMTG
 {
@@ -93,90 +95,85 @@ namespace EMTG
                 myPropagator->setBoundaryTarget_dStepSizedPropVar(BoundaryTarget_dStepSizePropVar);
                 myPropagator->setPropagationStepSize(PropagationStepSize);
                 myPropagator->setTolerance(myOptions->integrator_tolerance);
+                myPropagator->setInitialStepSize(myOptions->integrator_initial_step_size);
+                myPropagator->setMinimumStepSize(myOptions->integrator_minimum_step_size);
+                myPropagator->setControllerSafetyFactor(myOptions->integrator_safety_factor);
+                myPropagator->setMinimumStepScale(myOptions->integrator_minimum_step_scale);
+                myPropagator->setMaximumStepScale(myOptions->integrator_maximum_step_scale);
+                myPropagator->setRejectionLimit(myOptions->integrator_rejection_limit);
 
-                math::Matrix<double> error_scaling_factors(numStates_in + STM_size_in * STM_size_in, 1, 0.0);
-
-                size_t index = 0;
-                // position and velocity error scaling
-                for (size_t k = 0; k < 3; ++k)
+                // Characteristic scales encode the units of each integrated state.
+                // EMTG's currently integrated formulations share Cartesian position
+                // and velocity in slots 0..5, mass in slot 6, epoch in slot 7,
+                // virtual propellant in slots 8..9, and optional control/propagation
+                // variable columns after the physical-state columns.
+                std::vector<double> state_scales(numStates_in, 1.0);
+                for (size_t state_index = 0; state_index < numStates_in; ++state_index)
                 {
-                    error_scaling_factors(index) = 1.0 / myUniverse->LU;
-                    error_scaling_factors(index + 3) = myUniverse->TU / myUniverse->LU;
-                    ++index;
-                }
-                index += 3;
-
-                // mass error scaling
-                for (size_t k = 0; k < 3; ++k)
-                {
-                    error_scaling_factors(index++) = 1.0 / myOptions->maximum_mass;
-                }
-
-                // STM position rows error scaling
-                for (size_t k = 0; k < 3; ++k)
-                {
-                    // STM R~ error scaling not required
-                    error_scaling_factors(index++) = 1.0;
-                    error_scaling_factors(index++) = 1.0;
-                    error_scaling_factors(index++) = 1.0;
-
-                    // STM R error scaling
-                    error_scaling_factors(index++) = 1.0 / myUniverse->TU;
-                    error_scaling_factors(index++) = 1.0 / myUniverse->TU;
-                    error_scaling_factors(index++) = 1.0 / myUniverse->TU;
-
-                    // mass and tanks
-                    error_scaling_factors(index++) = myOptions->maximum_mass / myUniverse->LU;
-                    error_scaling_factors(index++) = myOptions->maximum_mass / myUniverse->LU;
-                    error_scaling_factors(index++) = myOptions->maximum_mass / myUniverse->LU;
-
-                    // control
-                    error_scaling_factors(index++) = 1.0 / myUniverse->LU;
-                    error_scaling_factors(index++) = 1.0 / myUniverse->LU;
-                    error_scaling_factors(index++) = 1.0 / myUniverse->LU;
+                    if (state_index < 3)
+                        state_scales[state_index] = myUniverse->LU;
+                    else if (state_index < 6)
+                        state_scales[state_index] = myUniverse->LU / myUniverse->TU;
+                    else if (state_index == 6 || state_index >= 8)
+                        state_scales[state_index] = myOptions->maximum_mass;
+                    else if (state_index == 7)
+                        state_scales[state_index] = myUniverse->TU;
                 }
 
-                // STM velocity rows error scaling
-                for (size_t k = 0; k < 3; ++k)
+                std::vector<double> stm_coordinate_scales(STM_size_in, 1.0);
+                for (size_t coordinate = 0; coordinate < std::min(numStates_in, STM_size_in); ++coordinate)
+                    stm_coordinate_scales[coordinate] = state_scales[coordinate];
+                if (STM_size_in > numStates_in)
+                    stm_coordinate_scales.back() = myUniverse->TU; // propagation-variable column
+
+                Integration::AdaptiveErrorControlSettings settings;
+                settings.relative_tolerance = myOptions->integrator_error_control_mode == 0
+                    ? myOptions->integrator_tolerance
+                    : myOptions->integrator_relative_tolerance;
+                settings.absolute_tolerances.resize(numStates_in);
+                for (size_t state_index = 0; state_index < numStates_in; ++state_index)
                 {
-                    // STM V~ scaling
-                    error_scaling_factors(index++) = myUniverse->TU;
-                    error_scaling_factors(index++) = myUniverse->TU;
-                    error_scaling_factors(index++) = myUniverse->TU;
-
-                    // STM V error scaling not required
-                    error_scaling_factors(index++) = 1.0;
-                    error_scaling_factors(index++) = 1.0;
-                    error_scaling_factors(index++) = 1.0;
-                    
-                    // mass and tanks
-                    error_scaling_factors(index++) = myOptions->maximum_mass * myUniverse->TU / myUniverse->LU;
-                    error_scaling_factors(index++) = myOptions->maximum_mass * myUniverse->TU / myUniverse->LU;
-                    error_scaling_factors(index++) = myOptions->maximum_mass * myUniverse->TU / myUniverse->LU;
-
-                    // control
-                    error_scaling_factors(index++) = myUniverse->TU / myUniverse->LU;
-                    error_scaling_factors(index++) = myUniverse->TU / myUniverse->LU;
-                    error_scaling_factors(index++) = myUniverse->TU / myUniverse->LU;
+                    if (myOptions->integrator_error_control_mode == 0)
+                    {
+                        // Deterministic migration for legacy files: the old scalar
+                        // tolerance becomes rtol and also scales each dimensional atol.
+                        settings.absolute_tolerances[state_index] =
+                            myOptions->integrator_tolerance * state_scales[state_index];
+                    }
+                    else if (state_index < 3)
+                        settings.absolute_tolerances[state_index] = myOptions->integrator_absolute_tolerance_position;
+                    else if (state_index < 6)
+                        settings.absolute_tolerances[state_index] = myOptions->integrator_absolute_tolerance_velocity;
+                    else if (state_index == 7)
+                        settings.absolute_tolerances[state_index] = myOptions->integrator_absolute_tolerance_time;
+                    else if (state_index == 6 || state_index == 8 || state_index == 9)
+                        settings.absolute_tolerances[state_index] = myOptions->integrator_absolute_tolerance_mass;
+                    else
+                        settings.absolute_tolerances[state_index] = myOptions->integrator_absolute_tolerance_other;
                 }
 
-                // mass row scaling
-                error_scaling_factors(index++) = myUniverse->LU / myOptions->maximum_mass;
-                error_scaling_factors(index++) = myUniverse->LU / myOptions->maximum_mass;
-                error_scaling_factors(index++) = myUniverse->LU / myOptions->maximum_mass;
-                error_scaling_factors(index++) = myUniverse->LU / (myOptions->maximum_mass * myUniverse->TU);
-                error_scaling_factors(index++) = myUniverse->LU / (myOptions->maximum_mass * myUniverse->TU);
-                error_scaling_factors(index++) = myUniverse->LU / (myOptions->maximum_mass * myUniverse->TU);
-                error_scaling_factors(index++) = 1.0;
-                error_scaling_factors(index++) = 1.0;
-                error_scaling_factors(index++) = 1.0;
-                error_scaling_factors(index++) = 1.0 / myOptions->maximum_mass;
-                error_scaling_factors(index++) = 1.0 / myOptions->maximum_mass;
-                error_scaling_factors(index++) = 1.0 / myOptions->maximum_mass;
+                settings.stm_relative_tolerance = myOptions->integrator_error_control_mode == 0
+                    ? myOptions->integrator_tolerance
+                    : myOptions->integrator_stm_relative_tolerance;
+                settings.stm_policy = myOptions->integrator_stm_error_control == 0
+                    ? Integration::STMErrorControlPolicy::state_only
+                    : Integration::STMErrorControlPolicy::state_and_stm;
+                settings.stm_absolute_tolerances.resize(STM_size_in * STM_size_in);
+                for (size_t row = 0; row < STM_size_in; ++row)
+                    for (size_t column = 0; column < STM_size_in; ++column)
+                    {
+                        const double dimension_scale = stm_coordinate_scales[row] / stm_coordinate_scales[column];
+                        const double base_tolerance = myOptions->integrator_error_control_mode == 0
+                            ? myOptions->integrator_tolerance
+                            : myOptions->integrator_stm_absolute_tolerance;
+                        settings.stm_absolute_tolerances[row * STM_size_in + column] = base_tolerance * dimension_scale;
+                    }
 
-                // control rows do not require scaling as control partials are all zero 
-                // (they are decision variables) 
+                myPropagator->setAdaptiveErrorControlSettings(settings);
 
+                // Retained only for source compatibility with direct legacy users;
+                // normalized component error control above is the production path.
+                math::Matrix<double> error_scaling_factors(numStates_in + STM_size_in * STM_size_in, 1, 1.0);
                 myPropagator->setErrorScalingFactors(error_scaling_factors);
 
                 return myPropagator;

@@ -1,4 +1,7 @@
-﻿import Body
+﻿try:
+    from . import Body
+except ImportError:
+    import Body
 import os
 import copy
 
@@ -84,37 +87,37 @@ class Universe(object):
                             self.central_body_name = linecell[1]
 
                         elif choice == "central_body_SPICE_ID":
-                            self.central_body_SPICE_ID = eval(linecell[1])
+                            self.central_body_SPICE_ID = int(float(linecell[1]))
 
                         elif choice == "central_body_radius":
-                            self.central_body_radius = eval(linecell[1])
+                            self.central_body_radius = float(linecell[1])
 
                         elif choice == "central_body_J2":
-                            self.central_body_J2 = eval(linecell[1])
+                            self.central_body_J2 = float(linecell[1])
 
                         elif choice == "central_body_J2_reference_radius":
-                            self.central_body_J2_reference_radius = eval(linecell[1])
+                            self.central_body_J2_reference_radius = float(linecell[1])
 
                         elif choice == "mu":
-                            self.mu = eval(linecell[1])
+                            self.mu = float(linecell[1])
 
                         elif choice == "central_body_flattening_coefficient":
-                            self.central_body_flattening_coefficient = eval(linecell[1])
+                            self.central_body_flattening_coefficient = float(linecell[1])
 
                         elif choice == "LU":
-                            self.LU = eval(linecell[1])
+                            self.LU = float(linecell[1])
 
                         elif choice == "TU":
-                            self.TU = eval(linecell[1])
+                            self.TU = float(linecell[1])
 
                         elif choice == "reference_angles":
                             self.reference_angles = [linecell[1], linecell[2], linecell[3], linecell[4], linecell[5], linecell[6]]
 
                         elif choice == "r_SOI":
-                            self.r_SOI = eval(linecell[1])
+                            self.r_SOI = float(linecell[1])
 
                         elif choice == "minimum_safe_distance":
-                            self.minimum_safe_distance = eval(linecell[1])
+                            self.minimum_safe_distance = float(linecell[1])
 
                         elif choice == "convert_elements_from_central_body_frame":
                             self.convert_elements_from_central_body_frame = int(float(linecell[1]))

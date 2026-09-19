@@ -29,6 +29,7 @@
 #include <vector>
 #include <set>
 #include <random>
+#include <algorithm>
 
 #include "mission.h"
 #include "interpolator.h"
@@ -643,9 +644,9 @@ namespace EMTG
         //reset staging
         this->mySpacecraft.resetStaging();
 
-        //reset the Jacobian
-        for (double& Gentry : G)
-            Gentry = 0.0;
+        //reset the Jacobian only when the caller requested derivatives
+        if (needG)
+            std::fill(G.begin(), G.end(), 0.0);
 
         //process all of the journeys
         for (size_t journeyIndex = 0; journeyIndex < this->number_of_journeys; ++journeyIndex)
@@ -1845,7 +1846,7 @@ namespace EMTG
             }
 
             //Step 3.2: warn if you need to
-            if ((newX[Xindex2] - this->Xupperbounds[Xindex2]) / this->X_scale_factors[Xindex2] > this->options.snopt_feasibility_tolerance)
+            if ((newX[Xindex2] - this->Xupperbounds[Xindex2]) / this->X_scale_factors[Xindex2] > this->options.NLP_feasibility_tolerance)
             {
 
                 if (this->Xdescriptions[Xindex2].find("epoch") < 1024
@@ -1860,7 +1861,7 @@ namespace EMTG
                 else
                     std::cout << "WARNING: X[" << Xindex2 << "]: " << this->Xdescriptions[Xindex2] << " violates the upper bound by " << newX[Xindex2] - this->Xupperbounds[Xindex2] << ", which exceeds the feasibility tolerance" << std::endl;
             }
-            else if ((this->Xlowerbounds[Xindex2] - newX[Xindex2]) / this->X_scale_factors[Xindex2] > this->options.snopt_feasibility_tolerance)
+            else if ((this->Xlowerbounds[Xindex2] - newX[Xindex2]) / this->X_scale_factors[Xindex2] > this->options.NLP_feasibility_tolerance)
             {
 
                 if (this->Xdescriptions[Xindex2].find("epoch") < 1024

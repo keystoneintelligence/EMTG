@@ -1,0 +1,47 @@
+{
+  "schema_version": "outerloop/v2",
+  "run_directory": "../../../_local/outerloop-jupiter-resonance-v3-release",
+  "root_seed": 20260713,
+  "search": {
+    "max_journeys": 1,
+    "min_journeys": 1,
+    "max_flybys": 4,
+    "min_flybys": 1,
+    "fixed_start": "Io",
+    "fixed_final": "Callisto",
+    "repairs": [],
+    "flyby_bodies": ["Io", "Europa", "Ganymede", "Callisto"],
+    "mission_genes": {"spacecraft_configuration": {"kind": "choice", "choices": ["light", "heavy"]}},
+    "journey_genes": {"phase_type": {"kind": "choice", "choices": [2, 6]}},
+    "phase_genes": {"dsm_count": {"kind": "fixed", "value": 0}}
+  },
+  "objectives": ["flight_time", "delivered_mass", "number_of_flybys"],
+  "algorithm": {
+    "population_size": 96,
+    "generations": 150,
+    "tournament_size": 2,
+    "crossover_probability": 0.9,
+    "mutation_probability": 0.8,
+    "stall_generations": 40,
+    "trials": 10
+  },
+  "resonance": {
+    "enabled": true,
+    "universe_file": "../../../testatron/universe/Jupiter.emtg_universe",
+    "central_body": "Jupiter",
+    "ratios": [[1, 1], [2, 1], [3, 2], [3, 1]],
+    "minimum_turning_degrees": 1.0,
+    "replacement_probability": 0.25
+  },
+  "evaluator": {
+    "type": "synthetic",
+    "problem": "architecture",
+    "body_scores": {"Io": 1.0, "Europa": 2.0, "Ganymede": 3.0, "Callisto": 4.0},
+    "hardware_scores": {"light": 0.0, "heavy": 1.0},
+    "base_mass": 1200.0,
+    "mass_cost_scale": 10.0
+  },
+  "seeds": {"qualification_seed_set": {"name": "jupiter-resonance-v1", "seeds": [501]}},
+  "workers": {"count": 4, "infrastructure_retries": 1},
+  "checkpoint_every": 16
+}
