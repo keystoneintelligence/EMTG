@@ -25,6 +25,14 @@ both Python 3.12.10 / NumPy 2.5.3 and Python 3.10.11 / NumPy 1.26.4.
 The seven fast C++ tests pass. Skips include opt-in native/package tests,
 which the full qualification runs separately, and external NASA checks.
 
+The four Windows/Linux Python CI jobs also pass (235 passed, 13 skipped
+each). Windows CI exposed an additional Fortran probe discrepancy: the probe
+was unstripped while managed releases use `-s`. Applying the release linker
+setting fixes both Windows jobs with the existing path assertions intact.
+The newly built BLAS also passes a 64x64 DGEMM calculation under Nehalem SDE
+and reports the Nehalem runtime kernel. The offline cache guard accepts the
+new CORE2/dynamic-arch metadata and rejects old ZEN cache metadata.
+
 Complete release, non-AVX, AEPS and remote-CI results are recorded when their
 runs finish. A configuration change by itself is not CPU qualification.
 See [Windows setup](windows_setup.md) for reproducible commands and

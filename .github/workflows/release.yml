@@ -7,6 +7,9 @@ on:
       - codex/community-release-squashed
     tags:
       - 'v*'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
 
 permissions:
   contents: write

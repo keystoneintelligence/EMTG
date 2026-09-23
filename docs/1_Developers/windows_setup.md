@@ -96,7 +96,8 @@ forcing `OPENBLAS_CORETYPE` alone does not establish it. The LP64 interface
 and threading policy are unchanged.
 
 `build.ps1 -Offline` requires a complete matching online build and caches;
-it is not an air-gapped fresh installer. Versions and the dependency graph
+it rejects an older CPU-specific OpenBLAS cache and asks for an online rebuild.
+It is not an air-gapped fresh installer. Versions and the dependency graph
 are recorded in `dist/build-toolchain.txt` and SPDX. Qualification captures
 stdout/stderr explicitly because transcripts alone can miss native output.
 Tools, caches, logs and results stay under `_local`; copying it does not

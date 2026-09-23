@@ -85,6 +85,17 @@ if ($Offline) {
     if ($LASTEXITCODE -ne 0) { throw 'Failed to install the pinned managed dependency graph' }
 }
 
+# In particular, -Offline must not silently reuse a pre-portability BLAS cache.
+$InstalledStatus = Get-Content (Join-Path $VcpkgInstall 'vcpkg/status') -Raw
+$DynamicBlas = $InstalledStatus -split '\r?\n\r?\n' | Where-Object {
+    $_ -match '(?m)^Package: openblas\r?$' -and $_ -match '(?m)^Feature: dynamic-arch\r?$' -and
+    $_ -match '(?m)^Architecture: x64-mingw-static\r?$' -and $_ -match '(?m)^Status: install ok installed\r?$'
+}
+$BlasConfig = Get-Content (Join-Path $VcpkgInstall 'x64-mingw-static/include/openblas/openblas_config.h') -Raw
+if (-not $DynamicBlas -or $BlasConfig -notmatch '#define OPENBLAS_CORE_CORE2\b') {
+    throw 'Portable OpenBLAS cache is missing or stale. Run an online build before using -Offline.'
+}
+
 @(
     "vcpkg_commit=$ActualVcpkg"
     "cmake=$CmakeVersionText"
