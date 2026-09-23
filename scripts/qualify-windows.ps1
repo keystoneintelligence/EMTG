@@ -23,13 +23,26 @@ function Invoke-QualificationCheck {
     $Timer = [Diagnostics.Stopwatch]::StartNew()
     $Log = Join-Path $RunRoot "$Name.log"
     $Code = 0
+    $PreviousErrorAction = $ErrorActionPreference
     try {
         $global:LASTEXITCODE = 0
-        & $Command 2>&1 | Tee-Object -FilePath $Log
+        # Windows PowerShell wraps native stderr in ErrorRecord objects, even
+        # for warnings with exit code zero. Keep the text and use the exit code.
+        $ErrorActionPreference = 'Continue'
+        $PSNativeCommandUseErrorActionPreference = $false
+        & $Command 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                if ($_.FullyQualifiedErrorId -like 'NativeCommandError*') {
+                    $_.ToString()
+                } else { throw $_ }
+            } else { $_ }
+        } -ErrorAction Stop | Tee-Object -FilePath $Log -ErrorAction Stop
         $Code = $LASTEXITCODE
     } catch {
         $_ | Out-String | Tee-Object -FilePath $Log -Append | Write-Host
         $Code = 1
+    } finally {
+        $ErrorActionPreference = $PreviousErrorAction
     }
     $Checks.Add([pscustomobject]@{name=$Name; exit_code=$Code; seconds=$Timer.Elapsed.TotalSeconds})
 }
