@@ -16,6 +16,9 @@ parser.add_argument('--executable', type=Path, required=True)
 parser.add_argument('--options', type=Path, required=True)
 parser.add_argument('--output', type=Path, required=True)
 args = parser.parse_args()
+for name in ('sde', 'executable', 'options'):
+    if not getattr(args, name).is_file():
+        parser.error(f'--{name} must name an existing file: {getattr(args, name)}')
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / 'PyEMTG'))
 from MissionOptions import MissionOptions
