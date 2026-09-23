@@ -103,6 +103,12 @@ stdout/stderr explicitly because transcripts alone can miss native output.
 Tools, caches, logs and results stay under `_local`; copying it does not
 reproduce shared Visual Studio/SDK state.
 
+The MinGW cache tracks the selected compiler and build tools, but excludes
+incidental session PATH changes from its ABI key. This avoids a complete
+dependency rebuild when switching between PowerShell 5.1 and 7 or repeatedly
+initializing the local environment. Use the managed compiler/tool recipe;
+arbitrary tools substituted through PATH are not a qualified build setup.
+
 ## Non-AVX execution check
 
 Download the Windows Intel SDE kit from Intel's official download page into

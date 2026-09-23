@@ -33,6 +33,12 @@ The newly built BLAS also passes a 64x64 DGEMM calculation under Nehalem SDE
 and reports the Nehalem runtime kernel. The offline cache guard accepts the
 new CORE2/dynamic-arch metadata and rejects old ZEN cache metadata.
 
+A repeat build exposed an additional cache issue: the standard MinGW triplet
+hashed the full session PATH, invalidating every dependency when switching
+PowerShell sessions. The overlay passes PATH without hashing it; vcpkg still
+tracks the compiler, tools, port recipes and build options. The interrupted
+redundant build is retained as diagnostic evidence, not counted as a test pass.
+
 Complete release, non-AVX, AEPS and remote-CI results are recorded when their
 runs finish. A configuration change by itself is not CPU qualification.
 See [Windows setup](windows_setup.md) for reproducible commands and
