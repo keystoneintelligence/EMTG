@@ -29,7 +29,14 @@ function Assert-EmtgPrerequisites {
     }
     foreach ($Check in @(@('cmake', '3.25'), @('ninja', '1.10'), @('python', '3.10'))) {
         if (Get-Command $Check[0] -ErrorAction SilentlyContinue) {
-            $VersionText = (& $Check[0] --version 2>&1 | Out-String)
+            try {
+                $VersionText = (& $Check[0] --version 2>&1 | Out-String)
+            } catch {
+                # A broken executable or Windows App Execution Alias can throw
+                # on a version query. Continue checking the other prerequisites.
+                $Problems += "$($Check[0]) $($Check[1])+ (version query failed: $($_.Exception.Message))"
+                continue
+            }
             if ($LASTEXITCODE -ne 0 -or $VersionText -notmatch '(\d+\.\d+(?:\.\d+)?)' -or
                 [version]$Matches[1] -lt [version]$Check[1]) {
                 $Problems += "$($Check[0]) $($Check[1])+ (found: $($VersionText.Trim()))"
