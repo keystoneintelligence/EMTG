@@ -30,7 +30,7 @@ jobs:
         run: .\build.ps1
       - name: Qualify the Windows bundle and trajectory cases
         shell: pwsh
-        run: .\scripts\qualify-windows.ps1 -SkipBuild
+        run: .\qualify.cmd -SkipBuild
       - name: Verify build did not modify tracked sources
         run: git diff --exit-code
       - uses: actions/upload-artifact@v4
