@@ -4,7 +4,8 @@ $EmtgRoot = Split-Path $PSScriptRoot -Parent
 function Initialize-EmtgLocalTools {
     $PythonRoot = Join-Path $EmtgRoot '_local\tools\python-nuget\tools'
     if (Test-Path (Join-Path $PythonRoot 'python.exe')) {
-        $env:PATH = "$PythonRoot;$PythonRoot\Scripts;$env:PATH"
+        $env:PATH = ((@($PythonRoot, "$PythonRoot\Scripts") + ($env:PATH -split ';')) |
+            Select-Object -Unique) -join ';'
     }
     $env:PIP_CACHE_DIR = Join-Path $EmtgRoot '_local\pip-cache'
 }
@@ -55,7 +56,9 @@ function Initialize-EmtgVisualStudio {
     $Environment | ForEach-Object {
         if ($_ -match '^([^=]+)=(.*)$') { Set-Item -Path "Env:$($Matches[1])" -Value $Matches[2] }
     }
-    $env:PATH = "$env:PATH;$OriginalPath"
+    # Repeated setup in one shell must not keep duplicating the search path.
+    $env:PATH = ((($env:PATH -split ';') + ($OriginalPath -split ';')) |
+        Select-Object -Unique) -join ';'
 }
 
 function Get-EmtgMingwCompiler {
@@ -70,7 +73,8 @@ function Initialize-EmtgMingw {
     $Compiler = Get-EmtgMingwCompiler $VcpkgRoot
     if (-not $Compiler) { throw 'Managed MinGW is missing. Run build.ps1 once before fast tests.' }
     $env:EMTG_MINGW_ROOT = (Split-Path $Compiler.DirectoryName -Parent) -replace '\\', '/'
-    $env:PATH = "$($Compiler.DirectoryName);$env:PATH"
+    $env:PATH = ((@($Compiler.DirectoryName) + ($env:PATH -split ';')) |
+        Select-Object -Unique) -join ';'
     $env:CC = Join-Path $Compiler.DirectoryName 'gcc.exe'
     $env:CXX = $Compiler.FullName
 }
