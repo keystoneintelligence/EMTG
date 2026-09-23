@@ -12,6 +12,9 @@ If Windows PowerShell blocks scripts, open a temporary session with
 `powershell.exe -NoProfile -ExecutionPolicy Bypass` for the setup commands.
 This changes no machine policy. Afterwards `build.cmd` and `qualify.cmd`
 provide the same process-only behavior for builds and qualification.
+The wrappers also isolate Windows PowerShell's module path from an enclosing
+PowerShell 7 session; otherwise even standard commands such as `Get-FileHash`
+can resolve against an incompatible module. The caller's environment is unchanged.
 
 Run from the repository root; these commands change only session PATH.
 Official NuGet CPython includes pip and avoids MSI registration, also
@@ -44,6 +47,19 @@ The qualification constraints pin direct and transitive packages, including
 CMake 3.31.6, Ninja 1.11.1.4 and Matplotlib. `requirements-dev.txt` remains
 available for compatibility testing with newer dependencies.
 
+To retain an explicit wheelhouse for this Windows/Python version, download it
+while online and record hashes. A fresh portable runtime can then install the
+same packages with `--no-index`; other Python versions/platforms need their
+own wheels.
+
+```powershell
+python -m pip download --only-binary=:all: -r requirements-qualification.txt --dest _local/qualification-wheels
+Get-ChildItem _local/qualification-wheels -File | Get-FileHash -Algorithm SHA256 |
+    Select-Object Path,Hash | ConvertTo-Json | Set-Content _local/setup/wheel-hashes.json
+python -m pip install --no-index --find-links _local/qualification-wheels -r requirements-qualification.txt
+python -m pip check
+```
+
 ## Visual Studio 2022
 
 Skip installation when preflight finds VS 2022 C++ tools and the SDK.
@@ -67,8 +83,8 @@ $Install = Start-Process $Installer -WindowStyle Hidden -Wait -PassThru -Argumen
     '--quiet', '--wait', '--norestart', '--installPath', "`"$InstallPath`"",
     '--add', 'Microsoft.VisualStudio.Workload.VCTools', '--includeRecommended'
 )
-if ($Install.ExitCode -notin @(0,3010)) { throw "VS installation failed: $($Install.ExitCode)" }
 Copy-Item "$env:TEMP/dd_*" _local/setup -ErrorAction SilentlyContinue
+if ($Install.ExitCode -notin @(0,3010)) { throw "VS installation failed: $($Install.ExitCode)" }
 if ($Install.ExitCode -eq 3010) { throw 'Restart Windows, then resume setup' }
 Get-EmtgVisualStudio | ConvertTo-Json -Depth 5 | Set-Content _local/setup/visual-studio.json
 Assert-EmtgPrerequisites
@@ -83,11 +99,28 @@ independently by vcpkg.
 
 ## Time, disk, CPU and offline use
 
-The original cold build took about 39 minutes and 7.2 GiB under `_local`,
-excluding shared Microsoft components. Dynamic OpenBLAS kernels increase
-build cost and size; allow additional disk/time. Debug and Release dependency
-variants are intentional. Four parallel AEPS cases add about 20 minutes on
-the evaluated 8-core host.
+The portable dependency rebuild took 54 minutes 17 seconds on the evaluated
+Ryzen 7 6800H, using retained downloads; OpenBLAS alone took about 32 minutes.
+A clean `windows-2022` CI runner needed about 96 minutes for build, release
+tests and packaging. Debug and Release dependency variants are intentional.
+Four parallel AEPS cases add about 20 minutes on that eight-core machine.
+Release CI uses `qualify.cmd -SkipBuild -Workers 2` on the evaluated two-core
+runner, adding about 40 minutes. Four workers there exhausted the unchanged
+wall-clock budget before the nearby cases became feasible; the same package
+passed all four cases with two workers. Use `-Workers 2` on similarly small
+machines; the per-case solver limits and scientific assertions stay unchanged.
+Cached local builds take roughly
+40–55 seconds, including tests, packaging and audits.
+Another cold hosted build took 126 minutes 8 seconds. The Windows CI job allows four
+hours overall to accommodate cold-build variation plus qualification; its
+per-mission solver budgets remain unchanged.
+
+Retaining the tools, both cache generations, extra Python environments and
+qualification evidence used about 10.5 GiB under `_local`, plus 0.8 GiB for
+the checkout/Git/distribution files. These are retained sizes, not measured
+peak requirements. Allow 20 GiB in the checkout as a planning margin and
+additional space for Microsoft's shared components and installer cache.
+The portable EXE is about 45.5 MB and its ZIP about 15.4 MB.
 
 Windows OpenBLAS uses runtime dispatch with CORE2 common code, which does
 not require AVX. Host-only OpenBLAS build tools are not shipped. Record both
@@ -108,6 +141,11 @@ incidental session PATH changes from its ABI key. This avoids a complete
 dependency rebuild when switching between PowerShell 5.1 and 7 or repeatedly
 initializing the local environment. Use the managed compiler/tool recipe;
 arbitrary tools substituted through PATH are not a qualified build setup.
+
+The initial `vcpkg-gfortran` bootstrap bypasses binary caching: its binary
+package contains runtime DLLs, while running its port acquires the compiler.
+A fresh machine must execute that acquisition even when compiled library
+packages are cached. The main dependency graph still uses the binary cache.
 
 ## Non-AVX execution check
 
