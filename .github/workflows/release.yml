@@ -36,9 +36,21 @@ jobs:
           python-version: '3.12'
       - name: Install qualification dependencies
         run: python -m pip install -r requirements-qualification.txt
+      - uses: actions/cache/restore@v5
+        id: vcpkg-cache
+        with:
+          path: _local/vcpkg-cache
+          key: emtg-windows-vcpkg-${{ github.run_id }}
+          restore-keys: emtg-windows-vcpkg-
       - name: Build, test, audit, and package
         shell: pwsh
         run: .\build.ps1
+      # Save before trajectory checks so a failed mission does not discard a
+      # completed dependency build. vcpkg validates each package's ABI key.
+      - uses: actions/cache/save@v5
+        with:
+          path: _local/vcpkg-cache
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
       - name: Qualify the Windows bundle and trajectory cases
         shell: pwsh
         run: .\qualify.cmd -SkipBuild

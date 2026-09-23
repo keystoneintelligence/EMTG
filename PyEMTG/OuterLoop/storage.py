@@ -128,7 +128,6 @@ def exclusive_file_lock(path: str | Path, timeout_seconds: float = 30.0) -> Iter
     while descriptor is None:
         try:
             descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.write(descriptor, f"{os.getpid()} {utc_now()}\n".encode("utf-8"))
         except FileExistsError:
             try:
                 stale = time.time() - lock_path.stat().st_mtime > max(300.0, timeout_seconds * 2.0)
@@ -143,7 +142,15 @@ def exclusive_file_lock(path: str | Path, timeout_seconds: float = 30.0) -> Iter
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"timed out waiting for cache lock {lock_path}")
             time.sleep(0.01)
+        except PermissionError:
+            # The Windows CRT reports EACCES while a competing deletion is
+            # pending. Retry acquisition within the same bounded lock wait;
+            # persistent permission failures and non-Windows errors propagate.
+            if os.name != "nt" or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.01)
     try:
+        os.write(descriptor, f"{os.getpid()} {utc_now()}\n".encode("utf-8"))
         yield
     finally:
         os.close(descriptor)
