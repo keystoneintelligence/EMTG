@@ -10,6 +10,13 @@
     "boost-lexical-cast",
     "boost-ptr-container",
     "coin-or-ipopt",
-    "cspice"
+    "cspice",
+    {
+      "name": "openblas",
+      "features": [
+        "dynamic-arch"
+      ],
+      "platform": "mingw & x64"
+    }
   ]
 }

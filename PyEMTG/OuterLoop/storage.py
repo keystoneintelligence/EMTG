@@ -155,11 +155,26 @@ def exclusive_file_lock(path: str | Path, timeout_seconds: float = 30.0) -> Iter
 
 def _connect(path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(path, timeout=30.0)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA journal_mode=WAL")
-    connection.execute("PRAGMA synchronous=FULL")
-    connection.execute("PRAGMA foreign_keys=ON")
+    try:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA synchronous=FULL")
+        connection.execute("PRAGMA foreign_keys=ON")
+    except BaseException:
+        connection.close()
+        raise
     return connection
+
+
+@contextmanager
+def _connection(path: Path) -> Iterator[sqlite3.Connection]:
+    """Commit/rollback the transaction, then release the database handle."""
+    connection = _connect(path)
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def _context_differences(
@@ -207,7 +222,7 @@ class EvaluationCache:
         if existing is not None and existing != str(CACHE_SCHEMA):
             raise _state_error("cache", existing)
         self.entries.mkdir(parents=True, exist_ok=True)
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -232,7 +247,7 @@ class EvaluationCache:
         return self.entries / evaluation_key[:2] / f"{evaluation_key}.json"
 
     def get(self, evaluation_key: str) -> EvaluationResult | None:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             row = connection.execute(
                 "SELECT result_path FROM entries WHERE evaluation_key = ?", (evaluation_key,)
             ).fetchone()
@@ -273,7 +288,7 @@ class EvaluationCache:
             else:
                 atomic_write_json(path, payload)
             relative = path.relative_to(self.root).as_posix()
-            with _connect(self.database_path) as connection:
+            with _connection(self.database_path) as connection:
                 connection.execute(
                     """
                     INSERT OR REPLACE INTO entries(
@@ -348,7 +363,7 @@ class EvaluationCache:
         candidate_id: str | None = None,
         context: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             exact = connection.execute(
                 "SELECT * FROM entries WHERE evaluation_key = ?", (evaluation_key,)
             ).fetchone()
@@ -400,7 +415,7 @@ class CampaignStore:
                 checkpoint_schema = "unknown"
             if checkpoint_schema != CHECKPOINT_SCHEMA and existing is None:
                 raise _state_error("checkpoint", checkpoint_schema)
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -501,14 +516,14 @@ class CampaignStore:
             connection.close()
 
     def set_metadata(self, key: str, value: Any) -> None:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             connection.execute(
                 "INSERT OR REPLACE INTO metadata(key, value) VALUES(?, ?)",
                 (key, json.dumps(value, sort_keys=True, allow_nan=False)),
             )
 
     def get_metadata(self, key: str, default: Any = None) -> Any:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             row = connection.execute("SELECT value FROM metadata WHERE key = ?", (key,)).fetchone()
         return default if row is None else json.loads(row["value"])
 
@@ -623,7 +638,7 @@ class CampaignStore:
     def record_evaluation(self, result: EvaluationResult) -> None:
         raw = result.raw() if isinstance(result, ScoredEvaluationResult) else result
         result_json = json.dumps(result_to_dict(raw), sort_keys=True, allow_nan=False)
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             existing = connection.execute(
                 "SELECT raw_result_json FROM evaluations WHERE evaluation_key=?",
                 (result.evaluation_key,),
@@ -727,7 +742,7 @@ class CampaignStore:
     def load_candidates(
         self, trial: int, generation: int, role: str
     ) -> list[tuple[CandidateRecord, EvaluationResult | None]]:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             rows = connection.execute(
                 """
                 SELECT candidate_json, scored_result_json FROM generation_candidates
@@ -744,14 +759,14 @@ class CampaignStore:
         ]
 
     def evaluation(self, evaluation_key: str) -> EvaluationResult | None:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             row = connection.execute(
                 "SELECT raw_result_json FROM evaluations WHERE evaluation_key=?", (evaluation_key,)
             ).fetchone()
         return result_from_dict(json.loads(row["raw_result_json"])) if row else None
 
     def evaluation_attempt_count(self, evaluation_key: str) -> int:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             return int(connection.execute(
                 "SELECT COUNT(*) FROM evaluation_attempts WHERE evaluation_key=?",
                 (evaluation_key,),
@@ -831,7 +846,7 @@ class CampaignStore:
         rejected: int = 0,
         accepted: int = 0,
     ) -> None:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             connection.execute(
                 """
                 INSERT INTO operator_statistics(trial, generation, operator, proposed, effective, no_op, rejected, accepted)
@@ -847,7 +862,7 @@ class CampaignStore:
             )
 
     def operator_statistics(self) -> list[dict[str, Any]]:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             rows = connection.execute(
                 "SELECT * FROM operator_statistics ORDER BY trial, generation, operator"
             ).fetchall()
@@ -860,7 +875,7 @@ class CampaignStore:
         source_evaluation_key: str | None,
         result: ScoredEvaluationResult,
     ) -> None:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             connection.execute(
                 """INSERT OR REPLACE INTO promotions(
                     source_fidelity, target_fidelity, candidate_id, source_evaluation_key,
@@ -874,7 +889,7 @@ class CampaignStore:
     def load_archive(
         self, comparison_context_id: str, trial: int, fidelity: str
     ) -> list[tuple[ScoredEvaluationResult, tuple[float, ...], int]]:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             rows = connection.execute(
                 """
                 SELECT a.objective_json, a.first_generation, a.scored_result_json
@@ -894,7 +909,7 @@ class CampaignStore:
         ]
 
     def status(self) -> dict[str, Any]:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             counts = {
                 row["status"]: row["count"]
                 for row in connection.execute("SELECT status, COUNT(*) AS count FROM evaluations GROUP BY status")
@@ -931,7 +946,7 @@ class CampaignStore:
         if trial is not None:
             clauses.append("trial=?")
             parameters.append(trial)
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             row = connection.execute(
                 f"""
                 SELECT candidate_json, scored_result_json FROM generation_candidates
@@ -948,7 +963,7 @@ class CampaignStore:
         )
 
     def generation_records(self) -> list[dict[str, Any]]:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             rows = connection.execute(
                 """
                 SELECT trial, generation, role, position, candidate_json, scored_result_json, evaluation_key
@@ -993,7 +1008,7 @@ class CampaignStore:
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY a.comparison_context_id, a.trial, a.fidelity, a.objective_json, a.candidate_id, a.evaluation_key"
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             rows = connection.execute(query, tuple(parameters)).fetchall()
         output = []
         for row in rows:
@@ -1026,7 +1041,7 @@ class CampaignStore:
             query += " WHERE a.fidelity=?"
             parameters = (fidelity,)
         query += " ORDER BY a.completed_at, a.attempt_id, s.association_id"
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             rows = connection.execute(query, parameters).fetchall()
         records: list[dict[str, Any]] = []
         for row in rows:
@@ -1054,7 +1069,7 @@ class CampaignStore:
         return records
 
     def metadata_items(self, prefix: str = "") -> dict[str, Any]:
-        with _connect(self.database_path) as connection:
+        with _connection(self.database_path) as connection:
             rows = connection.execute(
                 "SELECT key, value FROM metadata WHERE key LIKE ? ORDER BY key", (prefix + "%",)
             ).fetchall()

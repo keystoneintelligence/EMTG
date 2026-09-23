@@ -212,6 +212,14 @@ if (RUN_EPHEMERIS_READER_TESTBED AND TARGET emtg)
 endif()
 
 if(BUILD_TESTING)
+    add_executable(spherical_position_constraint_tests spherical_position_constraint_tests.cpp)
+    emtg_configure_executable(spherical_position_constraint_tests)
+    target_include_directories(spherical_position_constraint_tests PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/Core"
+        "${CMAKE_SOURCE_DIR}/src/Mission/Journey/Phase/ParallelShootingPhase/ParallelShootingConstraints")
+    add_test(NAME EMTG.spherical_position_constraint COMMAND spherical_position_constraint_tests)
+    set_tests_properties(EMTG.spherical_position_constraint PROPERTIES LABELS "portable;regression")
+
     add_executable(kernel_order_tests kernel_order_tests.cpp ../Utilities/file_utilities.cpp)
     emtg_configure_executable(kernel_order_tests)
     add_test(NAME EMTG.kernel_load_order COMMAND kernel_order_tests "${CMAKE_BINARY_DIR}/tests/kernel-order")

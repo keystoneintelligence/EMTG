@@ -1,0 +1,12 @@
+# Qualified Windows CPython 3.12 environment; ordinary development stays flexible.
+-r requirements-dev.txt
+-c requirements-qualification.lock.txt
+cmake==3.31.6
+ninja==1.11.1.4
+numpy==2.5.3
+pandas==3.0.6
+pytest==9.1.1
+matplotlib==3.11.2
+pytest-xdist==3.8.0
+scipy==1.18.1
+spiceypy==8.2.0

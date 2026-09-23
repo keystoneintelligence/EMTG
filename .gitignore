@@ -25,6 +25,10 @@ scripts/*
 !scripts/prepare_test_ephemeris.py
 !scripts/verify_test_ephemeris.py
 !scripts/render-winget.ps1
+!scripts/windows-environment.ps1
+!scripts/qualify-windows.ps1
+!scripts/summarize-qualification.py
+!scripts/check-cpu-portability.py
 #EMTG-config.cmake
 *.debug
 *.d

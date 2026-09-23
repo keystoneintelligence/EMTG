@@ -145,12 +145,12 @@ class MissionConverter_TPSLT_to_PSFB(object):
                 Rposition = R * position
                 Rvelocity = R * velocity
 
-                x = float(Rposition[0])
-                y = float(Rposition[1])
-                z = float(Rposition[2])
-                xdot = float(Rvelocity[0])
-                ydot = float(Rvelocity[1])
-                zdot = float(Rvelocity[2])
+                x = float(Rposition[0, 0])
+                y = float(Rposition[1, 0])
+                z = float(Rposition[2, 0])
+                xdot = float(Rvelocity[0, 0])
+                ydot = float(Rvelocity[1, 0])
+                zdot = float(Rvelocity[2, 0])
 
                 prefix = 'j' + str(journeyIndex) + 'p0PSFB_Step' + str(stepIndex) + ': '
 
@@ -168,7 +168,7 @@ class MissionConverter_TPSLT_to_PSFB(object):
                     R = numpy.hstack([xhat, yhat, zhat]).T
                     V = numpy.matrix([xdot, ydot, zdot]).T
                     Vprime = R * V
-                    AZ = atan2(Vprime[1], Vprime[2])
+                    AZ = atan2(float(Vprime[1, 0]), float(Vprime[2, 0]))
                   
                     #vRA and vDEC
                     vRA = atan2(ydot, xdot)                                                                                 

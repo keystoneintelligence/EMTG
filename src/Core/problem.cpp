@@ -201,7 +201,7 @@ namespace EMTG
 
                     options.outputfile = options.working_directory + "//FAILURE_" + options.mission_name + ".emtg";
                 }
-				else if (this->number_of_solutions == NULL)
+				else if (this->number_of_solutions == 0)
 				{
 					this->Xopt = this->construct_initial_guess();
 					options.outputfile = options.working_directory + "//FAILURE_" + options.mission_name + ".emtg";

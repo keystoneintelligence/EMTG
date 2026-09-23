@@ -12,31 +12,13 @@ $Vcpkg = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { Join-Path $Local 'tools
 $Version = (Get-Content (Join-Path $Root 'VERSION') -Raw).Trim()
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid EMTG version in VERSION: '$Version'" }
 
-if ($PSVersionTable.PSVersion -lt [version]'5.1') { throw 'PowerShell 5.1 or newer is required' }
-foreach ($Tool in @('git', 'cmake', 'ctest', 'cpack', 'ninja', 'python')) {
-    if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) { throw "Missing prerequisite: $Tool. See BUILDING.md." }
-}
+. (Join-Path $Root 'scripts\windows-environment.ps1')
+Initialize-EmtgLocalTools
+Assert-EmtgPrerequisites
+Initialize-EmtgVisualStudio
 $CmakeVersionText = (& cmake --version | Select-Object -First 1)
-if ($CmakeVersionText -notmatch '(\d+\.\d+\.\d+)' -or [version]$Matches[1] -lt [version]'3.25.0') {
-    throw "CMake 3.25 or newer is required: $CmakeVersionText"
-}
 $NinjaVersion = (& ninja --version | Out-String).Trim()
-if ($NinjaVersion -notmatch '^(\d+\.\d+)' -or [version]$Matches[1] -lt [version]'1.10') { throw "Ninja 1.10 or newer is required: $NinjaVersion" }
 New-Item -ItemType Directory -Force -Path $Local, $Dist | Out-Null
-
-if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
-    $OriginalPath = $env:PATH
-    $VsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-    if (-not (Test-Path $VsWhere)) { throw 'Visual Studio 2022 Build Tools with C++ support are required' }
-    $VsRoot = & $VsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-    if (-not $VsRoot) { throw 'Visual Studio C++ Build Tools were not found' }
-    $VsDevCmd = Join-Path $VsRoot 'Common7\Tools\VsDevCmd.bat'
-    cmd.exe /d /s /c "`"$VsDevCmd`" -arch=x64 -host_arch=x64 >nul && set" |
-        ForEach-Object {
-            if ($_ -match '^([^=]+)=(.*)$') { Set-Item -Path "Env:$($Matches[1])" -Value $Matches[2] }
-        }
-    $env:PATH = "$env:PATH;$OriginalPath"
-}
 
 $Preset = 'windows-release'
 if (-not (Test-Path (Join-Path $Vcpkg '.git'))) {
@@ -63,26 +45,17 @@ $env:VCPKG_BINARY_SOURCES = "clear;files,$Cache,readwrite"
 # Install the manifest first. This also bootstraps vcpkg's pinned MinGW
 # toolchain, which must exist before CMake performs compiler detection.
 $VcpkgInstall = Join-Path $Local 'builds\windows-release\vcpkg_installed'
-$MingwCompiler = Get-ChildItem (Join-Path $Vcpkg 'downloads\tools\msys2') `
-    -Filter g++.exe -File -Recurse -ErrorAction SilentlyContinue |
-    Where-Object { $_.FullName -match '[\\/]mingw64[\\/]bin[\\/]g\+\+\.exe$' } |
-    Sort-Object LastWriteTimeUtc -Descending |
-    Select-Object -First 1
+$MingwCompiler = Get-EmtgMingwCompiler $Vcpkg
 if (-not $MingwCompiler) {
     if ($Offline) { throw 'Offline build requires the cached MinGW compiler; run an online build first' }
     & (Join-Path $Vcpkg 'vcpkg.exe') install vcpkg-gfortran:x64-windows `
         --x-install-root=$VcpkgInstall `
         --classic
     if ($LASTEXITCODE -ne 0) { throw 'Failed to provision the pinned MinGW-w64 compiler' }
-    $MingwCompiler = Get-ChildItem (Join-Path $Vcpkg 'downloads\tools\msys2') `
-        -Filter g++.exe -File -Recurse -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -match '[\\/]mingw64[\\/]bin[\\/]g\+\+\.exe$' } |
-        Sort-Object LastWriteTimeUtc -Descending |
-        Select-Object -First 1
+    $MingwCompiler = Get-EmtgMingwCompiler $Vcpkg
 }
 if (-not $MingwCompiler) { throw 'vcpkg did not provision the pinned MinGW-w64 compiler' }
-$env:EMTG_MINGW_ROOT = (Split-Path $MingwCompiler.DirectoryName -Parent) -replace '\\', '/'
-$env:PATH = "$($MingwCompiler.DirectoryName);$env:PATH"
+Initialize-EmtgMingw $Vcpkg
 $CompilerVersion = (& $MingwCompiler -dumpfullversion | Out-String).Trim()
 if (-not $CompilerVersion) { throw 'Unable to determine the pinned MinGW-w64 compiler version' }
 $OverlayPorts = Join-Path $Root 'cmake\vcpkg-overlays'
@@ -108,8 +81,7 @@ if ($Offline) {
         --triplet x64-mingw-static `
         "--x-manifest-root=$Root" `
         "--x-install-root=$VcpkgInstall" `
-        "--overlay-ports=$OverlayPorts" `
-        --allow-unsupported
+        "--overlay-ports=$OverlayPorts"
     if ($LASTEXITCODE -ne 0) { throw 'Failed to install the pinned managed dependency graph' }
 }
 
@@ -117,6 +89,8 @@ if ($Offline) {
     "vcpkg_commit=$ActualVcpkg"
     "cmake=$CmakeVersionText"
     "ninja=$NinjaVersion"
+    "python=$((& python --version | Out-String).Trim())"
+    "visual_studio=$((Get-EmtgVisualStudio).installationVersion)"
     "compiler=$($MingwCompiler.Name)"
     "compiler_version=$CompilerVersion"
     (Get-Content (Join-Path $VcpkgInstall 'vcpkg/status') -Raw)

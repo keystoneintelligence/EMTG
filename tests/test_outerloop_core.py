@@ -286,6 +286,15 @@ def test_zdt1_sample_is_nondominated_and_has_positive_hypervolume():
     assert exact_hypervolume_2d(samples, (1.1, 1.1)) > 0.85
 
 
+def _seeded_benchmark_sum(values):
+    # Python 3.12 changed float sum(). Preserve the historical benchmark's
+    # operation order so roundoff does not change its seeded selection path.
+    total = 0.0
+    for value in values:
+        total += value
+    return total
+
+
 def test_nsga2_recovers_a_zdt1_front_with_seeded_operators():
     rng = random.Random(2026)
     size = 48
@@ -293,7 +302,7 @@ def test_nsga2_recovers_a_zdt1_front_with_seeded_operators():
 
     def evaluate(vector, identifier):
         first = vector[0]
-        g_value = 1.0 + 9.0 * sum(vector[1:]) / (dimensions - 1)
+        g_value = 1.0 + 9.0 * _seeded_benchmark_sum(vector[1:]) / (dimensions - 1)
         return NSGA2Individual(identifier, (first, g_value * (1.0 - math.sqrt(first / g_value))), payload=vector)
 
     population = [evaluate([rng.random() for _ in range(dimensions)], f"initial-{index}") for index in range(size)]
@@ -328,7 +337,7 @@ def test_nsga2_recovers_zdt2_and_zdt3_tradeoff_ranges(problem):
 
     def evaluate(vector, identifier):
         first = vector[0]
-        g_value = 1.0 + 9.0 * sum(vector[1:]) / (dimensions - 1)
+        g_value = 1.0 + 9.0 * _seeded_benchmark_sum(vector[1:]) / (dimensions - 1)
         if problem == "zdt2":
             second = g_value * (1.0 - (first / g_value) ** 2)
         else:

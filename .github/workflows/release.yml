@@ -3,6 +3,8 @@ name: Build Release Packages
 on:
   workflow_dispatch:
   push:
+    branches:
+      - codex/community-release-squashed
     tags:
       - 'v*'
 
@@ -12,33 +14,39 @@ permissions:
 jobs:
   windows:
     runs-on: windows-2022
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install qualification dependencies
+        run: python -m pip install -r requirements-qualification.txt
       - name: Build, test, audit, and package
         shell: pwsh
         run: .\build.ps1
-      - name: Verify extracted Windows bundle from another directory
+      - name: Qualify the Windows bundle and trajectory cases
         shell: pwsh
-        run: |
-          $Archives = @(Get-ChildItem dist/EMTG-*.zip)
-          if ($Archives.Count -ne 1) { throw "Expected one release ZIP" }
-          $Archive = $Archives[0]
-          Expand-Archive -LiteralPath $Archive.FullName -DestinationPath _local/relocated
-          $Executables = @(Get-ChildItem _local/relocated -Filter EMTGv9.exe -Recurse)
-          if ($Executables.Count -ne 1) { throw "Expected one extracted executable" }
-          $Executable = $Executables[0]
-          $env:EMTG_RELEASE_ROOT = Split-Path (Split-Path $Executable.FullName)
-          python -m pip install pytest
-          python -m pytest tests/test_packaged_runtime.py -q
+        run: .\scripts\qualify-windows.ps1 -SkipBuild
       - name: Verify build did not modify tracked sources
         run: git diff --exit-code
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: windows-release
           path: dist/*
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-qualification
+          path: |
+            _local/q*/*.log
+            _local/q*/*.xml
+            _local/q*/*.json
+            _local/q*/*.txt
 
   linux:
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     steps:

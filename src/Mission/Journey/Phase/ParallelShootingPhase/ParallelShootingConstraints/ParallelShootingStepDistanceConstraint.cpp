@@ -21,6 +21,7 @@
 //Jacob Englander 1/18/2018
 
 #include "ParallelShootingStepDistanceConstraint.h"
+#include "SphericalPositionConstraint.h"
 
 #include <vector>
 
@@ -129,9 +130,8 @@ namespace EMTG
             Fdescriptions->push_back(this->name);
 
             //Step 2: sparsity pattern
-            if (this->isDefinedRelativeToCentralBody
-                && (this->myOptions->ParallelShootingStateRepresentation == StateRepresentation::SphericalRADEC
-                    || this->myOptions->ParallelShootingConstraintStateRepresentation == StateRepresentation::SphericalAZFPA))
+            if (usesSphericalPositionConstraint(this->isDefinedRelativeToCentralBody,
+                    this->myOptions->ParallelShootingStateRepresentation))
             {
                 //lucky us, there's only one entry! and no time dependence!
                 size_t Xindex = this->myStep->getXindex_state_elements()[0];
@@ -206,9 +206,8 @@ namespace EMTG
             const bool& needG)
         {
             //Step 1: evaluate the constraint
-            if (this->isDefinedRelativeToCentralBody
-                && (this->myOptions->ParallelShootingStateRepresentation == StateRepresentation::SphericalRADEC
-                    || this->myOptions->ParallelShootingConstraintStateRepresentation == StateRepresentation::SphericalAZFPA))
+            if (usesSphericalPositionConstraint(this->isDefinedRelativeToCentralBody,
+                    this->myOptions->ParallelShootingStateRepresentation))
             {
                 this->distance_from_body = X[this->myStep->getXindex_state_elements()[0]];
             }
@@ -239,9 +238,8 @@ namespace EMTG
             //Step 2: derivatives
             if (needG)
             {
-                if (this->isDefinedRelativeToCentralBody
-                    && (this->myOptions->ParallelShootingStateRepresentation == StateRepresentation::SphericalRADEC
-                        || this->myOptions->ParallelShootingConstraintStateRepresentation == StateRepresentation::SphericalAZFPA))
+                if (usesSphericalPositionConstraint(this->isDefinedRelativeToCentralBody,
+                    this->myOptions->ParallelShootingStateRepresentation))
                 {
                     //lucky us, there's only one entry! and no time dependence!
 

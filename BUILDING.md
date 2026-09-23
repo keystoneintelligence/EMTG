@@ -7,6 +7,10 @@ SNOPT remains available to licensed users as an opt-in local backend.
 
 ## Windows
 
+On a new machine, follow [Windows setup](docs/1_Developers/windows_setup.md)
+once for pinned portable tools and the Visual Studio workload command.
+Preflight reports all missing prerequisites together.
+
 From PowerShell in the repository root:
 
 ```powershell
@@ -22,6 +26,20 @@ can exceed the Windows path limit even when the Python caller can access them.
 The script bootstraps pinned dependencies under `_local`, builds and tests the
 release, audits the EXE's runtime imports, and writes the standalone EXE and
 portable ZIP to `dist`. Use `-Offline` after one successful online build.
+
+For complete qualification, install `requirements-qualification.txt` and run:
+
+```powershell
+.\scripts\qualify-windows.ps1
+```
+
+This includes Python, fast/native C++, bounded trajectories, all four AEPS
+cases, package relocation, audits, and a cached offline rebuild. Use
+`-SkipBuild` with an already rebuilt release, or `-Fast` for Python and fast
+C++ tests after the first managed build. Logs, JUnit and separate pass/fail/skip
+counts go into a fresh short `_local/qNNNN` directory. AEPS keeps its
+1200-second budgets and uses up to four workers (`-Workers 1` is sequential).
+Optional NASA/GUI workflows remain separate.
 
 ## Linux (experimental)
 
@@ -44,6 +62,14 @@ already present. The experimental portable tarball is written to `dist`.
 
 The dependency-light suite does not build the full optimizer:
 
+On Windows, first initialize the compiler downloaded by the managed build:
+
+```powershell
+. .\scripts\windows-environment.ps1
+Initialize-EmtgLocalTools
+Initialize-EmtgMingw
+```
+
 ```text
 cmake --preset ci-fast
 cmake --build --preset ci-fast
@@ -52,6 +78,9 @@ ctest --preset ci-fast
 
 Machine-local dependency hints may still be supplied as ordinary CMake cache
 variables, but `EMTG-Config.cmake` is deprecated and is not used by release CI.
+
+If this preset was previously configured with another compiler, add `--fresh`
+to its configure command.
 
 ## Complete bootstrap prerequisites
 
