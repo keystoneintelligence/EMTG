@@ -2,6 +2,16 @@ name: Build Release Packages
 
 on:
   workflow_dispatch:
+    inputs:
+      windows_artifact_run_id:
+        description: 'Recheck AEPS using windows-release from this completed run (blank builds normally)'
+        type: string
+        default: ''
+      aeps_workers:
+        description: 'Concurrent cases when rechecking an existing Windows artifact'
+        type: choice
+        options: ['1', '2', '4']
+        default: '2'
   push:
     branches:
       - codex/community-release-squashed
@@ -16,6 +26,7 @@ permissions:
 
 jobs:
   windows:
+    if: inputs.windows_artifact_run_id == ''
     runs-on: windows-2022
     timeout-minutes: 180
     steps:
@@ -47,9 +58,58 @@ jobs:
             _local/q*/*.xml
             _local/q*/*.json
             _local/q*/*.txt
+            _local/q*/a/**
+            _local/q*/n/**
+
+  windows-aeps-recheck:
+    if: inputs.windows_artifact_run_id != ''
+    runs-on: windows-2022
+    timeout-minutes: 100
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-qualification.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          run-id: ${{ inputs.windows_artifact_run_id }}
+          github-token: ${{ github.token }}
+          path: _local/recheck-release
+      - name: Run unchanged AEPS cases against the extracted artifact
+        shell: pwsh
+        env:
+          AEPS_WORKERS: ${{ inputs.aeps_workers }}
+        run: |
+          New-Item -ItemType Directory -Force _local/ar,bin | Out-Null
+          Get-CimInstance Win32_Processor | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors |
+            ConvertTo-Json | Set-Content _local/ar/cpu.json
+          $Archives = @(Get-ChildItem _local/recheck-release/EMTG-*.zip)
+          if ($Archives.Count -ne 1) { throw 'Expected one release ZIP' }
+          Expand-Archive $Archives[0].FullName _local/recheck-bundle
+          $Executables = @(Get-ChildItem _local/recheck-bundle -Filter EMTGv9.exe -Recurse)
+          if ($Executables.Count -ne 1) { throw 'Expected one extracted executable' }
+          Get-FileHash $Executables[0].FullName | Format-List | Out-File _local/ar/executable-hash.txt
+          Copy-Item $Executables[0].FullName bin/EMTGv9.exe
+          python scripts/prepare_test_ephemeris.py --output _local/ar/u
+          if ($LASTEXITCODE -ne 0) { throw 'Universe staging failed' }
+          $env:EMTG_TEST_UNIVERSE = (Resolve-Path _local/ar/u).Path
+          $env:EMTG_RUN_OUTERLOOP_INTEGRATION = '1'
+          $env:EMTG_ATLAS_AEPS_BUDGET_SECONDS = '1200'
+          python -m pytest tests/test_outerloop_emtg_integration.py::test_aeps_real_atlas_baseline_and_nearby_hardware_matrix -n $env:AEPS_WORKERS --basetemp _local/ar/a --junitxml=_local/ar/aeps.xml -ra 2>&1 | Tee-Object _local/ar/aeps.log
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-aeps-recheck
+          path: _local/ar/**
 
   linux:
-    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
+    if: inputs.windows_artifact_run_id == '' && (github.event_name != 'push' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     steps:
