@@ -28,7 +28,9 @@ jobs:
   windows:
     if: inputs.windows_artifact_run_id == ''
     runs-on: windows-2022
-    timeout-minutes: 180
+    # Cold dynamic-architecture BLAS builds can exceed two hours; leave room
+    # for the unchanged 40-minute, two-worker AEPS matrix and package checks.
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
