@@ -1,7 +1,4 @@
 # Shared session-only environment setup. No machine PATH or registry changes.
-# Windows PowerShell 5.1 supplies Get-FileHash as a module function. Make it
-# available before entering nested build/logging scopes, not after a long build.
-Import-Module Microsoft.PowerShell.Utility -Global -ErrorAction Stop
 $EmtgRoot = Split-Path $PSScriptRoot -Parent
 
 function Initialize-EmtgLocalTools {
