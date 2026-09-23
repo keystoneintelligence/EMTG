@@ -53,7 +53,9 @@ jobs:
           key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
       - name: Qualify the Windows bundle and trajectory cases
         shell: pwsh
-        run: .\qualify.cmd -SkipBuild
+        # Hosted runners have two physical cores. Four wall-time-bounded
+        # optimizations compete for CPU and can exhaust the unchanged budget.
+        run: .\qualify.cmd -SkipBuild -Workers 2
       - name: Verify build did not modify tracked sources
         run: git diff --exit-code
       - uses: actions/upload-artifact@v4
