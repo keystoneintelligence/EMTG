@@ -8,6 +8,11 @@ a general-purpose mission ephemeris.
 
 ## Portable Python and tools
 
+If Windows PowerShell blocks scripts, open a temporary session with
+`powershell.exe -NoProfile -ExecutionPolicy Bypass` for the setup commands.
+This changes no machine policy. Afterwards `build.cmd` and `qualify.cmd`
+provide the same process-only behavior for builds and qualification.
+
 Run from the repository root; these commands change only session PATH.
 Official NuGet CPython includes pip and avoids MSI registration, also
 recovering the `core.msi`/`0x80070003` failure observed during evaluation.

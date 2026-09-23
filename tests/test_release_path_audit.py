@@ -101,6 +101,9 @@ def test_fortran_runtime_filename_is_relative(tmp_path):
     (source/"CMakeLists.txt").write_text(
         "cmake_minimum_required(VERSION 3.25)\nproject(probe LANGUAGES Fortran)\n"
         "add_executable(probe probe.f90)\n"
+        # Match the managed release: prebuilt MinGW runtimes can carry debug
+        # filenames in COFF symbols. Strip those, but retain runtime strings.
+        "target_link_options(probe PRIVATE $<$<CONFIG:Release>:-s>)\n"
     )
     subprocess.run([
         "cmake", "-S", str(source), "-B", str(build), "-G", "Ninja",
@@ -112,4 +115,6 @@ def test_fortran_runtime_filename_is_relative(tmp_path):
     result = subprocess.run([str(executable)], check=True, capture_output=True, text=True)
     assert "probe passed" in result.stdout
     assert b"probe.f90" in executable.read_bytes()
-    assert audit.audit_file(executable, [str(source), str(build)]) == []
+    assert audit.audit_file(executable, [str(source), str(build)]) == [], (
+        audit.LOCAL_PATH.findall(executable.read_bytes().replace(b"\\", b"/"))[:8]
+    )

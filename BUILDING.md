@@ -33,6 +33,8 @@ For complete qualification, install `requirements-qualification.txt` and run:
 .\scripts\qualify-windows.ps1
 ```
 
+With a restrictive PowerShell execution policy, use `.\qualify.cmd`.
+
 This includes Python, fast/native C++, bounded trajectories, all four AEPS
 cases, package relocation, audits, and a cached offline rebuild. Use
 `-SkipBuild` with an already rebuilt release, or `-Fast` for Python and fast
