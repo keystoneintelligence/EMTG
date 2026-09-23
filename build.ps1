@@ -48,8 +48,11 @@ $VcpkgInstall = Join-Path $Local 'builds\windows-release\vcpkg_installed'
 $MingwCompiler = Get-EmtgMingwCompiler $Vcpkg
 if (-not $MingwCompiler) {
     if ($Offline) { throw 'Offline build requires the cached MinGW compiler; run an online build first' }
+    # This port acquires the compiler as a side effect. Its binary package
+    # contains runtime DLLs only, so restoring it cannot bootstrap fresh tools.
     & (Join-Path $Vcpkg 'vcpkg.exe') install vcpkg-gfortran:x64-windows `
         --x-install-root=$VcpkgInstall `
+        --binarysource=clear `
         --classic
     if ($LASTEXITCODE -ne 0) { throw 'Failed to provision the pinned MinGW-w64 compiler' }
     $MingwCompiler = Get-EmtgMingwCompiler $Vcpkg
