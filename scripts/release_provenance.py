@@ -142,6 +142,12 @@ def verify_receipt(receipt, *, root=None, executable=None, expected_build_revisi
                 or run_metadata["path"].split("@")[0] != ".github/workflows/release.yml"
                 or run_metadata["status"] != "completed"):
             raise ValueError("Downloaded artifact provenance differs from selected workflow run")
+        jobs = [job for job in run_metadata.get("jobs", []) if job.get("name") == "windows"]
+        if (len(jobs) != 1 or jobs[0].get("head_sha") != revision
+                or str(jobs[0].get("run_id")) != str(ci.get("run_id"))
+                or jobs[0].get("status") != "completed"
+                or jobs[0].get("conclusion") not in ("success", "failure")):
+            raise ValueError("Selected run has no completed Windows build/qualification job")
     current = source_identity(root) if root else None
     if current and not current["clean"]:
         raise ValueError("Qualification requires clean test source")
@@ -155,6 +161,9 @@ def verify_receipt(receipt, *, root=None, executable=None, expected_build_revisi
         "qualification_scope": ("same-source" if same else "cross-revision-comparison" if current else "artifact-integrity"),
         "executable_sha256": expected, "archive_sha256": files[data["archive"]],
         "receipt_sha256": digest(receipt), "platform": data["platform"],
+        "source_workflow": ({"run_id": run_metadata["id"], "run_attempt": run_metadata["run_attempt"],
+                             "conclusion": run_metadata.get("conclusion"),
+                             "windows_job_conclusion": jobs[0]["conclusion"]} if run_metadata else None),
     }
 
 

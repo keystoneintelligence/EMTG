@@ -109,6 +109,11 @@ jobs:
           New-Item -ItemType Directory -Force _local/ar | Out-Null
           gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:ARTIFACT_RUN_ID" | Set-Content _local/ar/source-run.json -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Cannot verify artifact workflow origin' }
+          $SourceRun = Get-Content _local/ar/source-run.json -Raw | ConvertFrom-Json
+          $SourceJobs = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:ARTIFACT_RUN_ID/attempts/$($SourceRun.run_attempt)/jobs?per_page=100"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot verify source qualification job' }
+          $SourceRun | Add-Member -NotePropertyName jobs -NotePropertyValue (($SourceJobs | ConvertFrom-Json).jobs)
+          $SourceRun | ConvertTo-Json -Depth 20 | Set-Content _local/ar/source-run.json -Encoding utf8
       - name: Run unchanged AEPS cases against the extracted artifact
         shell: pwsh
         env:

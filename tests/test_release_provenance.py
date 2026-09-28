@@ -143,8 +143,15 @@ def test_github_run_identity_is_bound_to_receipt(build, provenance):
     data["build"]["ci"]={"repository":"example/emtg","run_id":"123","run_attempt":"1"}
     receipt.write_text(json.dumps(data))
     run={"repository":{"full_name":"example/emtg"},"id":123,"run_attempt":1,
-         "head_sha":data["source"]["revision"],"path":".github/workflows/release.yml","status":"completed"}
-    assert provenance.verify_receipt(receipt,run_metadata=run)["executable_sha256"]
+         "head_sha":data["source"]["revision"],"path":".github/workflows/release.yml","status":"completed",
+         "jobs":[{"name":"windows","head_sha":data["source"]["revision"],"run_id":123,
+                  "status":"completed","conclusion":"failure"}]}
+    result=provenance.verify_receipt(receipt,run_metadata=run)
+    assert result["executable_sha256"]
+    assert result["source_workflow"]["windows_job_conclusion"]=="failure"
+    for jobs in ([],run["jobs"]*2,[{**run["jobs"][0],"conclusion":"skipped"}]):
+        with pytest.raises(ValueError,match="Windows build/qualification job"):
+            provenance.verify_receipt(receipt,run_metadata={**run,"jobs":jobs})
     for key,value in (("head_sha","0"*40),("id",124),("run_attempt",2),("path","other.yml"),("status","in_progress")):
         with pytest.raises(ValueError,match="workflow run"):
             provenance.verify_receipt(receipt,run_metadata={**run,key:value})
