@@ -430,7 +430,7 @@ class EMTGCaseBuilder:
         options.call_system_to_generate_bsp = 0
         options.universe_folder = str(self.universe_folder).replace("\\", "/") + "/"
         options.HardwarePath = str(self.hardware_path).replace("\\", "/") + "/"
-        options.seed_MBH = int(evaluation_seed % (2**31 - 1))
+        options.MBH_RNG_seed = int(evaluation_seed % (2**31 - 1))
         self._apply_budget(options, budget)
         mission_genes = dict(phenotype.mission)
         atlas_marker = mission_genes.pop("__atlas_case_v1__", None)
@@ -455,6 +455,9 @@ class EMTGCaseBuilder:
                 case_directory=case_directory,
             )
         self._apply_initial_guess(options, initial_guess)
+        # seed_MBH enables trialX; it is not the random-number seed. An empty
+        # trialX otherwise invokes the native clock-seeded missing-value filler.
+        options.seed_MBH = int(bool(options.trialX))
         options.AssembleMasterConstraintVectors()
         output = case_directory / f"{case_name}.emtgopt"
         options.write_options_file(str(output), True)
@@ -788,6 +791,7 @@ class EMTGEvaluator:
                 "hardware_manifest": _directory_manifest(self.builder.hardware_path, {".emtg_spacecraftopt", ".emtg_launchvehicleopt", ".emtg_powersystemsopt", ".emtg_propulsionsystemopt", ".throttletable"}),
                 "source_commit": git_head,
                 "extraction_version": EXTRACTION_VERSION,
+                "case_generation_version": 2,
                 "timeout_seconds": self.timeout_seconds,
                 "merged_solver_environment": {
                     **{name: value for name, value in os.environ.items() if name.startswith(("EMTG_", "SNOPT", "IPOPT"))},

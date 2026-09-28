@@ -67,6 +67,17 @@ Fidelity levels are ranked and compared separately. Evolution uses rank zero. No
 
 Random streams derive from the root seed and immutable trial/generation/operator/slot coordinates. Equivalent phenotypes in one evaluation context share an inner seed and cache entry. Worker completion order affects only when results are persisted, never parent selection. EMTG receives an argument vector with `shell=False`, per-case working directories, bounded runtime, and process-tree cleanup.
 
+
+The evaluator writes each evaluation's random seed to `MBH_RNG_seed` and enables
+`seed_MBH` only when a `trialX` guess is supplied. Earlier versions confused
+these options, causing cold starts to use clock-generated initial guesses and
+seed zero to disable warm starts. Case-generation context version 2 separates
+new cache entries from those evaluations; start a fresh campaign when upgrading.
+Do not copy old results into the new context. Wall-time budgets can still change
+how many hops complete, and native filling of missing entries in a partial
+user-supplied guess remains clock-based; use a complete guess for repeatable
+warm starts.
+
 Internal campaign, checkpoint, cache, phenotype, result-extraction, queue, and provider protocols are schema 3. User configuration is `outerloop/v2`. Pre-production schema-1/2 databases are never migrated or deleted; select a fresh run and cache directory. See [the configuration and API reference](outerloop_configuration.md) for the identity fields, support matrices, and typed public API.
 
 NSGA-II is the baseline. Four or more objectives trigger a many-objective warning because crowding distance generally loses discrimination; the tool does not claim NSGA-III behavior.
