@@ -82,7 +82,11 @@ try {
     if (-not $Fast) {
         Invoke-QualificationCheck 'release-ctest' { ctest --preset windows-release --output-junit "$RunRoot\release.xml" }
         New-Item -ItemType Directory -Force bin | Out-Null
-        Copy-Item _local\builds\windows-release\bin\EMTGv9.exe bin\EMTGv9.exe -Force
+        Copy-Item "$RunRoot/qualified-release/EMTGv9-windows-x64.exe" $StagedExecutable -Force
+        Invoke-QualificationCheck 'provenance-staged' {
+            python scripts/release_provenance.py verify --receipt "$RunRoot/qualified-release/$ReceiptName" --root $EmtgRoot --executable $StagedExecutable --output "$RunRoot/provenance-staged.json"
+        }
+        if ($Checks[-1].exit_code -ne 0) { throw 'Staged native executable identity mismatch' }
         Invoke-QualificationCheck 'universe' { python scripts/prepare_test_ephemeris.py --output "$RunRoot\u" }
         if ($Checks[-1].exit_code -ne 0) { throw 'Test universe staging failed' }
         $env:EMTG_TEST_UNIVERSE = "$RunRoot\u"

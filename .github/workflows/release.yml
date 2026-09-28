@@ -135,6 +135,8 @@ jobs:
           python scripts/release_provenance.py verify --receipt _local/recheck-release/EMTG-windows-x64.provenance.json --root . --executable $Executables[0].FullName @Comparison
           if ($LASTEXITCODE -ne 0) { throw 'Extracted binary identity mismatch' }
           Copy-Item $Executables[0].FullName bin/EMTGv9.exe
+          python scripts/release_provenance.py verify --receipt _local/recheck-release/EMTG-windows-x64.provenance.json --root . --executable bin/EMTGv9.exe --output _local/ar/staged-provenance.json @Comparison
+          if ($LASTEXITCODE -ne 0) { throw 'Staged binary identity mismatch' }
           python scripts/prepare_test_ephemeris.py --output _local/ar/u
           if ($LASTEXITCODE -ne 0) { throw 'Universe staging failed' }
           $env:EMTG_TEST_UNIVERSE = (Resolve-Path _local/ar/u).Path
