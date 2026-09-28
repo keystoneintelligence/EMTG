@@ -133,3 +133,45 @@ def test_offline_rebuild_cannot_replace_qualified_executable(build, provenance):
     with pytest.raises(ValueError, match="hash|executable"):
         provenance.verify_receipt(receipt, root=root, executable=exe)
     assert json.loads(receipt.read_text())["executable_sha256"] == original
+
+def test_github_run_identity_is_bound_to_receipt(build, provenance):
+    receipt=build[3]
+    data=json.loads(receipt.read_text())
+    data["build"]["ci"]={"repository":"example/emtg","run_id":"123","run_attempt":"1"}
+    receipt.write_text(json.dumps(data))
+    run={"repository":{"full_name":"example/emtg"},"id":123,"run_attempt":1,
+         "head_sha":data["source"]["revision"],"path":".github/workflows/release.yml","status":"completed"}
+    assert provenance.verify_receipt(receipt,run_metadata=run)["executable_sha256"]
+    for key,value in (("head_sha","0"*40),("id",124),("run_attempt",2),("path","other.yml"),("status","in_progress")):
+        with pytest.raises(ValueError,match="workflow run"):
+            provenance.verify_receipt(receipt,run_metadata={**run,key:value})
+
+
+@pytest.mark.skipif(__import__("os").name!="nt",reason="PowerShell wrapper")
+def test_powershell_propagates_provenance_failure(build):
+    import sys
+    root,_,exe,receipt=build
+    exe.write_bytes(b"wrong executable")
+    quote=lambda value:"'"+str(value).replace("'","''")+"'"
+    script=Path(__file__).resolve().parents[1]/"scripts/release_provenance.py"
+    command=f"& {quote(sys.executable)} {quote(script)} verify --receipt {quote(receipt)} --root {quote(root)} --executable {quote(exe)}; exit $LASTEXITCODE"
+    result=subprocess.run(["powershell.exe","-NoProfile","-Command",command],capture_output=True,text=True)
+    assert result.returncode==1
+    assert "hash differs" in result.stderr
+
+
+def test_linux_archive_uses_the_same_verifier(tmp_path,provenance):
+    import io
+    import tarfile
+    root=tmp_path/"linux";root.mkdir()
+    git(root,"init","-q")
+    (root/"VERSION").write_text("9.2.0")
+    (root/".gitignore").write_text("dist/\n")
+    git(root,"add",".");git(root,"commit","-qm","fixture")
+    dist=root/"dist";dist.mkdir()
+    exe=dist/"EMTGv9-linux-x64-experimental";exe.write_bytes(b"linux fixture")
+    with tarfile.open(dist/"EMTG-9.2.0-Linux-x86_64-experimental.tar.gz","w:gz") as archive:
+        entry=tarfile.TarInfo("EMTG/bin/EMTGv9");entry.size=exe.stat().st_size
+        archive.addfile(entry,io.BytesIO(exe.read_bytes()))
+    receipt=provenance.write_receipt(root,provenance.source_identity(root),dist,exe,"linux-x64-experimental",{})
+    assert provenance.verify_receipt(receipt,root=root,executable=exe)["same_source"]

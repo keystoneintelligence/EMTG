@@ -17,6 +17,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --offline) offline=1 ;;
     --skip-tests) skip_tests=1 ;;
+    --output-directory) dist="$2"; shift ;;
     --bootstrap)
       sudo apt-get update
       sudo apt-get install -y build-essential autoconf automake autoconf-archive libtool libtool-bin curl gfortran git ninja-build pkg-config zip unzip tar ca-certificates python3-venv
@@ -40,6 +41,8 @@ cmake_version="$(cmake --version | head -n1 | awk '{print $3}')"
 }
 mkdir -p "$local_dir" "$dist"
 
+snapshot="$local_dir/build-source-linux.json"
+python3 "$root/scripts/release_provenance.py" snapshot --root "$root" --output "$snapshot"
 preset=linux-release
 if [[ ! -d "$vcpkg/.git" ]]; then
   [[ $offline -eq 0 ]] || { echo "Offline build requested but vcpkg is missing" >&2; exit 3; }
@@ -93,7 +96,7 @@ fi
   g++ --version
   gfortran --version
   cat "$local_dir/builds/linux-release/vcpkg_installed/vcpkg/status"
-} > "$dist/build-toolchain.txt"
+} > "$dist/EMTG-linux-x64-experimental-toolchain.txt"
 
 if [[ $skip_tests -eq 1 ]]; then
   cmake --preset "$preset"
@@ -126,4 +129,5 @@ cmake \
   -P "$root/cmake/GenerateVcpkgSbom.cmake"
 
 python3 "$root/scripts/audit-release-paths.py" "$dist" --forbid-root "$root" --forbid-root "$vcpkg"
+python3 "$root/scripts/release_provenance.py" record --root "$root" --snapshot "$snapshot" --dist "$dist" --executable "$executable" --platform linux-x64-experimental
 echo "EMTG artifacts: $dist"

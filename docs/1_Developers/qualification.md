@@ -86,3 +86,34 @@ matrix budget or change tolerances to obtain a passing release result.
 
 Release approval needs the actual fresh-machine logs and artifacts. Keeping
 these commands or workflow files in the repository does not complete that gate.
+
+
+## Artifact identity and the qualification interpreter
+
+All Python release qualification uses CPython 3.12. Use a dedicated virtual
+environment with requirements-qualification.txt; runtime consumers may choose
+their own compatible dependencies. Qualification does not change mission
+tolerances or claim support for an untested interpreter.
+
+Managed builds write a platform-specific EMTG-*.provenance.json beside release
+artifacts. It binds the source commit/tree, source cleanliness, executable,
+archive, toolchain inventory and dependency notices/SBOM. Custom dirty builds
+remain possible, but their receipt cannot qualify an official release.
+Keep the receipt with its artifact directory.
+
+Before native tests, qualify-windows.ps1 verifies the build EXE and distribution.
+It retains the exact tested distribution under the new run's qualified-release
+directory, checks the extracted EXE, and directs the offline rebuild elsewhere.
+The rebuilt EXE must match; different bytes require new qualification.
+The previous local bin/EMTGv9.exe is restored after testing.
+
+-SkipBuild requires existing matching provenance and clean test source.
+source-commit.txt from older runs alone is not binary provenance. Rebuild older
+artifacts to obtain current release evidence; do not relabel them.
+
+Artifact-run rechecks validate the selected GitHub run against the receipt and
+record build and test revisions separately. Different revisions require the
+explicit allow_source_comparison workflow input and produce comparison evidence,
+not qualification of a new binary. A recheck does not publish a release.
+Requested native and package stages reject missing, skipped or incomplete JUnit
+evidence. Optional tests in the ordinary Python suite remain reported as skips.

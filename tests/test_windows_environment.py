@@ -27,7 +27,7 @@ try {{
     $Message = $_.Exception.Message
     if ($Message -notmatch 'Missing or incompatible prerequisites:' -or
         $Message -notmatch 'cmake 3.25' -or $Message -notmatch 'ninja 1.10' -or
-        $Message -notmatch 'python 3.10') {{ throw $Message }}
+        $Message -notmatch 'python 3.12') {{ throw $Message }}
 }}
 if ($ErrorActionPreference -ne 'Stop') {{ throw 'Caller error preference changed' }}
 """)

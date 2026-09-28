@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, windows-2022]
-        python: ['3.10', '3.12']
+        python: ['3.12']
 
     steps:
       - name: Check out repository
@@ -32,11 +32,8 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          if [ '${{ matrix.python }}' = '3.10' ]; then
-            python -m pip install numpy==1.26.4 pandas==2.2.3 pytest==8.4.2 matplotlib==3.10.6
-          else
-            python -m pip install -r requirements-qualification.txt
-          fi
+          python -m pip install -r requirements-qualification.txt
+          python -m pip check
 
       - name: Run Python tests
         run: python -m pytest --junitxml=_local/python-tests.xml -ra

@@ -19,8 +19,8 @@ can resolve against an incompatible module. The caller's environment is unchange
 Run from the repository root; these commands change only session PATH.
 Official NuGet CPython includes pip and avoids MSI registration, also
 recovering the `core.msi`/`0x80070003` failure observed during evaluation.
-This recipe qualifies CPython 3.12.10. CI separately checks Python 3.10 with
-NumPy 1.26; untested Python versions are not release evidence.
+This recipe qualifies CPython 3.12.10. Release qualification uses Python 3.12 in every Python CI job.
+Untested Python versions are not release evidence.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
@@ -110,7 +110,7 @@ wall-clock budget before the nearby cases became feasible; the same package
 passed all four cases with two workers. Use `-Workers 2` on similarly small
 machines; the per-case solver limits and scientific assertions stay unchanged.
 Cached local builds take roughly
-40–55 seconds, including tests, packaging and audits.
+40â€“55 seconds, including tests, packaging and audits.
 Another cold hosted build took 126 minutes 8 seconds. The Windows CI job allows four
 hours overall to accommodate cold-build variation plus qualification; its
 per-mission solver budgets remain unchanged.

@@ -86,7 +86,7 @@ to its configure command.
 
 ## Complete bootstrap prerequisites
 
-Windows requires PowerShell 5.1+, Python 3.10+, Git on PATH, CMake 3.25+, Ninja 1.10+,
+Windows requires PowerShell 5.1+, Python 3.12, Git on PATH, CMake 3.25+, Ninja 1.10+,
 and Visual Studio 2022 Build Tools with the C++ tools and Windows SDK. The
 managed build uses MinGW-w64; Visual Studio supplies bootstrap and DLL-audit
 tools. Internet access is needed for the first build. `-Offline` requires the
