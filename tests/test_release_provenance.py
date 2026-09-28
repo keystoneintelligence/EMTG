@@ -81,13 +81,16 @@ def test_remote_run_revision_must_match_receipt(build, provenance):
         provenance.verify_receipt(build[3], expected_build_revision="0" * 40)
 
 
-@pytest.mark.parametrize("dirty", ["tracked", "untracked", "ignored-build-input"])
+@pytest.mark.parametrize("dirty", ["tracked", "untracked", "ignored-build-input", "ignored-user-presets"])
 def test_dirty_source_never_qualifies(build, provenance, dirty):
     root, _, _, receipt = build
     if dirty == "tracked":
         (root / "VERSION").write_text("10.0.0")
     elif dirty == "untracked":
         (root / "custom.cpp").write_text("untracked")
+    elif dirty == "ignored-user-presets":
+        (root / ".git/info/exclude").write_text("CMakeUserPresets.json\n")
+        (root / "CMakeUserPresets.json").write_text('{"version":6}')
     else:
         (root / ".git/info/exclude").write_text("src/local.cpp\n")
         (root / "src").mkdir()

@@ -39,6 +39,7 @@ cmake_version="$(cmake --version | head -n1 | awk '{print $3}')"
 [[ "$(printf '%s\n' 3.25.0 "$cmake_version" | sort -V | head -n1)" == 3.25.0 ]] || {
   echo "CMake >=3.25 is required (found $cmake_version). Run --bootstrap." >&2; exit 2;
 }
+python3 -c 'import sys; sys.exit(0 if sys.version_info[:2] == (3, 12) else "The managed build requires Python 3.12; put it on PATH before --bootstrap.")'
 mkdir -p "$local_dir" "$dist"
 
 snapshot="$local_dir/build-source-linux.json"

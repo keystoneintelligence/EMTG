@@ -38,8 +38,10 @@ function Assert-EmtgPrerequisites {
                 continue
             }
             if ($LASTEXITCODE -ne 0 -or $VersionText -notmatch '(\d+\.\d+(?:\.\d+)?)' -or
-                [version]$Matches[1] -lt [version]$Check[1]) {
-                $Problems += "$($Check[0]) $($Check[1])+ (found: $($VersionText.Trim()))"
+                [version]$Matches[1] -lt [version]$Check[1] -or
+                ($Check[0] -eq 'python' -and (([version]$Matches[1]).Major -ne 3 -or ([version]$Matches[1]).Minor -ne 12))) {
+                $Requirement = if ($Check[0] -eq 'python') { 'python 3.12.x' } else { "$($Check[0]) $($Check[1])+" }
+                $Problems += "$Requirement (found: $($VersionText.Trim()))"
             }
         }
     }

@@ -65,7 +65,7 @@ jobs:
       - name: Verify build did not modify tracked sources
         run: git diff --exit-code
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && env.EMTG_QUALIFIED_RELEASE != ''
         with:
           name: windows-release
           path: ${{ env.EMTG_QUALIFIED_RELEASE }}/*
@@ -136,7 +136,11 @@ jobs:
           $env:EMTG_RUN_OUTERLOOP_INTEGRATION = '1'
           $env:EMTG_ATLAS_AEPS_BUDGET_SECONDS = '1200'
           python -m pytest tests/test_outerloop_emtg_integration.py::test_aeps_real_atlas_baseline_and_nearby_hardware_matrix -n $env:AEPS_WORKERS --basetemp _local/ar/a --junitxml=_local/ar/aeps.xml -ra 2>&1 | Tee-Object _local/ar/aeps.log
-          exit $LASTEXITCODE
+          $Code = $LASTEXITCODE
+          @(@{name='aeps'; exit_code=$Code}) | ConvertTo-Json | Set-Content _local/ar/commands.json -Encoding utf8
+          python scripts/summarize-qualification.py _local/ar
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          exit $Code
       - uses: actions/upload-artifact@v4
         if: always()
         with:

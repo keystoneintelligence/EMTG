@@ -57,6 +57,10 @@ then use the normal one-command build:
 ./build.sh
 ```
 
+Install Python 3.12 and place it on `PATH` before running `--bootstrap`; the
+CMake tool environment uses that interpreter. The managed build checks this
+version so system Python defaults cannot silently change qualification.
+
 `--bootstrap` installs the base compiler tools with `apt`; omit it when they are
 already present. The experimental portable tarball is written to `dist`.
 

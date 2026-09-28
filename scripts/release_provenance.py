@@ -43,7 +43,7 @@ def source_identity(root):
     # Ignored generated output is allowed; ignored code/configuration in build
     # input directories cannot silently escape a clean-source check.
     ignored = git(root, "ls-files", "--others", "--ignored", "--exclude-standard", "-z",
-                  "--", "src", "Source", "cmake", "packaging").decode("utf-8").split("\0")
+                  "--", "src", "Source", "cmake", "packaging", "CMakeUserPresets.json").decode("utf-8").split("\0")
     inputs = sorted(p for p in ignored if p and Path(p).suffix.lower() in
                     {".cpp", ".c", ".h", ".hpp", ".cmake", ".py", ".in", ".json"})
     untracked = git(root, "ls-files", "--others", "--exclude-standard", "-z").decode("utf-8").split("\0")
