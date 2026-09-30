@@ -65,8 +65,9 @@ platforms or architectures remain unqualified.
 `Fast Tests` runs the public Python and portable C++ checks.
 `Build Release Packages` builds the managed graph, runs CTest and dependency
 and path audits, and verifies extracted bundles. Its manual dispatch can
-produce candidate artifacts; its matching-tag path prepares a qualified draft
-for final maintainer publication review.
+produce candidate artifacts; its existing version-tag path builds the Windows
+and Linux bundles and publishes a GitHub release. Pull requests do not create tags
+or releases.
 `IPOPT Open-Source Solver` exercises the separate Linux solver graph; enable
 its `run_aeps_atlas_qualification` input to run the AEPS matrix.
 

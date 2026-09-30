@@ -52,14 +52,13 @@ revision is not evidence that the candidate passed.
   source and notices required for the included dependency graph.
 - Attach only the reviewed candidate's artifacts and checksums. Describe known
   limits and intentional option-default changes in the release notes.
-- Add reviewed announcement text in `docs/releases/<VERSION>.md`. Merge the
-  presentation/source changes into `master` before selecting the final release.
-- Create an annotated `v<VERSION>` tag at the reviewed source and push that tag.
-  `Build Release Packages` rebuilds and qualifies Windows/Linux, then verifies
-  both receipts against that tag and prepares a GitHub draft release. It can
-  populate an existing draft; a published release is never overwritten.
-- Review the draft's assets, `SHA256SUMS`, provenance, notices, support statement,
-  and matching workflow result. Publish the draft only after approval. Do not
-  publish an announcement-only draft before its qualified assets are attached.
-  `gh release edit v<VERSION> --draft=false --verify-tag` publishes an approved
-  draft. Manual package creation alone does not authorize publication.
+- Merge the reviewed presentation/source changes into `master` before selecting
+  the final release. A merged pull request does not create a tag or release.
+- Use the existing release process: explicitly create an annotated `v<VERSION>`
+  tag at the chosen source and push it. `Build Release Packages` builds and
+  qualifies the Windows/Linux bundles and publishes them through its existing
+  tag-triggered GitHub release job. No release-specific build logic is needed.
+- Use the release announcement for the version being published; the 9.2.0 text
+  is in [its release notes](../releases/9.2.0.md). Check the published release's
+  source tag, assets, checksums, receipts, notices, and support statement, and
+  retain the matching workflow result. Report qualification limits accurately.
