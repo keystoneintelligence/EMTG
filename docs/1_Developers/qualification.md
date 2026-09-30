@@ -1,25 +1,30 @@
 # Qualification scope
 
-The public community candidate still requires fresh-machine qualification.
-The existing development evidence below describes the implementation carried
-into the public history; it does not qualify newly built candidate artifacts
-or a different machine. See [SUPPORT.md](../../SUPPORT.md) and the
-[release checklist](releasing.md).
+EMTG Community Edition retains qualification evidence for the actual code and
+artifacts tested. New releases build and qualify the matching tag; earlier
+artifacts are not relabeled as binaries from a later revision. See
+[SUPPORT.md](../../SUPPORT.md) and the [release checklist](releasing.md).
 
-## Existing development evidence
+## Public Community Edition evidence
 
-| Check | Scope previously exercised |
+The complete [managed release workflow, run 36510594625](https://github.com/keystoneintelligence/EMTG/actions/runs/36510594625)
+passed at commit `ab20f6d8a4cc1aa6be149b469f77e14753e0abcd`. Its source tree is
+identical to the shipped merge commit `8ab91cc3942e57c7b0acd2471863f8c2c2945f3c`.
+Artifacts retain the actual build revision in their receipts.
+
+| Check | Recorded scope |
 | --- | --- |
-| Public Python suite | 221 passed, 13 skipped in the recorded development run. Covers native parsing, artifact inventories, option generation/export, solver selection, generic OuterLoop, and numerical helpers. |
-| Managed CTest | 14 passed on provisioned Windows x64 and Ubuntu 22.04 x64. Includes CLI/data discovery, AD, integration, spline/ephemeris, options, IPOPT interface, and deterministic kernel-order checks. |
-| Bounded native IPOPT | Eight passed per platform with explicit strict solver settings and unchanged physical acceptance criteria. |
-| Package/privacy checks | 17 passed per platform, including extracted-bundle execution and source/cache path detection. Dependency audits passed separately. |
+| Hosted Windows managed qualification | Python 3.12: 271 passed, three optional skips; seven fast and 15 managed CTest cases; eight bounded native IPOPT cases; four AEPS cases; two extracted-package cases. All required stages passed. |
+| Windows distribution | Dependency/path audits, source and packaged-executable receipts, and offline rebuilt-executable identity passed. |
+| Hosted Ubuntu 22.04 managed graph | IPOPT 3.14.11 build, CTest, dependency/path audits, packaging, and extracted-bundle relocation passed. Linux remains experimental. |
+| Separate Linux solver graph | IPOPT 3.14.19 analytic tests and the opt-in AEPS matrix passed in [run 36456464099](https://github.com/keystoneintelligence/EMTG/actions/runs/36456464099), at `b825dbec76d676a366364f1be67fc1b5505d0ff6`. |
+| Merged-head fast checks | Windows/Linux Python, C++/CMake smoke tests and Linux IPOPT analytic regression passed at `622c4ca89eca6fa12449c4a45299ec0d3172d69a`, before its identical-tree merge into the shipped branch. |
 
-Skipped optional gates are not passing results. The full AEPS matrix was not
-rerun for the last documentation/privacy cleanup. New-machine and public-ref
-results must identify the exact commit, executable and fixture hashes, solver,
-toolchain, platform, and commands. Consumer integration evidence belongs to the
-consumer projects and is not a dependency of public EMTG CI.
+These results cover the listed configurations and cases. Skipped optional gates
+are not passing results. Consumer applications maintain their own end-to-end
+qualification outside public EMTG CI; their results are not a promise made by
+this CLI release. Licensed SNOPT, historical GUI, optional Python extensions,
+macOS and other platforms require their own evidence.
 
 ## Solver and scientific scope
 
@@ -60,7 +65,8 @@ platforms or architectures remain unqualified.
 `Fast Tests` runs the public Python and portable C++ checks.
 `Build Release Packages` builds the managed graph, runs CTest and dependency
 and path audits, and verifies extracted bundles. Its manual dispatch can
-produce candidate artifacts; its matching-tag path can publish a release.
+produce candidate artifacts; its matching-tag path prepares a qualified draft
+for final maintainer publication review.
 `IPOPT Open-Source Solver` exercises the separate Linux solver graph; enable
 its `run_aeps_atlas_qualification` input to run the AEPS matrix.
 
@@ -84,7 +90,7 @@ on Windows. Preserve the output and distinguish missing-asset, execution,
 scientific-acceptance, and intentionally skipped results. Do not shorten the
 matrix budget or change tolerances to obtain a passing release result.
 
-Release approval needs the actual fresh-machine logs and artifacts. Keeping
+Release approval needs the actual matching-source logs and artifacts. Keeping
 these commands or workflow files in the repository does not complete that gate.
 
 

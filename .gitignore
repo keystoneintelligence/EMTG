@@ -29,6 +29,7 @@ scripts/*
 !scripts/qualify-windows.ps1
 !scripts/summarize-qualification.py
 !scripts/check-cpu-portability.py
+!scripts/prepare_github_release.py
 #EMTG-config.cmake
 *.debug
 *.d

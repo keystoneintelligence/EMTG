@@ -1,9 +1,10 @@
-# Community release checklist
+# Community Edition release checklist
 
-The current public candidate still requires qualification on fresh machines.
-History preparation and documentation updates do not complete this checklist.
-Record the exact candidate commit for every result; rerun affected checks when
-the candidate changes.
+Release the reviewed Community Edition source from `main`. Record the exact
+source commit and artifact hashes; earlier qualification does not identify a
+newly built binary. The public Windows/Linux graph has passed the checks recorded
+in [qualification.md](qualification.md). Each release tag requires its own
+matching-source artifacts.
 
 ## Public source and history
 
@@ -51,6 +52,14 @@ revision is not evidence that the candidate passed.
   source and notices required for the included dependency graph.
 - Attach only the reviewed candidate's artifacts and checksums. Describe known
   limits and intentional option-default changes in the release notes.
-- Create the release tag and publish only after these gates are resolved. The
-  existing release workflow can publish when a matching `v*` tag is pushed;
-  manually building packages does not authorize a release.
+- Add reviewed announcement text in `docs/releases/<VERSION>.md`. Merge the
+  presentation/source changes into `main` before selecting the final release.
+- Create an annotated `v<VERSION>` tag at the reviewed source and push that tag.
+  `Build Release Packages` rebuilds and qualifies Windows/Linux, then verifies
+  both receipts against that tag and prepares a GitHub draft release. It can
+  populate an existing draft; a published release is never overwritten.
+- Review the draft's assets, `SHA256SUMS`, provenance, notices, support statement,
+  and matching workflow result. Publish the draft only after approval. Do not
+  publish an announcement-only draft before its qualified assets are attached.
+  `gh release edit v<VERSION> --draft=false --verify-tag` publishes an approved
+  draft. Manual package creation alone does not authorize publication.

@@ -1,6 +1,10 @@
-# Contributing
+# Contributing to EMTG Community Edition
 
-Use this fork's [issues](https://github.com/keystoneintelligence/EMTG/issues) to
+Bring a mission example, a build improvement, a reproducible regression, or a
+focused code fix. Proposals for new analysis tools are welcome; keep the core
+scientific engine independent of the applications built around it.
+
+Base pull requests on `main`, the Community Edition branch. Use this fork's [issues](https://github.com/keystoneintelligence/EMTG/issues) to
 report bugs or discuss substantial changes. Small focused pull requests are
 welcome. Describe the problem, resulting behavior, and validation performed.
 Preserve NASA attribution, license notices, and third-party notices.

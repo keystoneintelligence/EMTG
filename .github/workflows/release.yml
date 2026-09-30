@@ -18,7 +18,7 @@ on:
         default: '2'
   push:
     branches:
-      - master
+      - main
     tags:
       - 'v*'
     paths-ignore:
@@ -182,12 +182,15 @@ jobs:
           name: linux-experimental
           path: dist/*
 
-  publish:
+  release-draft:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [windows, linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Verify release tag matches VERSION
         shell: bash
         run: |
@@ -200,12 +203,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: windows-release
-          path: release
+          path: _local/release
       - uses: actions/download-artifact@v4
         with:
           name: linux-experimental
-          path: release
-      - name: Publish GitHub release
+          path: _local/release
+      - name: Prepare qualified Community Edition release draft
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" release/* --generate-notes --verify-tag
+        run: >-
+          python3 scripts/prepare_github_release.py --artifacts _local/release
+          --tag "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"

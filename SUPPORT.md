@@ -1,15 +1,16 @@
 # Support and compatibility
 
-This is a community release candidate. Fresh-machine qualification of the
-public candidate remains pending. A successful development build does not
-establish support for every compiler, operating system, or mission.
+EMTG Community Edition has passed the public Windows/Linux qualification described
+below. Each release retains evidence for its actual source and packaged binaries.
+The tested configurations do not establish support for every compiler, operating
+system, or mission.
 
 ## Configuration matrix
 
 | Configuration | Scope and status |
 | --- | --- |
-| Windows x64, managed IPOPT CLI | Primary release target. The provisioned MinGW build, native tests, dependency audit, and relocated bundle have been exercised locally. Fresh Windows bootstrap qualification is pending. |
-| Ubuntu 22.04 x64, managed IPOPT CLI | Experimental. Build, native tests, dependency audit, and relocation have been exercised in a container. Fresh-machine qualification of the public candidate is pending. |
+| Windows x64, managed IPOPT CLI | Primary CLI release target. Managed MinGW builds passed on hosted Windows 2022, including Python 3.12, CTest, bounded native IPOPT and AEPS cases, extracted-bundle execution, dependency/path audits, and offline rebuild identity. Local clean-build evidence is also retained. |
+| Ubuntu 22.04 x64, managed IPOPT CLI | Experimental. The actual managed dependency graph passed on hosted Ubuntu 22.04 x64, including build, CTest, dependency/path audits, packaging, and extracted-bundle relocation. A separate Linux solver workflow has passed its analytic and AEPS gates with its own IPOPT version. |
 | Other Linux distributions or architectures | Unqualified. Ubuntu results do not establish support elsewhere. |
 | macOS | Unqualified. Some dependency-discovery code exists; no working build or release artifact is promised. |
 | SNOPT | Optional source-build backend for licensed users. Excluded from public bundles. Licensed NASA/SNOPT execution remains a separate qualification. |

@@ -1,14 +1,14 @@
 # Running EMTG from a release bundle
 
-This community candidate awaits fresh-machine release qualification. These
-instructions describe the bundle layout; check the release's support statement
-and [SUPPORT.md](SUPPORT.md) before selecting an artifact.
+Select an EMTG Community Edition release from the [Releases page](https://github.com/keystoneintelligence/EMTG/releases).
+Windows x64 is the primary CLI target; Linux artifacts are experimental. Read the
+release notes and [SUPPORT.md](SUPPORT.md) for the scope actually qualified.
 
 ## Windows
 
-If a qualified community ZIP is available on this fork's
-[Releases page](https://github.com/keystoneintelligence/EMTG/releases), download
-and extract it. Otherwise create a candidate with [BUILDING.md](BUILDING.md).
+Download and extract the Windows ZIP when its release assets are available.
+For source builds, use [BUILDING.md](BUILDING.md). Keep the downloaded checksum
+files, dependency notices, and provenance receipt with the distribution.
 Use a short extraction and mission-output path. Run:
 
 ```powershell
@@ -24,7 +24,7 @@ the standalone EXE and supply its data location explicitly:
 
 ## Linux (experimental)
 
-The Linux tarball is experimental; existing development evidence covers Ubuntu
+The Linux tarball is experimental; managed release qualification covers Ubuntu
 22.04 x64 only. See [qualification scope](docs/1_Developers/qualification.md).
 Extract it and run `bin/EMTGv9`; no system installation is provided.
 

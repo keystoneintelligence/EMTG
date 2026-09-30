@@ -1,38 +1,48 @@
-# EMTG community fork
+# EMTG Community Edition
 
-Evolutionary Mission Trajectory Generator (EMTG) designs and optimizes space
-mission trajectories. This Keystone Intelligence community fork builds on
-[NASA's EMTG](https://github.com/nasa/EMTG). NASA authorship and notices are
-preserved; NASA does not maintain or endorse this fork.
+Space mission design builds on decades of shared research. **EMTG Community
+Edition** carries NASA's Evolutionary Mission Trajectory Generator forward with
+open-source solver access, simpler builds, and Python interfaces that connect
+mission results to your own analysis and automation.
 
-**Status: community release candidate. Fresh-machine release qualification is
-pending.** Existing development checks support the configurations described in
-[SUPPORT.md](SUPPORT.md); they do not establish compatibility with every NASA
-workflow or every operating system.
+This is Keystone Intelligence's community fork of [NASA EMTG](https://github.com/nasa/EMTG),
+originally authored by Jacob Englander and the EMTG team. NASA authorship and
+notices are retained; NASA does not maintain or endorse Community Edition.
 
-## Improvements
+[Project story](https://www.keystoneintelligence.ai/space/emtg) ·
+[Downloads](https://github.com/keystoneintelligence/EMTG/releases) ·
+[Build guide](BUILDING.md) · [Documentation](docs/README.md) ·
+[Contribute](CONTRIBUTING.md)
 
-- IPOPT is the default open-source nonlinear solver. Licensed SNOPT remains an
-  explicit optional backend and is excluded from public bundles.
-- Managed Windows and experimental Linux builds pin their dependencies and
-  produce portable bundles with dependency notices and runtime-data discovery.
-- `PyEMTG.Results` parses native scientific results independently of a GUI or
-  service. Optional OuterLoop search, continuation, and local caches remain
-  available; applications own their translation and publication policy.
-- Regression checks cover options, results, numerical helpers, bounded native
-  solves, relocation, and private build paths in release artifacts.
+## What Community Edition brings
 
-Native scientific formats are retained. General feasibility defaults to `1e-5`,
-fixed-step integration remains the default, and adaptive integration is
-experimental. IPOPT and SNOPT can converge to different solutions; passing the
-tested cases does not establish identical results for all missions.
+| Your starting point | Community Edition |
+| --- | --- |
+| Explore a mission concept | Design and optimize trajectories with NASA's native mission options and scientific outputs. |
+| Start with an open-source solver | IPOPT is the default. Public CLI builds need no commercial solver license; SNOPT remains an explicit option for licensed source builds. |
+| Get from source to software | Managed build scripts provision pinned dependencies, run checks, and produce portable CLI bundles. |
+| Connect your workflow | Parse native results with `PyEMTG.Results`, or use optional OuterLoop search and continuation. Build application-specific analysis and publication around these interfaces. |
+| Build confidence together | Automated option, parser, numerical, native-solver, and packaged-runtime regressions provide a foundation for shared mission test cases. |
 
-## Build or run
+The focus is an accessible, general-purpose trajectory engine. You can use it
+independently or connect it to the tools you already use. No application service
+or commercial solver is required for the managed IPOPT CLI.
 
-After installing the [prerequisites](BUILDING.md#complete-bootstrap-prerequisites):
+## Get started
+
+Download an available bundle from [Releases](https://github.com/keystoneintelligence/EMTG/releases)
+and follow [INSTALLING.md](INSTALLING.md), or build from source:
+
+```text
+git clone https://github.com/keystoneintelligence/EMTG.git
+cd EMTG
+```
+
+After installing the [prerequisites](BUILDING.md#complete-bootstrap-prerequisites),
+run the appropriate command from a short checkout path:
 
 ```powershell
-# Windows x64, from PowerShell
+# Windows x64
 .\build.ps1
 ```
 
@@ -41,28 +51,68 @@ After installing the [prerequisites](BUILDING.md#complete-bootstrap-prerequisite
 ./build.sh --bootstrap
 ```
 
-Builds write artifacts to `dist`. See [BUILDING.md](BUILDING.md) for developer
-configurations and [INSTALLING.md](INSTALLING.md) for running a portable bundle.
-Large SPICE BSP kernels are separate scientific inputs and must be supplied for
-the selected mission. Keep Windows checkout and run paths short.
+Builds write artifacts to `dist`. Windows x64 is the primary CLI release target;
+Ubuntu 22.04 x64 remains experimental. The managed graph has passed hosted
+Windows/Linux build, packaging, and relocation checks. See the
+[support matrix](SUPPORT.md) and [qualification evidence](docs/1_Developers/qualification.md)
+for the tested scope. macOS is a contribution target and is currently unqualified.
 
-The bounded native regression tests have a separate
-[18.8 MB checked-in ephemeris fixture](tests/fixtures/ephemeris/README.md), with
-offline staging and recorded hashes. It covers those tests only.
+Bundles include standard runtime definitions and small text kernels. Supply the
+SPICE BSP kernels appropriate to your mission, then use `EMTGv9 --doctor` to
+check runtime data and solver availability. Missing mission kernels require
+action; they are not a successful mission setup.
 
-For existing option files, explicitly select the intended solver: `0` is SNOPT
-and `2` is IPOPT. Files that omitted NASA's old SNOPT default now select IPOPT.
-See [solver semantics and migration](docs/1_Developers/ipopt.md) and
-[native result interfaces](docs/0_Users/native_results.md).
+Native regressions use a separate [18.8 MB compressed ephemeris fixture](tests/fixtures/ephemeris/README.md)
+with recorded hashes and offline staging. It covers the included tests only.
 
-## Support and contributions
+## Build around the engine
 
-Use this fork's [issues](https://github.com/keystoneintelligence/EMTG/issues) for
-fork-specific problems. Community support is provided as maintainer time allows.
-See [CONTRIBUTING.md](CONTRIBUTING.md), the [support matrix](SUPPORT.md), and the
-[release checklist](docs/1_Developers/releasing.md).
+`PyEMTG.Results` uses Python's standard library and imports independently of a
+GUI or service:
+
+```python
+from PyEMTG.Results import EMTGResultParser
+
+result = EMTGResultParser().parse("mission.emtg")
+print(result.complete, result.feasible, result.failure_reason)
+```
+
+Results retain the distinction between incomplete output, infeasibility, and
+execution failure. The [native result interface](docs/0_Users/native_results.md)
+also exposes a versioned artifact inventory with hashes, units, and declared
+journey context. Optional [OuterLoop](docs/0_Users/outerloop.md) provides search,
+continuation, checkpoints, and computational caches. Your caller owns adapters,
+mission policy, and publication.
+
+Python qualification uses **3.12**. Historical GUI and optional extension
+configurations have separate dependency and qualification requirements.
+
+## Scientific continuity
+
+Native mission formats remain available. The general feasibility tolerance is
+`1e-5`, and fixed-step integration remains the default; adaptive integration is
+experimental. For an existing option file, explicitly select `NLP_solver_type`:
+`0` is SNOPT and `2` is IPOPT. A file omitting the old SNOPT default selects IPOPT
+in Community Edition.
+
+Different solvers may converge to different trajectories. Passing the included
+regressions is evidence for those cases, not a promise of identical optima or
+complete equivalence across every NASA workflow. Read the
+[solver migration guide](docs/1_Developers/ipopt.md) and
+[NASA-compatible options guide](docs/0_Users/nasa_compatibility.md).
+
+## Help shape the next chapter
+
+Bring a mission question, share a reproducible test case, improve a build, or
+contribute a focused fix. We welcome researchers, engineers, and developers
+working to make trajectory design easier to use and easier to validate.
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) or open an
+[issue](https://github.com/keystoneintelligence/EMTG/issues). Include the version,
+platform, solver, options, and kernel provenance needed to reproduce your result.
+Community support depends on maintainer availability.
 
 The source retains the [NASA Open Source Agreement](EMTG_NOSA_License.pdf),
 [NASA notices and disclaimers](README.opensource), and
-[third-party notices](THIRD_PARTY_NOTICES.md). Please credit NASA's original EMTG
-work and identify this fork when reporting results produced with it.
+[third-party notices](THIRD_PARTY_NOTICES.md). Credit NASA's original EMTG work
+and identify Community Edition when reporting results produced with this fork.
