@@ -128,3 +128,15 @@ their exact hashes are documented in the audit script. Four exact native option
 default strings retain NASA's generic installation placeholders. Neither exemption
 allows the supplied source/cache roots. Scientific files are never silently
 rewritten during packaging.
+
+
+### Linux OpenBLAS CPU portability
+
+The managed Linux x64 graph enables OpenBLAS `dynamic-arch` for both the target
+library and the host dependency that supplies its `getarch` tools. The pinned
+vcpkg port then uses its conservative common-code target and includes optimized
+kernels selected at runtime. This avoids relying on CPU auto-detection on a
+particular build host; it does not globally disable AVX2 or AVX-512 optimization.
+The OpenBLAS version remains pinned. Both host and target dependencies are needed:
+requesting the target feature alone leaves the host OpenBLAS build unconfigured.
+See [OpenBLAS CPU dispatch](https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.29/README.md#support-for-multiple-targets-in-a-single-library).
