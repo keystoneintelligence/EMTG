@@ -16,7 +16,15 @@
       "features": [
         "dynamic-arch"
       ],
-      "platform": "mingw & x64"
+      "platform": "(mingw | linux) & x64"
+    },
+    {
+      "name": "openblas",
+      "host": true,
+      "features": [
+        "dynamic-arch"
+      ],
+      "platform": "linux & x64"
     }
   ]
 }

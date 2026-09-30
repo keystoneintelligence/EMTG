@@ -7,6 +7,10 @@ on:
         description: 'Recheck AEPS using windows-release from this completed run (blank builds normally)'
         type: string
         default: ''
+      allow_source_comparison:
+        description: 'Explicitly compare an older artifact with these tests; never qualifies a new binary'
+        type: boolean
+        default: false
       aeps_workers:
         description: 'Concurrent cases when rechecking an existing Windows artifact'
         type: choice
@@ -14,7 +18,7 @@ on:
         default: '2'
   push:
     branches:
-      - codex/community-release-squashed
+      - master
     tags:
       - 'v*'
     paths-ignore:
@@ -61,10 +65,10 @@ jobs:
       - name: Verify build did not modify tracked sources
         run: git diff --exit-code
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && env.EMTG_QUALIFIED_RELEASE != ''
         with:
           name: windows-release
-          path: dist/*
+          path: ${{ env.EMTG_QUALIFIED_RELEASE }}/*
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -96,28 +100,54 @@ jobs:
           run-id: ${{ inputs.windows_artifact_run_id }}
           github-token: ${{ github.token }}
           path: _local/recheck-release
+      - name: Record source workflow identity
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_RUN_ID: ${{ inputs.windows_artifact_run_id }}
+        run: |
+          New-Item -ItemType Directory -Force _local/ar | Out-Null
+          gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:ARTIFACT_RUN_ID" | Set-Content _local/ar/source-run.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot verify artifact workflow origin' }
+          $SourceRun = Get-Content _local/ar/source-run.json -Raw | ConvertFrom-Json
+          $SourceJobs = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:ARTIFACT_RUN_ID/attempts/$($SourceRun.run_attempt)/jobs?per_page=100"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot verify source qualification job' }
+          $SourceRun | Add-Member -NotePropertyName jobs -NotePropertyValue (($SourceJobs | ConvertFrom-Json).jobs)
+          $SourceRun | ConvertTo-Json -Depth 20 | Set-Content _local/ar/source-run.json -Encoding utf8
       - name: Run unchanged AEPS cases against the extracted artifact
         shell: pwsh
         env:
           AEPS_WORKERS: ${{ inputs.aeps_workers }}
+          ALLOW_SOURCE_COMPARISON: ${{ inputs.allow_source_comparison }}
         run: |
           New-Item -ItemType Directory -Force _local/ar,bin | Out-Null
           Get-CimInstance Win32_Processor | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors |
             ConvertTo-Json | Set-Content _local/ar/cpu.json
+          $Comparison = @()
+          if ($env:ALLOW_SOURCE_COMPARISON -eq 'true') { $Comparison = @('--allow-comparison') }
+          python scripts/release_provenance.py verify --receipt _local/recheck-release/EMTG-windows-x64.provenance.json --root . --run-metadata _local/ar/source-run.json --output _local/ar/provenance.json @Comparison
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact provenance verification failed' }
           $Archives = @(Get-ChildItem _local/recheck-release/EMTG-*.zip)
           if ($Archives.Count -ne 1) { throw 'Expected one release ZIP' }
           Expand-Archive $Archives[0].FullName _local/recheck-bundle
           $Executables = @(Get-ChildItem _local/recheck-bundle -Filter EMTGv9.exe -Recurse)
           if ($Executables.Count -ne 1) { throw 'Expected one extracted executable' }
-          Get-FileHash $Executables[0].FullName | Format-List | Out-File _local/ar/executable-hash.txt
+          python scripts/release_provenance.py verify --receipt _local/recheck-release/EMTG-windows-x64.provenance.json --root . --executable $Executables[0].FullName @Comparison
+          if ($LASTEXITCODE -ne 0) { throw 'Extracted binary identity mismatch' }
           Copy-Item $Executables[0].FullName bin/EMTGv9.exe
+          python scripts/release_provenance.py verify --receipt _local/recheck-release/EMTG-windows-x64.provenance.json --root . --executable bin/EMTGv9.exe --output _local/ar/staged-provenance.json @Comparison
+          if ($LASTEXITCODE -ne 0) { throw 'Staged binary identity mismatch' }
           python scripts/prepare_test_ephemeris.py --output _local/ar/u
           if ($LASTEXITCODE -ne 0) { throw 'Universe staging failed' }
           $env:EMTG_TEST_UNIVERSE = (Resolve-Path _local/ar/u).Path
           $env:EMTG_RUN_OUTERLOOP_INTEGRATION = '1'
           $env:EMTG_ATLAS_AEPS_BUDGET_SECONDS = '1200'
           python -m pytest tests/test_outerloop_emtg_integration.py::test_aeps_real_atlas_baseline_and_nearby_hardware_matrix -n $env:AEPS_WORKERS --basetemp _local/ar/a --junitxml=_local/ar/aeps.xml -ra 2>&1 | Tee-Object _local/ar/aeps.log
-          exit $LASTEXITCODE
+          $Code = $LASTEXITCODE
+          @(@{name='aeps'; exit_code=$Code}) | ConvertTo-Json | Set-Content _local/ar/commands.json -Encoding utf8
+          python scripts/summarize-qualification.py _local/ar
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          exit $Code
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -130,14 +160,19 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Build, test, and package experimental Linux artifacts
         run: bash ./build.sh --bootstrap
       - name: Verify extracted Linux bundle from another directory
         run: |
+          python scripts/release_provenance.py verify --receipt dist/EMTG-linux-x64-experimental.provenance.json --root .
           mkdir -p _local/relocated
           tar xzf dist/EMTG-*-Linux-*-experimental.tar.gz -C _local/relocated
           export EMTG_RELEASE_ROOT="$(dirname "$(dirname "$(find "$PWD/_local/relocated" -type f -path '*/bin/EMTGv9' -print -quit)")")"
           _local/tools/cmake/bin/python -m pip install pytest
+          python scripts/release_provenance.py verify --receipt dist/EMTG-linux-x64-experimental.provenance.json --root . --executable "$EMTG_RELEASE_ROOT/bin/EMTGv9"
           _local/tools/cmake/bin/python -m pytest tests/test_packaged_runtime.py -q
 
       - name: Verify build did not modify tracked sources

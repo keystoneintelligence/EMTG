@@ -1,13 +1,14 @@
 [CmdletBinding()]
 param(
     [switch]$Offline,
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [string]$OutputDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
 $Local = Join-Path $Root '_local'
-$Dist = Join-Path $Root 'dist'
+$Dist = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $Root 'dist' }
 $Vcpkg = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { Join-Path $Local 'tools\vcpkg' }
 $Version = (Get-Content (Join-Path $Root 'VERSION') -Raw).Trim()
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid EMTG version in VERSION: '$Version'" }
@@ -20,6 +21,9 @@ $CmakeVersionText = (& cmake --version | Select-Object -First 1)
 $NinjaVersion = (& ninja --version | Out-String).Trim()
 New-Item -ItemType Directory -Force -Path $Local, $Dist | Out-Null
 
+$Snapshot = Join-Path $Local 'build-source-windows.json'
+& python (Join-Path $Root 'scripts/release_provenance.py') snapshot --root $Root --output $Snapshot
+if ($LASTEXITCODE -ne 0) { throw 'Cannot record build source' }
 $Preset = 'windows-release'
 if (-not (Test-Path (Join-Path $Vcpkg '.git'))) {
     if ($Offline) { throw "Offline build requested but vcpkg is missing at $Vcpkg" }
@@ -108,7 +112,7 @@ if (-not $DynamicBlas -or $BlasConfig -notmatch '#define OPENBLAS_CORE_CORE2\b')
     "compiler=$($MingwCompiler.Name)"
     "compiler_version=$CompilerVersion"
     (Get-Content (Join-Path $VcpkgInstall 'vcpkg/status') -Raw)
-) | Set-Content -Encoding utf8 (Join-Path $Dist 'build-toolchain.txt')
+) | Set-Content -Encoding utf8 (Join-Path $Dist 'EMTG-windows-x64-toolchain.txt')
 
 if ($SkipTests) {
     & cmake --preset $Preset --fresh
@@ -170,4 +174,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Failed to generate the dependency SBOM' }
 & python (Join-Path $Root 'scripts/audit-release-paths.py') $Dist --forbid-root $Root --forbid-root $Vcpkg
 if ($LASTEXITCODE -ne 0) { throw 'Release contains local build paths' }
 
+& python (Join-Path $Root 'scripts/release_provenance.py') record --root $Root --snapshot $Snapshot --dist $Dist --executable $Executable --platform windows-x64
+if ($LASTEXITCODE -ne 0) { throw 'Cannot bind build provenance' }
 Write-Host "EMTG artifacts: $Dist"

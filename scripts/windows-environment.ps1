@@ -3,7 +3,7 @@ $EmtgRoot = Split-Path $PSScriptRoot -Parent
 
 function Initialize-EmtgLocalTools {
     $PythonRoot = Join-Path $EmtgRoot '_local\tools\python-nuget\tools'
-    if (Test-Path (Join-Path $PythonRoot 'python.exe')) {
+    if (-not $env:VIRTUAL_ENV -and (Test-Path (Join-Path $PythonRoot 'python.exe'))) {
         $env:PATH = ((@($PythonRoot, "$PythonRoot\Scripts") + ($env:PATH -split ';')) |
             Select-Object -Unique) -join ';'
     }
@@ -27,7 +27,7 @@ function Assert-EmtgPrerequisites {
     foreach ($Tool in @('git', 'cmake', 'ctest', 'cpack', 'ninja', 'python')) {
         if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) { $Problems += "$Tool on PATH" }
     }
-    foreach ($Check in @(@('cmake', '3.25'), @('ninja', '1.10'), @('python', '3.10'))) {
+    foreach ($Check in @(@('cmake', '3.25'), @('ninja', '1.10'), @('python', '3.12'))) {
         if (Get-Command $Check[0] -ErrorAction SilentlyContinue) {
             try {
                 $VersionText = (& $Check[0] --version 2>&1 | Out-String)
@@ -38,8 +38,10 @@ function Assert-EmtgPrerequisites {
                 continue
             }
             if ($LASTEXITCODE -ne 0 -or $VersionText -notmatch '(\d+\.\d+(?:\.\d+)?)' -or
-                [version]$Matches[1] -lt [version]$Check[1]) {
-                $Problems += "$($Check[0]) $($Check[1])+ (found: $($VersionText.Trim()))"
+                [version]$Matches[1] -lt [version]$Check[1] -or
+                ($Check[0] -eq 'python' -and (([version]$Matches[1]).Major -ne 3 -or ([version]$Matches[1]).Minor -ne 12))) {
+                $Requirement = if ($Check[0] -eq 'python') { 'python 3.12.x' } else { "$($Check[0]) $($Check[1])+" }
+                $Problems += "$Requirement (found: $($VersionText.Trim()))"
             }
         }
     }

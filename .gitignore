@@ -169,3 +169,4 @@ PyEMTG/.spyproject/*.ini
 PyEMTG/.spyproject/*.bak
 PyEMTG/PEATSA/.idea/
 PyEMTG/OptionsOverhaul/.idea/
+!scripts/release_provenance.py

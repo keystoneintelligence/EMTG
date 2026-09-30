@@ -57,6 +57,10 @@ then use the normal one-command build:
 ./build.sh
 ```
 
+Install Python 3.12 and place it on `PATH` before running `--bootstrap`; the
+CMake tool environment uses that interpreter. The managed build checks this
+version so system Python defaults cannot silently change qualification.
+
 `--bootstrap` installs the base compiler tools with `apt`; omit it when they are
 already present. The experimental portable tarball is written to `dist`.
 
@@ -86,7 +90,7 @@ to its configure command.
 
 ## Complete bootstrap prerequisites
 
-Windows requires PowerShell 5.1+, Python 3.10+, Git on PATH, CMake 3.25+, Ninja 1.10+,
+Windows requires PowerShell 5.1+, Python 3.12, Git on PATH, CMake 3.25+, Ninja 1.10+,
 and Visual Studio 2022 Build Tools with the C++ tools and Windows SDK. The
 managed build uses MinGW-w64; Visual Studio supplies bootstrap and DLL-audit
 tools. Internet access is needed for the first build. `-Offline` requires the
@@ -124,3 +128,15 @@ their exact hashes are documented in the audit script. Four exact native option
 default strings retain NASA's generic installation placeholders. Neither exemption
 allows the supplied source/cache roots. Scientific files are never silently
 rewritten during packaging.
+
+
+### Linux OpenBLAS CPU portability
+
+The managed Linux x64 graph enables OpenBLAS `dynamic-arch` for both the target
+library and the host dependency that supplies its `getarch` tools. The pinned
+vcpkg port then uses its conservative common-code target and includes optimized
+kernels selected at runtime. This avoids relying on CPU auto-detection on a
+particular build host; it does not globally disable AVX2 or AVX-512 optimization.
+The OpenBLAS version remains pinned. Both host and target dependencies are needed:
+requesting the target feature alone leaves the host OpenBLAS build unconfigured.
+See [OpenBLAS CPU dispatch](https://github.com/OpenMathLib/OpenBLAS/blob/v0.3.29/README.md#support-for-multiple-targets-in-a-single-library).

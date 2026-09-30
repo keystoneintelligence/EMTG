@@ -182,6 +182,36 @@ def test_case_builder_maps_logical_body_names_and_phase_data(tmp_path):
     assert options.forced_working_directory.replace("/", "\\") == str(tmp_path).replace("/", "\\")
 
 
+@pytest.mark.parametrize("evaluation_seed", [0, 7, 2**31 + 9])
+@pytest.mark.parametrize("warm_start", [False, True])
+def test_case_builder_separates_random_seed_from_initial_guess(
+    tmp_path, evaluation_seed, warm_start,
+):
+    import MissionOptions
+
+    source = ROOT / "testatron" / "tests" / "transcription_tests" / "MGAnDSMs_EMintercept.emtgopt"
+    builder = EMTGCaseBuilder(
+        source,
+        universe_folder=ROOT / "testatron" / "universe",
+        hardware_path=ROOT / "testatron" / "HardwareModels",
+    )
+    initial_guess = None
+    if warm_start:
+        entries = MissionOptions.MissionOptions(str(source)).trialX
+        initial_guess = {
+            "xdescriptions": [entry[0] for entry in entries],
+            "decision_vector": [entry[1] for entry in entries],
+        }
+    path = builder.build(
+        phenotype(), tmp_path, "seed_case", evaluation_seed=evaluation_seed,
+        budget={"inner_loop": "mbh"}, initial_guess=initial_guess,
+    )
+    options = MissionOptions.MissionOptions(str(path))
+    assert options.MBH_RNG_seed == evaluation_seed % (2**31 - 1)
+    assert options.seed_MBH == int(warm_start)
+    assert bool(options.trialX) is warm_start
+
+
 def test_case_builder_expands_only_when_per_phase_genes_differ(tmp_path):
     source = ROOT / "testatron" / "tests" / "transcription_tests" / "MGAnDSMs_EMintercept.emtgopt"
     builder = EMTGCaseBuilder(
