@@ -18,7 +18,7 @@ on:
         default: '2'
   push:
     branches:
-      - main
+      - master
     tags:
       - 'v*'
     paths-ignore:

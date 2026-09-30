@@ -1,6 +1,6 @@
 # Community Edition release checklist
 
-Release the reviewed Community Edition source from `main`. Record the exact
+Release the reviewed Community Edition source from `master`. Record the exact
 source commit and artifact hashes; earlier qualification does not identify a
 newly built binary. The public Windows/Linux graph has passed the checks recorded
 in [qualification.md](qualification.md). Each release tag requires its own
@@ -53,7 +53,7 @@ revision is not evidence that the candidate passed.
 - Attach only the reviewed candidate's artifacts and checksums. Describe known
   limits and intentional option-default changes in the release notes.
 - Add reviewed announcement text in `docs/releases/<VERSION>.md`. Merge the
-  presentation/source changes into `main` before selecting the final release.
+  presentation/source changes into `master` before selecting the final release.
 - Create an annotated `v<VERSION>` tag at the reviewed source and push that tag.
   `Build Release Packages` rebuilds and qualifies Windows/Linux, then verifies
   both receipts against that tag and prepares a GitHub draft release. It can
