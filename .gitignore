@@ -20,7 +20,15 @@ EMTG_v9_Results/*
 scripts/*
 !scripts/audit-linux-dependencies.sh
 !scripts/audit-windows-dependencies.ps1
+!scripts/audit-release-paths.py
+!scripts/build_test_ephemeris.py
+!scripts/prepare_test_ephemeris.py
+!scripts/verify_test_ephemeris.py
 !scripts/render-winget.ps1
+!scripts/windows-environment.ps1
+!scripts/qualify-windows.ps1
+!scripts/summarize-qualification.py
+!scripts/check-cpu-portability.py
 #EMTG-config.cmake
 *.debug
 *.d
@@ -61,10 +69,6 @@ htmlcov/
 PyEMTG/PyEMTG\.lnk
 PyEMTG/.spyproject/*
 PyEMTG.zip
-/PyEMTG/Studio/frontend/node_modules/
-/PyEMTG/Studio/frontend/*.tsbuildinfo
-/PyEMTG/Studio/frontend/vite.config.js
-/PyEMTG/Studio/frontend/vite.config.d.ts
 
 PyEMTG/docs/_build/*
 PyEMTG/docs/PyEMTG/_build/*
@@ -96,6 +100,7 @@ Universe/ephemeris_files/*.bpc
 *.toc
 *.aux
 *.gz
+!tests/fixtures/ephemeris/emtg-tests-v1.bsp.gz
 *.blg
 *.bbl
 *.lof
@@ -164,3 +169,4 @@ PyEMTG/.spyproject/*.ini
 PyEMTG/.spyproject/*.bak
 PyEMTG/PEATSA/.idea/
 PyEMTG/OptionsOverhaul/.idea/
+!scripts/release_provenance.py

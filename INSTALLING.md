@@ -1,8 +1,15 @@
 # Running EMTG from a release bundle
 
+This community candidate awaits fresh-machine release qualification. These
+instructions describe the bundle layout; check the release's support statement
+and [SUPPORT.md](SUPPORT.md) before selecting an artifact.
+
 ## Windows
 
-Download the portable ZIP from GitHub Releases, extract it, and run:
+If a qualified community ZIP is available on this fork's
+[Releases page](https://github.com/keystoneintelligence/EMTG/releases), download
+and extract it. Otherwise create a candidate with [BUILDING.md](BUILDING.md).
+Use a short extraction and mission-output path. Run:
 
 ```powershell
 .\bin\EMTGv9.exe mission.emtgopt
@@ -17,9 +24,9 @@ the standalone EXE and supply its data location explicitly:
 
 ## Linux (experimental)
 
-The Linux tarball has not yet been validated on a clean Linux host and is not
-currently a production-supported release target. Extract it anywhere and run
-`bin/EMTGv9`; no system installation is provided.
+The Linux tarball is experimental; existing development evidence covers Ubuntu
+22.04 x64 only. See [qualification scope](docs/1_Developers/qualification.md).
+Extract it and run `bin/EMTGv9`; no system installation is provided.
 
 ## Runtime data
 
@@ -38,4 +45,7 @@ EMTGv9 --data-dir /path/to/emtg-data mission.emtgopt
 EMTG_DATA_DIR=/path/to/emtg-data EMTGv9 mission.emtgopt
 ```
 
-Run `EMTGv9 --doctor` to check solver and data availability.
+Run `EMTGv9 --doctor` to check solver and data availability. Exit code `3` reports
+that action is required, including when BSP kernels have not been supplied.
+Data discovery does not verify that the selected kernels are appropriate for
+the mission; record their exact hashes and avoid unintended overlapping inputs.

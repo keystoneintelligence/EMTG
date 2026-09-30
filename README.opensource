@@ -1,117 +1,52 @@
-  _____ __  __ _____ ____ 
- | ____|  \/  |_   _/ ___|
- |  _| | |\/| | | || |  _ 
- | |___| |  | | | || |_| |
- |_____|_|  |_| |_| \____|                        
-=============================================================================================================================
-Evolutionary Mission Trajectory Generator (EMTG) Open Source Release
+Evolutionary Mission Trajectory Generator (EMTG)
+Community fork — version 9.2.0 release candidate
+
 Originating author: Jacob Englander
-Mainainer: NASA Goddard Spaceflight Center (GSFC) Code 595 EMTG team (GSFC-DL-TrajOpt-Support@mail.nasa.gov)
-Version: 9.02
-License: NASA Open Source Agreement (https://www.nasa.gov/open/open-source-development.html)
-Notices and Disclaimers: See the bottom of the README
-=============================================================================================================================
-~~~~~~~~
-Purpose:
-~~~~~~~~
-The contents of this NASA GSFC public software release distribution contains all of the source code and documentation for the 
-Evolutionary Mission Trajectory Generator (EMTG). Select third-party code is included in this release as indicated in the 
-subsequent 'Dependencies section'. Users will need to download and install all other third-party dependencies mentioned in 
-the build guide. 
+Fork maintenance: Keystone Intelligence and community contributors
+NASA upstream: https://github.com/nasa/EMTG
+Fork issues and support: https://github.com/keystoneintelligence/EMTG/issues
+License: NASA Open Source Agreement; see EMTG_NOSA_License.pdf
 
-~~~~~~~~~~~~~
-Dependencies:
-~~~~~~~~~~~~~
-EMTG has a fully open-source solver path using the Interior Point OPTimizer (IPOPT). IPOPT 3.14 or newer is the default nonlinear solver. The commercial Sparse Nonlinear OPTimizer (SNOPT) remains an optional backend for licensed users.
+This community fork builds on NASA GSFC's EMTG. NASA authorship and license
+notices are retained; NASA does not maintain or endorse this fork.
+Fresh-machine qualification of this public candidate remains pending.
 
-Clean IPOPT-only build and test instructions are in `docs/1_Developers/ipopt.md`.
+The primary release target is the Windows x64 IPOPT-only command-line solver.
+Ubuntu 22.04 x64 packaging is experimental. Provisioned Windows and Ubuntu
+container builds have passed development CTest, bounded native IPOPT,
+dependency, relocation, and release-path checks. These results do not qualify
+every mission, every platform, or all historical NASA functionality.
 
-Release builds use a pinned managed dependency graph under `_local/`:
-header-only Boost components, CSPICE N0067, IPOPT 3.14.11, MUMPS 5.8.2,
-reference LAPACK, and OpenBLAS. Source archives are checksum-verified. GSL is
-no longer linked; EMTG provides its own natural cubic spline implementation.
-SNOPT is never included in public artifacts.
+The managed dependency graph uses IPOPT 3.14.11, MUMPS, reference LAPACK,
+OpenBLAS, Boost, and CSPICE. The separate Linux solver CI graph uses IPOPT
+3.14.19 and needs its own evidence. Public artifacts exclude SNOPT. Licensed
+users can select SNOPT explicitly in an appropriately configured source build.
 
-~~~~~~~~~~~~~
-Installation:
-~~~~~~~~~~~~~
-The supported IPOPT-only command-line build is driven by one command on each platform:
+IPOPT is the default solver (NLP_solver_type 2); SNOPT is 0. Existing files that
+omitted NASA's old SNOPT default now select IPOPT. Native scientific formats
+are retained, general feasibility defaults to 1e-5, and fixed-step integration
+remains the default. Adaptive integration is experimental. A different solver
+can converge to a different solution, so compare physical acceptance envelopes.
 
-- Windows: `.\build.ps1`
-- Linux (experimental): `./build.sh --bootstrap`
+There is no qualified macOS build or binary. Propulator, PyHardware, and the
+historical wxPython GUI are optional developer workflows with separate
+qualification requirements; they are not covered by the managed CLI release.
+Native result parsing through PyEMTG.Results works independently of the GUI.
+Optional OuterLoop search remains available. Applications own translation and
+publication policy.
 
-See `BUILDING.md` for developer builds and `INSTALLING.md` for the portable
-Windows and experimental Linux bundles. The older PDF build guides are retained
-only as historical documentation.
+After installing the documented prerequisites, use build.ps1 on Windows or
+build.sh --bootstrap on Ubuntu. Portable bundles discover adjacent runtime data;
+large SPICE BSP kernels remain external. Use short Windows checkout and output
+paths. The legacy PDF build guides are historical references.
 
-EMTG emits storage-neutral DeepSpace solution packages for downstream tools.
-See `docs/0_Users/solution_packages.md`. The internal EMTG Studio viewer and
-DeepSpace Storage service are maintained as separate projects.
-
-=============================================================================================================================
-*****************************************************************************************************************************
-The EMTG development team is pleased to share the fruits of our labors with you. We ask, but do not require, that if you do 
-something really awesome with it please publish your awesome accomplishments and cite us.
-*****************************************************************************************************************************
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Frequently Asked Questions (FAQ)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Q: Is there a user guide?
-A: Yes. There are a couple of User Guides is in the /docs/0_Users/ directory. 
-
-Q: How do I use the internal solution viewer?
-A: Install the separate EMTG Studio and DeepSpace Storage projects. EMTG core
-does not embed the viewer or its durable catalog.
-
-Q: Can you give me technical support for installing and operating EMTG?
-A: Feel free to reach out to the team contact information provided at the header of this file but be aware that the 
-development team has limited availability to respond to all inquiries. There is also a discussion functionality on the 
-EMTG GitHub page where you can post and engage with the community for support.
-
-Q: Will EMTG work on Linux?
-A: The Linux build and packaging support is currently experimental and has not
-yet been validated on a clean Linux host. Best-effort instructions are provided
-with this release.
-
-Q: Will EMTG work on a Mac? If so, why is there not a Mac build document?
-A: Yes EMTG should work on a Mac. The development team did not have access to a Mac to be able to do development/testing 
-so additional steps would be needed to get EMTG functional on a Mac.
-
-Q: Will EMTG work on my smart phone?
-A: We are not pursuing getting EMTG to run on a smart phone, but if you try it and it works, we'd love to hear about it!
-
-Q: How frequently will you update EMTG?
-A: Resources are limited for the development team so open source releases will occure infrequently.
-
-Q: Can you make me an executable?
-A: Yes. Public releases provide an IPOPT-only standalone Windows executable, a
-portable ZIP, and an experimental Linux tarball. SNOPT remains excluded because
-it requires a separate commercial license.
-
-Q: Why doesn't the historical wxPython PyEMTG window work?
-A: The wxPython window is retained for historical workflows. The modern
-internal viewer is the separately distributed EMTG Studio project.
-
-Q: I have a different SNOPT version than what is listed in the build system instructions. Will it work with EMTG?
-A: It is possible other versions will work. Feel free to try it and if you succeed consider providing us with updates we 
-can incorporate in future releases. You can make changes to /src/InnerLoop/snoptProblemExtension.h to get it to talk to 
-your SNOPT.
-
-Q: Do I need SNOPT to build or run EMTG?
-A: No. Configure with EMTG_ENABLE_SNOPT=OFF and EMTG_ENABLE_IPOPT=ON, or use the `ipopt-only` CMake preset. SNOPT is optional.
-
-Q: Can I use this commercially?
-A: Yes.
-
-Q: Can I teach a class with this?
-A: Absolutely!
-
-Q: I found a bug! How can I submit the bug so it can potentially be fixed in a future version?
-A: Thank you for finding the bug and wanting to improve future versions. Please either email us about the bug or post to 
-the Issues section of GitHub so that we can fix it for future versions!
-
+See README.md, SUPPORT.md, BUILDING.md, INSTALLING.md, and CONTRIBUTING.md in
+the source checkout for current instructions and support limits. Source/build
+availability does not imply that a qualified release has been published. Use
+this fork's GitHub issues for fork-specific support; maintainer response times
+are not guaranteed. Please credit NASA's original EMTG work when reporting
+results. Included dependencies retain their own notices and licenses; see
+THIRD_PARTY_NOTICES.md and the notices distributed with each artifact.
 
 =============================================================================================================================
 Notices:

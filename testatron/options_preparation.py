@@ -16,6 +16,7 @@ def apply_test_options_overrides(
     emtg_major_iterations=None,
     emtg_max_run_time=None,
     emtg_quiet_nlp=None,
+    emtg_solver=None,
 ):
     test_options.override_working_directory = 1
     test_options.short_output_file_names = 1
@@ -30,6 +31,11 @@ def apply_test_options_overrides(
     else:
         test_options.forced_working_directory = output_directory
 
+    if emtg_solver is not None:
+        solvers = {'SNOPT': 0, 'IPOPT': 2}
+        if emtg_solver not in solvers:
+            raise ValueError('emtg_solver must be SNOPT or IPOPT')
+        test_options.NLP_solver_type = solvers[emtg_solver]
     if emtg_feasibility_tolerance is not None:
         test_options.NLP_feasibility_tolerance = emtg_feasibility_tolerance
     if emtg_optimality_tolerance is not None:

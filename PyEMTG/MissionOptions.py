@@ -116,7 +116,7 @@ class MissionOptions(object):
         """Write every MBH improvement for later animation?"""
         self.MBH_time_hop_probability = 0.05
         """probability of MBH time hop operation"""
-        self.NLP_feasibility_tolerance = 1.00E-08
+        self.NLP_feasibility_tolerance = 1.00E-05
         """NLP feasibility tolerance"""
         self.NLP_optimality_tolerance = 1.00E-05
         """NLP optimality tolerance"""
@@ -1169,7 +1169,7 @@ class MissionOptions(object):
                 optionsFile.write("#probability of MBH time hop operation\n")
                 optionsFile.write("MBH_time_hop_probability " + str(self.MBH_time_hop_probability) + "\n")
     
-            if (self.NLP_feasibility_tolerance != 1.00E-08 or writeAll):
+            if (self.NLP_feasibility_tolerance != 1.00E-05 or writeAll):
                 optionsFile.write("#NLP feasibility tolerance\n")
                 optionsFile.write("NLP_feasibility_tolerance " + str(self.NLP_feasibility_tolerance) + "\n")
     

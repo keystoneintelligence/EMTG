@@ -1,7 +1,7 @@
 """Pure domain contracts for EMTG feasibility-atlas exploration.
 
 The records in this module deliberately have no persistence, scheduling, or
-Studio dependencies.  Identity-bearing records use the same canonical hashing
+viewer dependencies.  Identity-bearing records use the same canonical hashing
 primitive as the existing OuterLoop, but have independent, versioned prefixes.
 """
 

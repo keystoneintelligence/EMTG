@@ -10,11 +10,11 @@ for a release records the exact versions and source checksums.
 - MUMPS - CeCILL-C license. See https://mumps-solver.org/.
 - Reference LAPACK and OpenBLAS - BSD-compatible licenses. Exact notices are
   included under the package's `licenses/third-party` directory.
-- GCC/MinGW-w64 compiler runtimes - the standalone Windows executable contains
-  statically linked GNU and MinGW-w64 runtime code, including libgcc,
+- GCC/MinGW-w64 compiler runtimes - the managed Windows and Linux executables contain
+  statically linked GNU runtime code (plus MinGW-w64 on Windows), including libgcc,
   libstdc++, libgfortran/libquadmath as required by the solver dependency
-  graph, and MinGW-w64 runtime support. The package includes the exact notices
-  supplied by the pinned toolchain under `licenses/compiler-runtime`, including
+  graph. The package includes the exact notices
+  supplied by the compiler toolchain or Linux distribution under `licenses/compiler-runtime`, including
   GPLv3, GCC Runtime Library Exception 3.1, LGPL, and MinGW-w64 notices as
   applicable. The GCC Runtime Library Exception permits eligible non-GPL
   applications to use the covered GCC runtime files.

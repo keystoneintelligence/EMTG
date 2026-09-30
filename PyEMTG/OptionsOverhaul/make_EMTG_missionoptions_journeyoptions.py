@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import csv
 from pathlib import Path
-import time
 
 from optionValidator import validate
 from make_journeyoptions_header import make_journeyoptions_header
@@ -42,7 +41,7 @@ def generate(repository_root: Path) -> None:
     schema_root = repository_root / "OptionsOverhaul"
     journey_definitions = read_definitions(schema_root / "list_of_journeyoptions.csv")
     mission_definitions = read_definitions(schema_root / "list_of_missionoptions.csv")
-    generated_timestamp = time.strftime("%c")
+    generated_timestamp = "checked-in option schemas"
 
     # The legacy generators concatenate their path argument, so retain one
     # explicit trailing separator while keeping all machine paths out of source.

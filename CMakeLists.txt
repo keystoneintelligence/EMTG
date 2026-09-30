@@ -22,6 +22,7 @@ option(EMTG_PORTABLE_TESTBED_ONLY "Configure only portable testbed targets that 
 
 if(EMTG_PORTABLE_TESTBED_ONLY)
     project(EMTG VERSION ${EMTG_PROJECT_VERSION} LANGUAGES CXX)
+    include(cmake/BuildPathPrivacy.cmake)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     include(CTest)
@@ -77,6 +78,7 @@ endif()
 
 #identify the project
 project(EMTG VERSION ${EMTG_PROJECT_VERSION} LANGUAGES C CXX)
+include(cmake/BuildPathPrivacy.cmake)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -479,6 +481,22 @@ elseif(EMTG_DEPENDENCY_PROVIDER STREQUAL "managed" AND MINGW)
         REQUIRED NO_DEFAULT_PATH)
     set_property(TARGET Ipopt::Ipopt APPEND PROPERTY INTERFACE_LINK_LIBRARIES
         "${EMTG_MUMPS_LIBRARY};${EMTG_LAPACK_LIBRARY};${EMTG_OPENBLAS_LIBRARY};gfortran;quadmath;pthread")
+elseif(EMTG_DEPENDENCY_PROVIDER STREQUAL "managed" AND UNIX AND NOT APPLE)
+    # pkg-config resolves bare Fortran runtime names to shared libraries. The
+    # managed release promises a static solver closure, so use compiler-owned
+    # archives explicitly while retaining the system glibc ABI.
+    find_program(EMTG_GFORTRAN_EXECUTABLE NAMES gfortran REQUIRED)
+    get_target_property(EMTG_IPOPT_LINK_CLOSURE Ipopt::Ipopt INTERFACE_LINK_LIBRARIES)
+    foreach(runtime IN ITEMS gfortran quadmath)
+        execute_process(COMMAND "${EMTG_GFORTRAN_EXECUTABLE}" "-print-file-name=lib${runtime}.a"
+            OUTPUT_VARIABLE runtime_archive OUTPUT_STRIP_TRAILING_WHITESPACE
+            COMMAND_ERROR_IS_FATAL ANY)
+        if(NOT IS_ABSOLUTE "${runtime_archive}" OR NOT EXISTS "${runtime_archive}")
+            message(FATAL_ERROR "Managed Linux release requires the static ${runtime} runtime archive")
+        endif()
+        list(TRANSFORM EMTG_IPOPT_LINK_CLOSURE REPLACE "^(-l)?${runtime}$" "${runtime_archive}")
+    endforeach()
+    set_property(TARGET Ipopt::Ipopt PROPERTY INTERFACE_LINK_LIBRARIES "${EMTG_IPOPT_LINK_CLOSURE}")
 endif()
 set(IPOPT_LIBRARIES Ipopt::Ipopt)
 set(EMTG_IPOPT_RUNTIME_DLLS ${IPOPT_RUNTIME_DLLS})
@@ -507,5 +525,4 @@ include_directories(${Boost_INCLUDE_DIRS})
 add_subdirectory(src)
 
 include(cmake/Packaging.cmake)
-
 

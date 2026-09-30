@@ -98,6 +98,9 @@ parser.add_argument('--default_tolerance', dest = 'default_tolerance',
     default = 1.0e-10, type = float,
     help = 'Default numeric tolerance passed to Comparatron (default: 1.0e-10).')
 
+parser.add_argument('--emtg_solver', choices=['SNOPT', 'IPOPT'], default=None,
+    help='Explicit backend selection; use SNOPT for NASA compatibility tests.')
+
 parser.add_argument('--emtg_feasibility_tolerance', dest = 'emtg_feasibility_tolerance',
     default = None, type = float,
     help = 'Override EMTG solver feasibility tolerance in generated options files.')
@@ -278,6 +281,7 @@ for test in tests_to_run:
             test,
             update_truths=(updateTruths == 1),
             emtg_feasibility_tolerance=args.emtg_feasibility_tolerance,
+            emtg_solver=args.emtg_solver,
             emtg_optimality_tolerance=args.emtg_optimality_tolerance,
             emtg_major_iterations=args.emtg_major_iterations,
             emtg_max_run_time=args.emtg_max_run_time,

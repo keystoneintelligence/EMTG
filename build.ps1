@@ -1,33 +1,29 @@
 [CmdletBinding()]
 param(
     [switch]$Offline,
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [string]$OutputDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
 $Local = Join-Path $Root '_local'
-$Dist = Join-Path $Root 'dist'
+$Dist = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $Root 'dist' }
 $Vcpkg = if ($env:VCPKG_ROOT) { $env:VCPKG_ROOT } else { Join-Path $Local 'tools\vcpkg' }
 $Version = (Get-Content (Join-Path $Root 'VERSION') -Raw).Trim()
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid EMTG version in VERSION: '$Version'" }
 
+. (Join-Path $Root 'scripts\windows-environment.ps1')
+Initialize-EmtgLocalTools
+Assert-EmtgPrerequisites
+Initialize-EmtgVisualStudio
+$CmakeVersionText = (& cmake --version | Select-Object -First 1)
+$NinjaVersion = (& ninja --version | Out-String).Trim()
 New-Item -ItemType Directory -Force -Path $Local, $Dist | Out-Null
 
-if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
-    $OriginalPath = $env:PATH
-    $VsWhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-    if (-not (Test-Path $VsWhere)) { throw 'Visual Studio 2022 Build Tools with C++ support are required' }
-    $VsRoot = & $VsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-    if (-not $VsRoot) { throw 'Visual Studio C++ Build Tools were not found' }
-    $VsDevCmd = Join-Path $VsRoot 'Common7\Tools\VsDevCmd.bat'
-    cmd.exe /d /s /c "`"$VsDevCmd`" -arch=x64 -host_arch=x64 >nul && set" |
-        ForEach-Object {
-            if ($_ -match '^([^=]+)=(.*)$') { Set-Item -Path "Env:$($Matches[1])" -Value $Matches[2] }
-        }
-    $env:PATH = "$env:PATH;$OriginalPath"
-}
-
+$Snapshot = Join-Path $Local 'build-source-windows.json'
+& python (Join-Path $Root 'scripts/release_provenance.py') snapshot --root $Root --output $Snapshot
+if ($LASTEXITCODE -ne 0) { throw 'Cannot record build source' }
 $Preset = 'windows-release'
 if (-not (Test-Path (Join-Path $Vcpkg '.git'))) {
     if ($Offline) { throw "Offline build requested but vcpkg is missing at $Vcpkg" }
@@ -35,6 +31,11 @@ if (-not (Test-Path (Join-Path $Vcpkg '.git'))) {
     & git clone --branch 2025.06.13 --depth 1 https://github.com/microsoft/vcpkg.git $Vcpkg
     if ($LASTEXITCODE -ne 0) { throw 'Failed to download the pinned vcpkg checkout' }
 }
+$ExpectedVcpkg = (Get-Content (Join-Path $Root 'cmake/vcpkg-revision.txt') -Raw).Trim()
+$ActualVcpkg = (& git -C $Vcpkg rev-parse HEAD | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $ActualVcpkg -ne $ExpectedVcpkg) { throw "vcpkg revision mismatch: expected $ExpectedVcpkg, found $ActualVcpkg" }
+& git -C $Vcpkg diff --quiet HEAD --
+if ($LASTEXITCODE -ne 0) { throw 'vcpkg tracked sources are modified' }
 if (-not (Test-Path (Join-Path $Vcpkg 'vcpkg.exe'))) {
     if ($Offline) { throw "Offline build requested but vcpkg has not been bootstrapped" }
     & (Join-Path $Vcpkg 'bootstrap-vcpkg.bat') -disableMetrics
@@ -48,25 +49,20 @@ $env:VCPKG_BINARY_SOURCES = "clear;files,$Cache,readwrite"
 # Install the manifest first. This also bootstraps vcpkg's pinned MinGW
 # toolchain, which must exist before CMake performs compiler detection.
 $VcpkgInstall = Join-Path $Local 'builds\windows-release\vcpkg_installed'
-$MingwCompiler = Get-ChildItem (Join-Path $Vcpkg 'downloads\tools\msys2') `
-    -Filter g++.exe -File -Recurse -ErrorAction SilentlyContinue |
-    Where-Object { $_.FullName -match '[\\/]mingw64[\\/]bin[\\/]g\+\+\.exe$' } |
-    Sort-Object LastWriteTimeUtc -Descending |
-    Select-Object -First 1
+$MingwCompiler = Get-EmtgMingwCompiler $Vcpkg
 if (-not $MingwCompiler) {
+    if ($Offline) { throw 'Offline build requires the cached MinGW compiler; run an online build first' }
+    # This port acquires the compiler as a side effect. Its binary package
+    # contains runtime DLLs only, so restoring it cannot bootstrap fresh tools.
     & (Join-Path $Vcpkg 'vcpkg.exe') install vcpkg-gfortran:x64-windows `
         --x-install-root=$VcpkgInstall `
+        --binarysource=clear `
         --classic
     if ($LASTEXITCODE -ne 0) { throw 'Failed to provision the pinned MinGW-w64 compiler' }
-    $MingwCompiler = Get-ChildItem (Join-Path $Vcpkg 'downloads\tools\msys2') `
-        -Filter g++.exe -File -Recurse -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -match '[\\/]mingw64[\\/]bin[\\/]g\+\+\.exe$' } |
-        Sort-Object LastWriteTimeUtc -Descending |
-        Select-Object -First 1
+    $MingwCompiler = Get-EmtgMingwCompiler $Vcpkg
 }
 if (-not $MingwCompiler) { throw 'vcpkg did not provision the pinned MinGW-w64 compiler' }
-$env:EMTG_MINGW_ROOT = (Split-Path $MingwCompiler.DirectoryName -Parent) -replace '\\', '/'
-$env:PATH = "$($MingwCompiler.DirectoryName);$env:PATH"
+Initialize-EmtgMingw $Vcpkg
 $CompilerVersion = (& $MingwCompiler -dumpfullversion | Out-String).Trim()
 if (-not $CompilerVersion) { throw 'Unable to determine the pinned MinGW-w64 compiler version' }
 $OverlayPorts = Join-Path $Root 'cmake\vcpkg-overlays'
@@ -92,10 +88,31 @@ if ($Offline) {
         --triplet x64-mingw-static `
         "--x-manifest-root=$Root" `
         "--x-install-root=$VcpkgInstall" `
-        "--overlay-ports=$OverlayPorts" `
-        --allow-unsupported
+        "--overlay-ports=$OverlayPorts"
     if ($LASTEXITCODE -ne 0) { throw 'Failed to install the pinned managed dependency graph' }
 }
+
+# In particular, -Offline must not silently reuse a pre-portability BLAS cache.
+$InstalledStatus = Get-Content (Join-Path $VcpkgInstall 'vcpkg/status') -Raw
+$DynamicBlas = $InstalledStatus -split '\r?\n\r?\n' | Where-Object {
+    $_ -match '(?m)^Package: openblas\r?$' -and $_ -match '(?m)^Feature: dynamic-arch\r?$' -and
+    $_ -match '(?m)^Architecture: x64-mingw-static\r?$' -and $_ -match '(?m)^Status: install ok installed\r?$'
+}
+$BlasConfig = Get-Content (Join-Path $VcpkgInstall 'x64-mingw-static/include/openblas/openblas_config.h') -Raw
+if (-not $DynamicBlas -or $BlasConfig -notmatch '#define OPENBLAS_CORE_CORE2\b') {
+    throw 'Portable OpenBLAS cache is missing or stale. Run an online build before using -Offline.'
+}
+
+@(
+    "vcpkg_commit=$ActualVcpkg"
+    "cmake=$CmakeVersionText"
+    "ninja=$NinjaVersion"
+    "python=$((& python --version | Out-String).Trim())"
+    "visual_studio=$((Get-EmtgVisualStudio).installationVersion)"
+    "compiler=$($MingwCompiler.Name)"
+    "compiler_version=$CompilerVersion"
+    (Get-Content (Join-Path $VcpkgInstall 'vcpkg/status') -Raw)
+) | Set-Content -Encoding utf8 (Join-Path $Dist 'EMTG-windows-x64-toolchain.txt')
 
 if ($SkipTests) {
     & cmake --preset $Preset --fresh
@@ -154,4 +171,9 @@ Get-ChildItem $Build -File | Where-Object { $_.Name -match '\.(zip|sha256)$' } |
     -P (Join-Path $Root 'cmake\GenerateVcpkgSbom.cmake')
 if ($LASTEXITCODE -ne 0) { throw 'Failed to generate the dependency SBOM' }
 
+& python (Join-Path $Root 'scripts/audit-release-paths.py') $Dist --forbid-root $Root --forbid-root $Vcpkg
+if ($LASTEXITCODE -ne 0) { throw 'Release contains local build paths' }
+
+& python (Join-Path $Root 'scripts/release_provenance.py') record --root $Root --snapshot $Snapshot --dist $Dist --executable $Executable --platform windows-x64
+if ($LASTEXITCODE -ne 0) { throw 'Cannot bind build provenance' }
 Write-Host "EMTG artifacts: $Dist"

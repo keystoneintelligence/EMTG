@@ -655,7 +655,7 @@ class FamilyRunStore:
         *,
         status: str = "pending",
     ) -> dict[str, Any]:
-        """Durably mirror an additive Studio refinement command.
+        """Durably mirror an additive caller refinement command.
 
         This table is orchestration state only: it never participates in family,
         sample, attempt, or evaluation identity.

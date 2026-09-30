@@ -24,7 +24,9 @@ if(VCPKG_TARGET_IS_MINGW)
     set(EMTG_LAPACK_OPTION
         "--with-lapack-lflags=-llapack -lopenblas -lgfortran -lquadmath")
 else()
-    set(EMTG_LAPACK_OPTION --with-lapack)
+    # Static LAPACK/BLAS metadata does not supply the Fortran runtime closure.
+    set(EMTG_LAPACK_OPTION
+        "--with-lapack-lflags=-llapack -lopenblas -lgfortran -lquadmath -lm -lpthread")
 endif()
 
 vcpkg_configure_make(

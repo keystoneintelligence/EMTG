@@ -1,17 +1,18 @@
-Welcome to PyEMTG, a python GUI for EMTG. 
-To use this program you will need to:
+PyEMTG scientific helpers and historical GUI
 
-   1. Install a Python interpreter with the wxPython, Astropy, Scipy, Numpy, and Matplotlib packages. We recommend Python(x,y).
-   
-   2. Edit the file "PyEMTG.options" to point PyEMTG to wherever EMTG lives on your hard drive
-   
-   3. Double-click on "PyEMTG.py" to run it in your interpreter or alternatively type "run PyEMTG.py" in your interpreter's interactive window.
+PyEMTG.Results provides independent native-result parsing and scientific
+artifact inventories. Option helpers and optional OuterLoop search can also be
+used without launching the historical GUI. See ../README.md, ../SUPPORT.md,
+and ../docs/0_Users/native_results.md for the current interfaces and scope.
 
+The wxPython application in PyEMTG.py is retained as a historical developer
+workflow. Its Python, wxPython, plotting, and scientific-library dependencies
+require separate installation and qualification. The managed command-line
+release does not include or qualify that GUI. No current GUI dependency
+combination, legacy Python distribution, or wxPython version is recommended
+on the strength of the command-line or Results tests.
 
-PyEMTG may be used to:
-
-   1. Edit and run EMTG options files (.emtgopt)
-   
-   2. Plot trajectories and other post-processing data of interest (.emtg)
-
-Note: the is strange behavior when using PyEMTG with WxPython version 3.0.0 or newer. I recommend sticking to 2.9.5
+For GUI development, inspect the source imports and configure PyEMTG.options
+for the local EMTG executable and mission data. Record the tested Python and
+library versions when reporting a working configuration or a problem. Older
+GUI instructions in archived NASA documentation describe historical setups.

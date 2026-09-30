@@ -49,7 +49,7 @@ num_timesteps 40
 allow_initial_mass_to_vary 1
 #maximum possible mass of the spacecraft (kg)
 maximum_mass 2500.0
-#Reference mass model for the Studio 15 kW AEPS asteroid search.
+#Reference mass model for this 15 kW AEPS asteroid regression case.
 #The dry-mass floor is inclusive of bus, power, propulsion hardware, payload,
 #and non-electric consumables; subsystem library masses remain zero to avoid
 #double-counting this system-level estimate.

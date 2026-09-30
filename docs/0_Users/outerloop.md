@@ -44,15 +44,14 @@ Each run contains:
 - `checkpoint.json`: atomic human-readable restart state;
 - `cache/`: immutable context-addressed results;
 - `cases/`: isolated options, logs, and EMTG artifacts;
-- `cases/**/*.dspkg`: standardized immutable solution handoffs for downstream
-  storage (one package per completed EMTG evaluation);
 - `campaign-summary.json`: duplicates, status counts, runtime, seed rates, diversity, and archive indicators;
 - `exports/`: JSONL, CSV, legacy `.NSGAII`, convergence history, and optional plots.
 
 `campaign.sqlite`, checkpoints, and caches are operational solver state. They
 remain local to the outer-loop run and are not the durable solution catalog.
-Publish `.dspkg` artifacts to DeepSpace Storage; solution families,
-memberships, lineage, and long-term artifact ownership live there.
+Use caller-side orchestration to publish completed evaluations and their
+native artifacts. See [native Results](native_results.md) for the public parser
+and storage-independent artifact inventory.
 
 Heuristic filters are disabled unless configured. Each may specify `audit_fraction`; audited rejects are still evaluated so false-rejection risk can be measured. Strict topology, asset, solver, hardware, body-menu, and ephemeris checks cannot be audited away.
 
@@ -67,6 +66,17 @@ Fidelity levels are ranked and compared separately. Evolution uses rank zero. No
 ## Reproducibility and safety
 
 Random streams derive from the root seed and immutable trial/generation/operator/slot coordinates. Equivalent phenotypes in one evaluation context share an inner seed and cache entry. Worker completion order affects only when results are persisted, never parent selection. EMTG receives an argument vector with `shell=False`, per-case working directories, bounded runtime, and process-tree cleanup.
+
+
+The evaluator writes each evaluation's random seed to `MBH_RNG_seed` and enables
+`seed_MBH` only when a `trialX` guess is supplied. Earlier versions confused
+these options, causing cold starts to use clock-generated initial guesses and
+seed zero to disable warm starts. Case-generation context version 2 separates
+new cache entries from those evaluations; start a fresh campaign when upgrading.
+Do not copy old results into the new context. Wall-time budgets can still change
+how many hops complete, and native filling of missing entries in a partial
+user-supplied guess remains clock-based; use a complete guess for repeatable
+warm starts.
 
 Internal campaign, checkpoint, cache, phenotype, result-extraction, queue, and provider protocols are schema 3. User configuration is `outerloop/v2`. Pre-production schema-1/2 databases are never migrated or deleted; select a fresh run and cache directory. See [the configuration and API reference](outerloop_configuration.md) for the identity fields, support matrices, and typed public API.
 

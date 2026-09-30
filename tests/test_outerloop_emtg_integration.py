@@ -53,6 +53,7 @@ from run_asteroid_integration import read_mission_name, validate_output_dir
 
 
 ROOT = Path(__file__).resolve().parents[1]
+TEST_UNIVERSE = Path(os.environ.get('EMTG_TEST_UNIVERSE', ROOT / 'testatron' / 'universe')).resolve()
 
 
 def _nearby_fblt_targets(anchor: AtlasAnchor) -> dict[str, Decimal]:
@@ -117,7 +118,7 @@ def test_bounded_real_emtg_evaluation_is_typed_and_isolated(tmp_path):
         executable=ROOT / "bin" / "EMTGv9.exe",
         run_directory=tmp_path,
         timeout_seconds=15,
-        universe_folder=ROOT / "testatron" / "universe",
+        universe_folder=TEST_UNIVERSE,
         hardware_path=ROOT / "testatron" / "HardwareModels",
         brief_executable=ROOT / "depend" / "cspice" / "exe" / "brief.exe",
         ephemeris_source_override=1,
@@ -148,6 +149,7 @@ def test_bounded_real_emtg_evaluation_is_typed_and_isolated(tmp_path):
             "mbh_max_run_time": 5,
             "mbh_max_trials": 100,
             "nlp_solver_type": 2,
+            "feasibility_tolerance": 1.0e-8,
             "nlp_max_run_time": 5,
             "nlp_major_iterations": 100,
         },
@@ -159,6 +161,10 @@ def test_bounded_real_emtg_evaluation_is_typed_and_isolated(tmp_path):
     assert result.metrics["flight_time"] > 0.0
     assert Path(result.artifacts["case_directory"]).is_dir()
     assert Path(result.artifacts["options"]).is_file()
+    generated = MissionOptions(result.artifacts["options"])
+    assert generated.MBH_RNG_seed == 7
+    assert generated.seed_MBH == 0
+    assert "Initial guess missing value" not in Path(result.artifacts["stdout"]).read_text()
     assert Path(result.artifacts["stdout"]).is_file()
     assert result.provenance["process_arguments"][0] == str((ROOT / "bin" / "EMTGv9.exe").resolve())
 
@@ -186,7 +192,7 @@ def test_atlas_real_case_uses_transported_trialx_and_case_local_hardware(
         executable=ROOT / "bin" / "EMTGv9.exe",
         run_directory=tmp_path,
         timeout_seconds=30,
-        universe_folder=ROOT / "testatron" / "universe",
+        universe_folder=TEST_UNIVERSE,
         hardware_path=ROOT / "testatron" / "HardwareModels",
         ephemeris_source_override=1,
     )
@@ -267,8 +273,9 @@ def test_atlas_real_case_uses_transported_trialx_and_case_local_hardware(
         {
             "inner_loop": "nlp",
             "nlp_solver_type": 2,
+            "feasibility_tolerance": 1.0e-8,
             "nlp_max_run_time": 20,
-            "nlp_major_iterations": 500,
+            "nlp_major_iterations": 2000,
         },
         transported.initial_guess(),
         {
@@ -328,6 +335,8 @@ def test_aeps_real_matrix_hardware_preflight_is_complete(tmp_path):
     hardware = ROOT / "testatron" / "HardwareModels"
     options = MissionOptions(str(fixture))
     assert options.success
+    options.NLP_solver_type = 2
+    options.NLP_feasibility_tolerance = 1.0e-8
     anchor = AtlasAnchor.from_options(options, hardware, metrics={})
     targets = _nearby_aeps_targets(anchor)
     plan = ParameterRegistry().plan_mutations(anchor, targets)
@@ -378,6 +387,8 @@ def test_aeps_real_atlas_baseline_and_nearby_hardware_matrix(
     assert fixture.is_file() and executable.is_file()
     options = MissionOptions(str(fixture))
     assert options.success
+    options.NLP_solver_type = 2
+    options.NLP_feasibility_tolerance = 1.0e-8
     anchor = AtlasAnchor.from_options(options, hardware, metrics={})
     requested = {} if case_kind == "baseline" else _nearby_aeps_targets(anchor)
     plan = ParameterRegistry().plan_mutations(anchor, requested)
@@ -398,7 +409,7 @@ def test_aeps_real_atlas_baseline_and_nearby_hardware_matrix(
     options.forced_mission_subfolder = "."
     options.short_output_file_names = 1
     options.background_mode = 1
-    options.universe_folder = (ROOT / "testatron" / "universe").as_posix()
+    options.universe_folder = TEST_UNIVERSE.as_posix()
     options.NLP_max_run_time = int(os.environ.get("EMTG_ATLAS_AEPS_BUDGET_SECONDS", "1200"))
     run_options = case_directory / fixture.name
     options.write_options_file(
@@ -430,7 +441,7 @@ def test_real_emtg_one_step_maximum_mass_continuation_smoke(tmp_path):
         executable=ROOT / "bin" / "EMTGv9.exe",
         run_directory=tmp_path / "emtg",
         timeout_seconds=12,
-        universe_folder=ROOT / "testatron" / "universe",
+        universe_folder=TEST_UNIVERSE,
         hardware_path=ROOT / "testatron" / "HardwareModels",
         ephemeris_source_override=1,
     )
@@ -484,6 +495,7 @@ def test_real_emtg_one_step_maximum_mass_continuation_smoke(tmp_path):
     direct = {
         "inner_loop": "nlp",
         "nlp_solver_type": 2,
+        "feasibility_tolerance": 1.0e-8,
         "nlp_max_run_time": 5,
         "nlp_major_iterations": 200,
     }
@@ -493,6 +505,7 @@ def test_real_emtg_one_step_maximum_mass_continuation_smoke(tmp_path):
         {
             "inner_loop": "mbh",
             "nlp_solver_type": 2,
+            "feasibility_tolerance": 1.0e-8,
             "nlp_max_run_time": 5,
             "nlp_major_iterations": 200,
             "mbh_max_run_time": 5,

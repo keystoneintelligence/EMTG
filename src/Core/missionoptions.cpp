@@ -68,7 +68,7 @@ namespace EMTG
         this->MBH_Pareto_alpha = 1.4;
         this->MBH_write_every_improvement = (bool) 0;
         this->MBH_time_hop_probability = 0.05;
-        this->NLP_feasibility_tolerance = 1.00E-08;
+        this->NLP_feasibility_tolerance = 1.00E-05;
         this->NLP_optimality_tolerance = 1.00E-05;
         this->snopt_major_step_limit = 1;
         this->NLP_iteration_limit = 8000;
@@ -2380,7 +2380,7 @@ namespace EMTG
             optionsFileStream << "MBH_time_hop_probability " << this->MBH_time_hop_probability << std::endl;
         }
     
-        if (this->NLP_feasibility_tolerance != 1.00E-08 || writeAll)
+        if (this->NLP_feasibility_tolerance != 1.00E-05 || writeAll)
         {
             optionsFileStream << "#NLP feasibility tolerance" << std::endl;
             optionsFileStream << "NLP_feasibility_tolerance " << this->NLP_feasibility_tolerance << std::endl;

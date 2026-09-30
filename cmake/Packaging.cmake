@@ -131,6 +131,26 @@ if(MINGW AND EMTG_DEPENDENCY_PROVIDER STREQUAL "managed")
         COMPONENT Runtime)
 endif()
 
+if(UNIX AND NOT APPLE AND EMTG_DEPENDENCY_PROVIDER STREQUAL "managed")
+    execute_process(COMMAND "${CMAKE_CXX_COMPILER}" -dumpversion
+        OUTPUT_VARIABLE EMTG_GCC_MAJOR OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY)
+    string(REGEX REPLACE "\\..*$" "" EMTG_GCC_MAJOR "${EMTG_GCC_MAJOR}")
+    find_file(EMTG_GNU_RUNTIME_NOTICE NAMES copyright
+        PATHS "/usr/share/doc/gcc-${EMTG_GCC_MAJOR}-base" REQUIRED NO_DEFAULT_PATH)
+    install(FILES "${EMTG_GNU_RUNTIME_NOTICE}"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/emtg/licenses/compiler-runtime"
+        RENAME "gcc-runtime-copyright.txt" COMPONENT Runtime)
+    foreach(EMTG_GNU_LICENSE IN ITEMS GPL-3 LGPL-2.1 LGPL-3)
+        if(NOT EXISTS "/usr/share/common-licenses/${EMTG_GNU_LICENSE}")
+            message(FATAL_ERROR "Managed Linux runtime notice is missing: ${EMTG_GNU_LICENSE}")
+        endif()
+        install(FILES "/usr/share/common-licenses/${EMTG_GNU_LICENSE}"
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/emtg/licenses/compiler-runtime"
+            COMPONENT Runtime)
+    endforeach()
+endif()
+
 if(NOT WIN32)
     install(CODE
         "file(CREATE_LINK \"EMTGv9\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/emtg\" SYMBOLIC)"
@@ -145,7 +165,7 @@ set(CPACK_PACKAGE_NAME "EMTG")
 set(CPACK_PACKAGE_VENDOR "Keystone Intelligence")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Evolutionary Mission Trajectory Generator")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
-set(CPACK_PACKAGE_CONTACT "GSFC-DL-TrajOpt-Support@mail.nasa.gov")
+set(CPACK_PACKAGE_CONTACT "https://github.com/keystoneintelligence/EMTG/issues")
 set(CPACK_PACKAGE_CHECKSUM SHA256)
 set(CPACK_PACKAGE_FILE_NAME "EMTG-${PROJECT_VERSION}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/README.opensource")

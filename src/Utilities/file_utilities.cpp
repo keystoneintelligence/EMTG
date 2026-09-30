@@ -16,6 +16,7 @@
 // express or implied.   See the License for the specific language
 // governing permissions and limitations under the License.
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 
@@ -41,6 +42,9 @@ namespace EMTG
                     ret.push_back(entry.path().filename());
             }
           }
+          // SPICE gives later loaded kernels precedence. Directory iteration
+          // order is unspecified, so preserve one explicit order on every OS.
+          std::sort(ret.begin(), ret.end());
         }
 
         std::istream& safeGetline(std::istream& is, std::string& t)

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kernel": {
+    "name": "emtg-tests-v1.bsp",
+    "bytes": 20392960,
+    "sha256": "2b065fe18e12c27a111d035fe6e4c5f22c0fdce3cce55b4bd89757fc840ab5bc"
+  },
+  "archive": {
+    "name": "emtg-tests-v1.bsp.gz",
+    "bytes": 18837399,
+    "sha256": "a3c8fb5f6ae6f37469993c6bf119244efc9744af12b7a01cfff7fc35f999aacc"
+  },
+  "recipe_sha256": "5c6a5994088ee7776605101ebb99fe7baffbaa571b6dc0557dbe6afe9f270e07",
+  "source_inventory_bytes": 1719456768,
+  "generator": {
+    "spiceypy": "8.0.2",
+    "cspice": "CSPICE_N0067"
+  },
+  "scope": "Only the existing bounded Earth-Mars and four-case AEPS native tests; not general mission data."
+}

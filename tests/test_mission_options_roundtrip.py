@@ -77,7 +77,7 @@ def test_ipopt_solver_selection_roundtrips_with_stable_numeric_id(tmp_path):
 def test_open_source_default_solver_is_ipopt():
     options = MissionOptions.MissionOptions()
     assert options.NLP_solver_type == 2
-    assert options.NLP_feasibility_tolerance == 1.0e-8
+    assert options.NLP_feasibility_tolerance == 1.0e-5
 
 
 def test_legacy_solver_option_attributes_normalize_and_write_canonical_names(tmp_path):

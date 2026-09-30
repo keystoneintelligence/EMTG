@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, replace
+from dataclasses import replace
 import importlib
 import math
 import os
@@ -24,7 +24,11 @@ from .rules import UniverseCatalog
 from .storage import ArtifactStore
 
 
-EXTRACTION_VERSION = "emtg-result-v3"
+# Historical imports remain supported without making Results depend on OuterLoop.
+try:
+    from ..Results.parser import EMTGResultParser, ParsedEMTGResult, EXTRACTION_VERSION, _expended_delta_v_km_s
+except ImportError:  # Historical PyEMTG sys.path layout.
+    from Results.parser import EMTGResultParser, ParsedEMTGResult, EXTRACTION_VERSION, _expended_delta_v_km_s
 
 
 class Evaluator(Protocol):
@@ -307,292 +311,6 @@ def _result(
     )
 
 
-def _float_after_colon(text: str) -> float | None:
-    try:
-        return float(text.split(":", 1)[1].strip().split()[0])
-    except (IndexError, ValueError):
-        return None
-
-
-def _float_csv(fields: Sequence[str], index: int) -> float | None:
-    try:
-        value = fields[index].strip()
-        return None if value in {"", "-"} else float(value)
-    except (IndexError, ValueError):
-        return None
-
-
-@dataclass(frozen=True)
-class ParsedEMTGResult:
-    complete: bool
-    feasible: bool
-    objective: float | None
-    violation: float | None
-    metrics: Mapping[str, Any]
-    xdescriptions: tuple[str, ...]
-    decision_vector: tuple[float, ...]
-    constraint_descriptions: tuple[str, ...]
-    constraint_vector: tuple[float, ...]
-    failure_reason: str | None = None
-    xlowerbounds: tuple[float, ...] = ()
-    xupperbounds: tuple[float, ...] = ()
-
-
-class EMTGResultParser:
-    scalar_patterns = {
-        "deterministic_delta_v": re.compile(r"^Total deterministic deltav \(km/s\):\s*(\S+)", re.I),
-        "delivered_mass": re.compile(r"^Spacecraft: Final mass including propellant margin \(kg\):\s*(\S+)", re.I),
-        "dry_mass": re.compile(r"^Spacecraft: Dry mass \(kg\):\s*(\S+)", re.I),
-        "electric_propellant": re.compile(r"^Spacecraft: Total electric propellant \(kg\):\s*(\S+)", re.I),
-        "chemical_fuel": re.compile(r"^Spacecraft: Total chemical fuel \(kg\):\s*(\S+)", re.I),
-        "chemical_oxidizer": re.compile(r"^Spacecraft: Total chemical oxidizer \(kg\):\s*(\S+)", re.I),
-        "beginning_of_life_power": re.compile(r"^Beginning of life power.*?:\s*(\S+)", re.I),
-        "thruster_duty_cycle": re.compile(r"^Thruster duty cycle:\s*(\S+)", re.I),
-        "bus_power": re.compile(r"^(?:Spacecraft:\s*)?Bus power.*?:\s*(\S+)", re.I),
-        "electric_propellant_used": re.compile(r"^Spacecraft: Electric propellant used \(kg\):\s*(\S+)", re.I),
-        "chemical_fuel_used": re.compile(r"^Spacecraft: Chemical fuel used \(kg\):\s*(\S+)", re.I),
-        "chemical_oxidizer_used": re.compile(r"^Spacecraft: Chemical oxidizer used \(kg\):\s*(\S+)", re.I),
-    }
-
-    def parse(self, path: str | Path, *, failure_file: bool = False) -> ParsedEMTGResult:
-        source = Path(path)
-        try:
-            lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
-        except OSError as error:
-            return ParsedEMTGResult(False, False, None, None, {}, (), (), (), (), str(error))
-        objective = None
-        violation = None
-        best_feasible_attempt = 0
-        first_feasible = 0
-        metrics: dict[str, Any] = {}
-        journey_times: list[float] = []
-        journey_mass_increments: list[float] = []
-        xdescriptions: tuple[str, ...] = ()
-        decision_vector: tuple[float, ...] = ()
-        xlowerbounds: tuple[float, ...] = ()
-        xupperbounds: tuple[float, ...] = ()
-        fdescriptions: tuple[str, ...] = ()
-        constraint_vector: tuple[float, ...] = ()
-        events: list[dict[str, Any]] = []
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("J ="):
-                try:
-                    objective = float(stripped.split("=", 1)[1])
-                except ValueError:
-                    pass
-            elif stripped.startswith("with violation"):
-                try:
-                    violation = abs(float(stripped.rsplit(" ", 1)[1]))
-                except ValueError:
-                    pass
-            elif stripped.startswith("Solution attempt that produced a feasible solution"):
-                value = _float_after_colon(stripped)
-                best_feasible_attempt = int(value or 0)
-            elif stripped.startswith("Was first NLP solve feasible"):
-                value = _float_after_colon(stripped)
-                first_feasible = int(value or 0)
-            elif stripped.startswith("Journey flight time (days)"):
-                value = _float_after_colon(stripped)
-                if value is not None:
-                    journey_times.append(value)
-            elif stripped.startswith("Journey final mass increment"):
-                value = _float_after_colon(stripped)
-                if value is not None:
-                    journey_mass_increments.append(value)
-            elif stripped.startswith("Xdescriptions,"):
-                xdescriptions = tuple(stripped.split(",")[1:])
-            elif stripped.startswith("Decision Vector:"):
-                decision_vector = _parse_numeric_csv(stripped.split(",")[1:])
-            elif stripped.startswith("Xlowerbounds,"):
-                xlowerbounds = _parse_numeric_csv(stripped.split(",")[1:])
-            elif stripped.startswith("Xupperbounds,"):
-                xupperbounds = _parse_numeric_csv(stripped.split(",")[1:])
-            elif stripped.startswith("Fdescriptions,"):
-                fdescriptions = tuple(stripped.split(",")[1:])
-            elif stripped.startswith("Constraint_Vector,"):
-                constraint_vector = _parse_numeric_csv(stripped.split(",")[1:])
-            elif re.match(r"^\d+\s*\|", stripped):
-                event = self._parse_event(stripped)
-                if event:
-                    events.append(event)
-            for name, pattern in self.scalar_patterns.items():
-                match = pattern.match(stripped)
-                if match:
-                    try:
-                        metrics[name] = float(match.group(1))
-                    except ValueError:
-                        pass
-        if objective is not None:
-            metrics["emtg_objective"] = objective
-        if journey_times:
-            metrics["flight_time"] = sum(journey_times)
-        if journey_mass_increments:
-            metrics["final_journey_mass_increment"] = journey_mass_increments[-1]
-        propellant_parts = [metrics.get(name) for name in ("electric_propellant", "chemical_fuel", "chemical_oxidizer")]
-        available_propellant = [float(value) for value in propellant_parts if value is not None]
-        if available_propellant:
-            metrics["total_propellant"] = sum(available_propellant)
-        consumed_parts = [
-            metrics.get(name)
-            for name in (
-                "electric_propellant_used",
-                "chemical_fuel_used",
-                "chemical_oxidizer_used",
-            )
-        ]
-        consumed = [float(value) for value in consumed_parts if value is not None]
-        if consumed:
-            metrics["total_propellant_used"] = sum(consumed)
-        if metrics.get("delivered_mass") is not None and metrics.get("dry_mass") is not None:
-            metrics["dry_mass_margin"] = float(metrics["delivered_mass"]) - float(metrics["dry_mass"])
-        controls: dict[str, list[float]] = {}
-        for description, value in zip(xdescriptions, decision_vector):
-            match = re.search(r"step\s+(\d+)\s+u_([xyz])$", description, re.I)
-            if match:
-                controls.setdefault(match.group(1), []).append(float(value))
-        complete_controls = [values for values in controls.values() if len(values) == 3]
-        if complete_controls:
-            metrics["normalized_aggregate_control"] = sum(
-                math.sqrt(sum(component * component for component in values))
-                for values in complete_controls
-            ) / len(complete_controls)
-        if events:
-            first, last = events[0], events[-1]
-            metrics.setdefault("launch_epoch", first.get("julian_date_mjd"))
-            metrics.setdefault("departure_c3", first.get("c3"))
-            metrics.setdefault("arrival_c3", last.get("c3"))
-            metrics.setdefault("arrival_declination", last.get("declination"))
-            metrics.setdefault("delivered_mass", last.get("mass"))
-            if last.get("velocity_magnitude") is not None:
-                metrics.setdefault("entry_interface_velocity", last["velocity_magnitude"])
-            engines = [event.get("active_engines") for event in events if event.get("active_engines") is not None]
-            if engines:
-                metrics["number_of_thrusters"] = max(engines)
-            power_margins = [
-                float(event["available_power_kw"]) - float(event["active_power_kw"])
-                for event in events
-                if event.get("available_power_kw") is not None and event.get("active_power_kw") is not None
-            ]
-            if power_margins and "bus_power" not in metrics:
-                metrics["bus_power"] = min(power_margins)
-            actual_thrust = [
-                float(event["thrust_magnitude_n"])
-                for event in events
-                if event.get("thrust_magnitude_n") is not None
-            ]
-            available_thrust = [
-                float(event["available_thrust_n"])
-                for event in events
-                if event.get("available_thrust_n") is not None
-            ]
-            if actual_thrust:
-                metrics.update({
-                    "thrust_min": min(actual_thrust),
-                    "thrust_max": max(actual_thrust),
-                    "thrust_mean": sum(actual_thrust) / len(actual_thrust),
-                })
-            if available_thrust:
-                metrics.update({
-                    "available_thrust_min": min(available_thrust),
-                    "available_thrust_max": max(available_thrust),
-                })
-            metrics["mission_events"] = events
-        feasible = not failure_file and (best_feasible_attempt > 0 or first_feasible > 0)
-        decision_complete = xdescriptions == () or len(xdescriptions) == len(decision_vector)
-        bounds_complete = (
-            (not xlowerbounds or len(xlowerbounds) == len(xdescriptions))
-            and (not xupperbounds or len(xupperbounds) == len(xdescriptions))
-        )
-        constraint_complete = fdescriptions == () or len(fdescriptions) == len(constraint_vector)
-        complete = (
-            objective is not None and bool(lines) and decision_complete
-            and bounds_complete and constraint_complete
-        )
-        reason = None
-        if not complete:
-            reason = "missing objective or inconsistent decision/constraint-vector output"
-        elif failure_file or not feasible:
-            reason = "EMTG completed without a feasible trajectory"
-        return ParsedEMTGResult(
-            complete,
-            feasible,
-            objective,
-            violation,
-            {key: value for key, value in metrics.items() if value is not None},
-            xdescriptions,
-            decision_vector,
-            fdescriptions,
-            constraint_vector,
-            reason,
-            xlowerbounds,
-            xupperbounds,
-        )
-
-    @staticmethod
-    def _parse_event(line: str) -> dict[str, Any] | None:
-        fields = [field.strip() for field in line.split("|")]
-        # Leading/trailing separators produce empty fields.  The documented
-        # event table indices below are stable in current EMTG output.
-        if fields and fields[0] == "":
-            fields = fields[1:]
-        if fields and fields[-1] == "":
-            fields = fields[:-1]
-        if len(fields) < 32:
-            return None
-        julian_date = _float_csv(fields, 1)
-        x, y, z = (_float_csv(fields, index) for index in (12, 13, 14))
-        xdot, ydot, zdot = (_float_csv(fields, index) for index in (15, 16, 17))
-        control_x, control_y, control_z = (_float_csv(fields, index) for index in (18, 19, 20))
-        thrust_x, thrust_y, thrust_z = (_float_csv(fields, index) for index in (21, 22, 23))
-        speed = math.sqrt(xdot**2 + ydot**2 + zdot**2) if None not in (xdot, ydot, zdot) else None
-        thrust_magnitude = (
-            math.sqrt(thrust_x**2 + thrust_y**2 + thrust_z**2)
-            if None not in (thrust_x, thrust_y, thrust_z)
-            else None
-        )
-        return {
-            "index": int(float(fields[0])),
-            "julian_date_mjd": julian_date - 2400000.5 if julian_date is not None else None,
-            "event_type": fields[3],
-            "location": fields[4],
-            "declination": _float_csv(fields, 10),
-            "c3": _float_csv(fields, 11),
-            "velocity_magnitude": speed,
-            "position_km": [x, y, z] if None not in (x, y, z) else None,
-            "velocity_km_s": [xdot, ydot, zdot] if None not in (xdot, ydot, zdot) else None,
-            "control": (
-                [control_x, control_y, control_z]
-                if None not in (control_x, control_y, control_z)
-                else None
-            ),
-            "thrust_n": (
-                [thrust_x, thrust_y, thrust_z]
-                if None not in (thrust_x, thrust_y, thrust_z)
-                else None
-            ),
-            "thrust_magnitude_n": thrust_magnitude,
-            "available_thrust_n": _float_csv(fields, 25),
-            "isp_s": _float_csv(fields, 26),
-            "mass": _float_csv(fields, 29),
-            "mass_flow_rate_kg_s": _float_csv(fields, 28),
-            "active_engines": _float_csv(fields, 30),
-            "active_power_kw": _float_csv(fields, 31),
-            "available_power_kw": _float_csv(fields, 27),
-            "raw_fields": fields,
-        }
-
-
-def _parse_numeric_csv(values: Sequence[str]) -> tuple[float, ...]:
-    output: list[float] = []
-    try:
-        for value in values:
-            output.append(float(value.strip()))
-    except ValueError:
-        return ()
-    return tuple(output)
-
-
 MISSION_GENE_ADAPTERS = {
     "launch_window_open_date": "launch_window_open_date",
     "total_flight_time_bounds": "total_flight_time_bounds",
@@ -712,7 +430,7 @@ class EMTGCaseBuilder:
         options.call_system_to_generate_bsp = 0
         options.universe_folder = str(self.universe_folder).replace("\\", "/") + "/"
         options.HardwarePath = str(self.hardware_path).replace("\\", "/") + "/"
-        options.seed_MBH = int(evaluation_seed % (2**31 - 1))
+        options.MBH_RNG_seed = int(evaluation_seed % (2**31 - 1))
         self._apply_budget(options, budget)
         mission_genes = dict(phenotype.mission)
         atlas_marker = mission_genes.pop("__atlas_case_v1__", None)
@@ -737,6 +455,9 @@ class EMTGCaseBuilder:
                 case_directory=case_directory,
             )
         self._apply_initial_guess(options, initial_guess)
+        # seed_MBH enables trialX; it is not the random-number seed. An empty
+        # trialX otherwise invokes the native clock-seeded missing-value filler.
+        options.seed_MBH = int(bool(options.trialX))
         options.AssembleMasterConstraintVectors()
         output = case_directory / f"{case_name}.emtgopt"
         options.write_options_file(str(output), True)
@@ -1070,6 +791,7 @@ class EMTGEvaluator:
                 "hardware_manifest": _directory_manifest(self.builder.hardware_path, {".emtg_spacecraftopt", ".emtg_launchvehicleopt", ".emtg_powersystemsopt", ".emtg_propulsionsystemopt", ".throttletable"}),
                 "source_commit": git_head,
                 "extraction_version": EXTRACTION_VERSION,
+                "case_generation_version": 2,
                 "timeout_seconds": self.timeout_seconds,
                 "merged_solver_environment": {
                     **{name: value for name, value in os.environ.items() if name.startswith(("EMTG_", "SNOPT", "IPOPT"))},
@@ -1209,36 +931,6 @@ class EMTGEvaluator:
             status = EvaluationStatus.FEASIBLE
         else:
             status = EvaluationStatus.EMTG_INFEASIBLE
-        try:
-            # DeepSpace packages are the storage-neutral boundary. EMTG writes
-            # the package beside its native output; publication remains an
-            # explicit downstream action so solver runs stay offline-safe.
-            try:
-                from ..Solution.exporter import create_solution_package
-            except ImportError:
-                from Solution.exporter import create_solution_package
-
-            package_metadata = {
-                "evaluation_key": request.evaluation_key,
-                "candidate_id": request.candidate.candidate_id,
-                "fidelity": request.fidelity,
-                "status": status.value,
-                "evaluation_seed": request.evaluation_seed,
-            }
-            family_context = request.context.get("family")
-            if isinstance(family_context, Mapping):
-                package_metadata["family"] = dict(family_context)
-            package_path = create_solution_package(
-                output_path,
-                case_directory / f"{case_name}.dspkg",
-                artifacts=artifacts,
-                metadata=package_metadata,
-            )
-            artifacts["solution-package"] = str(package_path)
-        except Exception as error:
-            # Preserve the scientifically useful native EMTG output even when
-            # an ancillary package cannot be constructed.
-            provenance["solution_package_error"] = str(error)
         artifacts, provenance = self._freeze_artifacts(artifacts, provenance)
         return _result(
             request,

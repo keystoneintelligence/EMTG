@@ -20,10 +20,14 @@ $Allowed = @(
     '^WS2_32\.dll$', '^bcrypt\.dll$', '^ntdll\.dll$', '^ucrtbase\.dll$',
     '^msvcrt\.dll$'
 )
-$Dependencies = & $Dumpbin.Source /nologo /dependents $Executable |
+$DumpOutput = & $Dumpbin.Source /nologo /dependents $Executable
+if ($LASTEXITCODE -ne 0) { throw "dumpbin failed for $Executable" }
+$Dependencies = $DumpOutput |
     Select-String -Pattern '^\s+[^\s]+\.dll\s*$' |
     ForEach-Object { $_.Matches.Value.Trim() } |
     Sort-Object -Unique
+
+if (-not $Dependencies) { throw 'Dependency audit returned no DLL imports; cannot qualify the executable' }
 
 $Unexpected = foreach ($Dependency in $Dependencies) {
     if (-not ($Allowed | Where-Object { $Dependency -match $_ })) { $Dependency }

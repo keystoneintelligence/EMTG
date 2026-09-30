@@ -224,6 +224,23 @@ namespace
         return options;
     }
 
+    void test_tolerance_defaults_and_overrides()
+    {
+        using EMTG::Solvers::NLPoptions;
+        require(NLPoptions().get_feasibility_tolerance() == 1.0e-5,
+            "direct NLP options must retain NASA's feasibility default");
+        require(default_options().get_feasibility_tolerance() == 1.0e-8,
+            "dedicated IPOPT tests must retain their explicit strict tolerance");
+#ifndef PORTABLE_SOLVER
+        EMTG::missionoptions mission;
+        require(NLPoptions(mission).get_feasibility_tolerance() == 1.0e-5,
+            "default mission tolerance must be preserved");
+        mission.NLP_feasibility_tolerance = 2.0e-7;
+        require(NLPoptions(mission).get_feasibility_tolerance() == 2.0e-7,
+            "caller-selected mission tolerance must be preserved");
+#endif
+    }
+
     void test_status_mapping()
     {
         using namespace EMTG::Solvers;
@@ -344,6 +361,7 @@ int main()
 {
     try
     {
+        test_tolerance_defaults_and_overrides();
         test_status_mapping();
         test_factory_selection_and_errors();
         test_scaled_constrained_solve_and_cache();

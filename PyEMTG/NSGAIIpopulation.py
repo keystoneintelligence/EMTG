@@ -10,16 +10,19 @@ import datetime
 
 matplotlib = None
 dates = None
+ticker = None
 
 
 def _ensure_plotting():
-    global matplotlib, dates
+    global matplotlib, dates, ticker
     if matplotlib is None:
         import matplotlib as _matplotlib
         import matplotlib.dates as _dates
+        import matplotlib.ticker as _ticker
         import matplotlib.pyplot  # registers pyplot on matplotlib for legacy calls
         matplotlib = _matplotlib
         dates = _dates
+        ticker = _ticker
 
 
 def _mjd_datetime(value):

@@ -36,7 +36,7 @@ namespace EMTG
             snopt_minor_iterations_limit(500),
             max_run_time_seconds(3600),
             snopt_major_step_limit(1.0),
-            feasibility_tolerance(1.0e-8),
+            feasibility_tolerance(1.0e-5),
             optimality_tolerance(1.0e-6),
             objective_goal(1.0e+100),
             specs_file_path(""),

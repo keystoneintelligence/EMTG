@@ -1,11 +1,16 @@
 # IPOPT backend
 
-IPOPT is EMTG's default nonlinear-programming backend and is the supported
-fully open-source path. SNOPT remains optional for licensed users. EMTG targets
-IPOPT 3.14 and newer through `IpStdCInterface.h`; CI verifies the Linux
-IPOPT-only configuration. The Windows instructions below are exercised with
-IPOPT 3.14.20. macOS discovery is implemented but has not been built in this
-repository's current validation environment.
+IPOPT is EMTG's default nonlinear-programming backend. SNOPT remains optional
+for licensed users. The managed Windows and experimental Ubuntu builds use
+IPOPT 3.14.11; the separate Linux solver CI graph uses 3.14.19. The adapter targets
+the 3.14 C interface through `IpStdCInterface.h`, but this does not qualify every
+3.14-or-newer provider. See [support and compatibility](../../SUPPORT.md).
+Fresh-machine qualification of the public candidate remains pending.
+
+Use [BUILDING.md](../../BUILDING.md) for the managed release build. The custom
+provider and MSVC/MinGW bridge instructions below describe developer capabilities
+that require their own build and scientific qualification. macOS discovery is
+implemented, but macOS builds and binaries remain unqualified.
 
 ## Install and discover IPOPT
 

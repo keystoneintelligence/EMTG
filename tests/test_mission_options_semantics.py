@@ -111,3 +111,12 @@ def test_master_constraint_vectors_preserve_comment_state_and_journey_prefixes()
     assert options.Journeys[0].ManeuverConstraintDefinitions == ['p0 abs epoch constraint', '#p0 disabled maneuver']
     assert options.Journeys[0].BoundaryConstraintDefinitions == ['p0 boundary constraint', '#p0 disabled boundary']
     assert options.Journeys[0].PhaseDistanceConstraintDefinitions == ['p0 distance constraint', '#p0 disabled distance']
+
+def test_nasa_preparation_selects_snopt_and_nasa_solver_tolerances(tmp_path):
+    options = load_options()
+    apply_test_options_overrides(options, TEST_DIRECTORY, str(tmp_path), 'nasa',
+                                 emtg_solver='SNOPT', emtg_feasibility_tolerance=1e-5,
+                                 emtg_optimality_tolerance=1e-5)
+    assert options.NLP_solver_type == 0
+    assert options.NLP_feasibility_tolerance == 1e-5
+    assert options.NLP_optimality_tolerance == 1e-5

@@ -15,7 +15,9 @@ if(VCPKG_TARGET_IS_MINGW)
     set(EMTG_LAPACK_OPTION
         "--with-lapack-lflags=-llapack -lopenblas -lgfortran -lquadmath")
 else()
-    set(EMTG_LAPACK_OPTION --with-lapack)
+    # Match the static reference-LAPACK closure used by the managed MUMPS port.
+    set(EMTG_LAPACK_OPTION
+        "--with-lapack-lflags=-llapack -lopenblas -lgfortran -lquadmath -lm -lpthread")
 endif()
 
 vcpkg_configure_make(

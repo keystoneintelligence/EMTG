@@ -1,6 +1,6 @@
 """Deterministic multidimensional planning products for feasibility families.
 
-This module deliberately contains no solver or Studio dependencies.  It owns the
+This module deliberately contains no solver or viewer dependencies.  It owns the
 versioned sampling sequences, pair-cell geometry, branch evidence, coverage
 accounting, and conservative boundary products used by the family worker.
 Evaluated :class:`FamilySample` objects remain the only source of truth.
